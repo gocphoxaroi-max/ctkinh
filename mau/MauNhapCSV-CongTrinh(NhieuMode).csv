@@ -1,0 +1,34 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,YBI
+Tên KH,Đông CT
+Loại Kính,10XK
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong,GocDo
+S1,1025-1025,900,150,18,130/415/415,,,,,,,,,,,,2,p1:0/0/0/80.538-p4:150/900/260.538/0
+S4A,445-920-940-185,627,429,24,30/145-40/145-43/145,,,,875-200,105/145,810
+TG1,260-260,570,0,24,30/70,,,,,,,1220,P,140,T960/118
+
+#MODE 2
+TenTam,W,CutP1X,CutP1Y,AList,H1,C1,H2,C2,D,HoleYList,CutP3,X,Y,Huong,SoLuong
+S2,1620,0,0,360-79-503-79,1000,628,1000,628,20,66-213-67-222,,,,
+S6,2933,351,231,24-70-815-102-805-108,1000,509,1014,670,20,112-221-71-230-78-243,,,,
+
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong
+BL1,615,770,324,918-921,2447,22,47/145-58/145-43/145,,,,,,
+BL5,638,770,116,1203,1858,22,55/145-52/145,,,,587-113,125/145,770
+
+#MODE 4
+TenTam,H,C1,BottomEdge,TopEdge,D,OffsetLeft,HeightLeft,OffsetLeft2,KC2Left,HeightRight,GapFirstHoles,KC2Right,GapSecondHoles,CutP3,X,Y,Huong,SoLuong
+CTB1,505,292,1192,1197,16,87,55,297,418,48,1075,418,1075,,,
+
+#MODE 5
+TenTam,H,Day,DauTrai,DauPhai,D,KhoangLo,Lo,LoPhu,CutP3,X,Y,Huong,SoLuong
+PKV7,770,DL2218/1790+N965,0,0,22,110-932-920-?-200,30/130-30/130-30/130-80/130,,,,
+YN6,?/1230,N398+DL1899/1512,0,0,26,343-?-907-110,21/150-50/150-50/150,,,,,
+
+#MODE 6
+TenTam,H,A,C,D,Offset55,KhoanCheo1,KhoanCheo2,HuongNghieng,HuongDoLo,X,Y,GocHSub,GocCSub,GocALeft,GocOffset,GocKC1,GocKC2,GocKieu,SoLuong
+S1,530,1095,350,18,45,80,410,P,DUOI,,,,,,,,,,3
+C1,665,445,0,18,55,100,410,P,DUOI,,,535,340,310,45,70,410,T

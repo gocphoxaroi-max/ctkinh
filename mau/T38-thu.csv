@@ -1,0 +1,20 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,T38
+Tên KH,Thu bo goc BoGoc
+Loại Kính,10XK
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong,GocDo,BoGoc
+A1,1025-1025,900,150,18,130/415,,,,,,,,,,,,,p1:0/0/0/80.538,p1:0/0/0/80.538:R30-p3:2200/900/180/260.538:R50
+A2,1025-1025,900,150,18,130/415,,,,,,,,,,,T,,,p4:2050/900/180/279.462:R50
+A3,1000-1000,900,0,18,130/415,,,,,,,,,,,,,,p3:2000/900/180/270:R100-p4:0/900/270/0:R100
+A4,1025-1025,900,150,18,130/415,,,,,,,,,,,,,,p1:0/0/0/80.538:R2000-p2:2050/0/80.538/180:R40
+
+#MODE 2
+TenTam,W,CutP1X,CutP1Y,AList,H1,C1,H2,C2,D,HoleYList,CutP3,X,Y,Huong,SoLuong,GocDo,BoGoc
+B1,1620,0,0,360-79-503-79,1000,628,1000,628,20,66-213-67-222,,,,T,,,p3:0/1000/302.129/0:R60
+
+#MODE 6
+TenTam,H,A,C,D,Offset55,KhoanCheo1,KhoanCheo2,HuongNghieng,HuongDoLo,X,Y,GocHSub,GocCSub,GocALeft,GocOffset,GocKC1,GocKC2,GocKieu,SoLuong,GocDo,BoGoc
+F1,530,1095,350,18,45,80,410,P,DUOI,,,,,,,,,,,,p3:1535/530/180/236.56:R40
+F2,530,1095,350,18,45,80,410,T,DUOI,,,,,,,,,,,,p3:1185/530/180/303.44:R40-p4:0/530/303.44/0:R40
