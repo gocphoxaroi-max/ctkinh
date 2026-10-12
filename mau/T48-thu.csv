@@ -1,0 +1,11 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,T48
+Tên KH,Thu lo tren do tu mep tren (73/T30)
+Loại Kính,10 trang
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong,GocDo,BoGoc
+K6,483-925-920-150,535,347,22,73/T30-70/T30-67/T30,,,,,,,,,,,,,,p4:347/535/237.0326/0:R10
+K6T,483-925-920-150,535,347,22,73/T30-70/T30-67/T30,,,,,,,,,,,T,,,
+KG,445-920-940-185,627,429,24,60/T30-60/T30-60/T30,G150,,,,,,,,,,,,,
+KC,445-920-940-185,627,429,24,60/T30-60/145/T30-T30,350,,,,,,,,,,,,,
