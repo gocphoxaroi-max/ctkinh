@@ -1,0 +1,20 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,
+Tên KH,T56 thu
+Loại Kính,kinh 12
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong,GocDo,BoGoc,LoTuDo
+BO1,322-616-142,920,661,24,115/118-107/114,,,,,,,,,,,,1,,p1:0/0/0/54.304:R30-p3:1741/920/180/234.304:R50,
+CB1,322-616-142,920,661,24,115/118-107/114,70,,,,,,,,,,,1,,E:1700.2/863.2/144.304/234.304:R20-F:1621/920/180/324.304:R20,
+
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong,GocDo,BoGoc,LoTuDo
+BL2,627,770,245,910-907,2290,22,50/130-50/130-50/130,,,,,,,,1,,,
+BL2T,627,770,245,910-907,2290,22,50/130-50/130-50/130,,,,,,,T,1,,,
+BL2G,627,770,245,910-907,2290,22,50/130-50/130-50/130,G40,,,,,,,1,,,
+
+#MODE 5
+TenTam,H,Day,DauTrai,DauPhai,D,KhoangLo,Lo,LoPhu,CutP3,X,Y,Huong,SoLuong,GocDo,BoGoc,LoTuDo
+PKV7,770,DL2218/1790+N965,0,0,22,110-932-920-?-200,30/130-30/130-30/130-80/130,,,,,,1,,,
+PKV7T,770,DL2218/1790+N965,0,0,22,110-932-920-?-200,30/130-30/130-30/130-80/130,,,,,T,1,,,

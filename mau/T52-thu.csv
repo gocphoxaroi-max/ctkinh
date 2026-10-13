@@ -1,0 +1,20 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,
+Tên KH,T52 thu
+Loại Kính,kinh 12
+
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong
+BL2,627,770,245,910-907,2290,22,50/130-50/130-50/130,,,,,,,,1
+BL2T,627,770,245,910-907,2290,22,50/130-50/130-50/130,,,,,,,T,1
+BL2G,627,770,245,910-907,2290,22,50/130-50/130-50/130,G40,,,,,,,1
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong
+Tam3,322-616-142,920,661,24,115/118-107/114,,,,,,,,,,,,1
+Tam4G,312-755-755-156,970,605,24,62/157-81-111/162,G50,,,,,,,,,,,1
+Kinh10,483-925-920-150,535,347,22,73/T30-70/T30-67/T30,,,,,,,,,,,,1
+
+#MODE 5
+TenTam,H,Day,DauTrai,DauPhai,D,KhoangLo,Lo,LoPhu,CutP3,X,Y,Huong,SoLuong
+PKV7,770,DL2218/1790+N965,0,0,22,110-932-920-?-200,30/130-30/130-30/130-80/130,,,,,,1
