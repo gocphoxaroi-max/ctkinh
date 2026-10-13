@@ -1,0 +1,24 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,
+Tên KH,T57 thu
+Loại Kính,kinh 10
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong
+L2,117-1265-1238-175,920,595,24,138/121-81/113-73/110,GT50/K410/85,,,,,,,,,,,1
+L2T,117-1265-1238-175,920,595,24,138/121-81/113-73/110,GT50/K410/85,,,,,,,,,,T,1
+GTG,300-800-300,900,400,22,60/145-60/145,GT50/G30,,,,,,,,,,,1
+S2,330-908-402,970,330,22,60/150-60/130,V193,,,,,,,,,,,1
+S2T,330-908-402,970,330,22,60/150-60/130,V193,,,,,,,,,,T,1
+VC,330-908-402,970,330,22,60/150-60/130,V193/GT40/70,,,,,,,,,,,1
+TG2T,465-465,725,0,22,60/T23,,,,,,,1825,T,140,T1370/257,,1
+TG1T,260-260,570,0,24,T23,,,,,,,1220,P,140,,,1
+
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong
+BL2T23,627,770,245,910-907,2290,22,50/T23-50/T23-50/130,,,,,,,,1
+BL2GT,627,770,245,910-907,2290,22,50/130-50/130-50/130,GT50,,,,,,T,1
+
+#MODE 4
+TenTam,H,C1,BottomEdge,TopEdge,D,OffsetLeft,HeightLeft,OffsetLeft2,KC2Left,HeightRight,GapFirstHoles,KC2Right,GapSecondHoles,CutP3,X,Y,Huong,SoLuong
+CTB1GT,505,292,1192,1197,16,87,55,297,418,48,1075,418,1075,GT40,,,,1
