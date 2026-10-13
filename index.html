@@ -4646,6 +4646,34 @@ function newJob() {
   $('infoCard').open = true; window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function asciiName(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+// ---------- T60: ten file theo cu phap xuong  ddmmyy_TenKH_TenDaiLy_LoaiKinh  (dung chung CSV / PDF / anh) ----------
+function fnPart(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9_-]+/g, '').replace(/^[-_]+|[-_]+$/g, ''); }
+function fnDate(x) {
+  const t = (x || '').trim(), d = new Date(), p2 = n => String(n).padStart(2, '0'), m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t);
+  if (!t || /^today$/i.test(t)) return p2(d.getDate()) + p2(d.getMonth() + 1) + String(d.getFullYear()).slice(-2);
+  return m ? p2(m[1]) + p2(m[2]) + m[3].slice(-2) : fnPart(t);
+}
+function fnBase(info) { return [fnDate(info[0]), fnPart(info[1]), fnPart(info[2]), fnPart(info[3])].filter(Boolean).join('_') || 'BanVe'; }      // Dai ly truoc, KH sau (anh Dampt xac nhan 13/10: 131026_TQG_HaiKP_10XK, TQG = dai ly)
+function fnClean(s, ext) { let n = (s || '').replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, '').replace(/^\.+/, ''); if (ext && n.toLowerCase().slice(-ext.length) === ext) n = n.slice(0, -ext.length); return n; }
+let FN_BASE = '';
+function fnInputHtml() { return '<label for="fnIn" style="display:block;margin:10px 0 2px;font-size:14px;color:#555">Tên file (sửa được)</label><input id="fnIn" value="' + esc(FN_BASE) + '" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #b9c6d3;border-radius:10px" oninput="renameOut(this.value)">'; }
+function renameOut(v) {
+  FN_BASE = fnClean(v) || fnBase(S.info);
+  IMGR.forEach(r => { r.name = FN_BASE + r.suf + r.ext; });
+  if (PDFR) PDFR.name = FN_BASE + (PDFR.suf || '') + '.pdf';
+}
+// Chrome / Edge may tinh: hop thoai chon thu muc + ten file (showSaveFilePicker). Khong ho tro / loi -> false (de dung duong lui). Huy -> 'huy'
+async function saveToFolder(blob, name, desc) {
+  if (typeof window.showSaveFilePicker !== 'function') return false;
+  try {
+    const ext = (/\.[A-Za-z0-9]+$/.exec(name) || ['.bin'])[0], acc = {}; acc[(blob.type || 'application/octet-stream').split(';')[0]] = [ext];
+    const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc || 'File', accept: acc }] });
+    const w = await h.createWritable(); await w.write(blob); await w.close();
+    toast('Đã lưu ' + (h.name || name)); return true;
+  } catch (e) { if (e && e.name === 'AbortError') return 'huy'; return false; }
+}
+const HINT_DT = '<small>Trên điện thoại: bấm Chia sẻ → chọn “Lưu vào Tệp” để chọn thư mục.</small>';
+const CO_PICKER = () => typeof window.showSaveFilePicker === 'function';
 // ---------- T19: xuat ANH (PNG) co du dim - thay trang so ve tay, gui Zalo ----------
 const ANH_CHAN = 'Vẽ bằng CTKinh';          // dong chan anh; sau nay them QR / link o day
 const ANH_W = 1800, ANH_S = 2.4, ANH_FS = 12, ANH_MAX = 4;   // gop: rong anh (px), he so phong, co chu dim 12*2.4 = ~29 px, so tam toi da / anh gop
@@ -4655,10 +4683,11 @@ function openImgSheet() {
   readInfo();
   const n = S.panels.length;
   // T33: 3 nut – PDF ca cong trinh (chinh) · Anh tam dang xem · Anh ca cong trinh (trong "Them"); gop 4 tam/anh bo khoi bang (code van giu)
-  $('isbox').innerHTML = '<h3>Xuất bản vẽ số đo</h3><small>PDF: 1 file nhẹ, mỗi tấm 1 trang A4, màu như xem trước, đủ kích thước, phóng to vẫn nét – gửi Zalo nhanh.</small>' +
-    '<button class="bt pri" onclick="makePdf()">PDF cả công trình (' + (n ? n + ' tấm = ' + n + ' trang' : 'chưa lưu tấm nào – lấy tấm đang xem') + ')</button>' +
+  FN_BASE = fnBase(S.info);
+  $('isbox').innerHTML = '<h3>Xuất bản vẽ số đo</h3><small>PDF: 1 file nhẹ, nhiều tấm xếp trên mỗi trang A4 ngang như bản vẽ CAD, có khung tên, đủ kích thước, phóng to vẫn nét – gửi Zalo nhanh.</small>' + fnInputHtml() +
+    '<button class="bt pri" onclick="makePdf()">PDF bản vẽ – cả công trình (' + (n ? n + ' tấm' : 'chưa lưu tấm nào – lấy tấm đang xem') + ')</button>' +
     '<button class="bt" onclick="makeImgs(\'cur\')">Ảnh tấm đang xem</button>' +
-    '<details><summary>Thêm…</summary><button class="bt"' + (n ? '' : ' disabled') + ' onclick="makeImgs(\'all\')">Ảnh cả công trình (' + n + ' ảnh – nặng, chậm hơn PDF)</button></details>' +
+    '<details><summary>Thêm…</summary><button class="bt" onclick="makePdf(\'one\')">PDF 1 tấm / trang (' + (n || 1) + ' trang)</button><button class="bt"' + (n ? '' : ' disabled') + ' onclick="makeImgs(\'all\')">Ảnh cả công trình (' + n + ' ảnh – nặng, chậm hơn PDF)</button></details>' +
     '<button class="bt" onclick="closeImgSheet()">Đóng</button>';
   $('isheet').classList.add('on');
 }
@@ -4729,6 +4758,53 @@ function buildImgSvgs(items, info, group) {
   }
   return pages;
 }
+// T60: PDF kieu ban ve – nhieu tam tren moi trang A4 NGANG (1980 x 1400 px, 1 px = 0,15 mm) + khung ten goc phai-duoi. Chu dim 12 * SHEET_S = 18 px = 2,7 mm tren giay (>= 2 mm).
+const SHEET_S = 1.5, SHEET_HMIN = 400;
+function holeCount(it) { try { return geom(it.mode, it.v).holes.length; } catch (e) { return 0; } }
+function buildSheetSvgs(items, info) {
+  const W = 1980, H = 1400, M = 40, BAND = 150, G = 24, CH = 48, AW = W - 2 * M, AH = H - M - BAND, F = 'font-family="Arial,sans-serif"', s = SHEET_S;
+  const rs = items.map(imgRatio), cut = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+  const fit = (a, b, Ht) => {      // xep ke tung hang (shelf): tra ve toa do hoac null neu khong vua
+    const pos = []; let x = 0, y = 0;
+    for (let i = a; i < b; i++) {
+      const w = Math.max(Math.min(Math.round(rs[i] * Ht), AW), Math.min(340, AW));
+      if (x > 0 && x + w > AW) { x = 0; y += Ht + CH + G; }
+      if (y + Ht + CH > AH) return null;
+      pos.push({ x, y, w }); x += w + G;
+    }
+    return pos;
+  };
+  const best = (a, b) => { for (let Ht = Math.min(AH - CH, 1000); Ht >= SHEET_HMIN; Ht -= 10) { const p = fit(a, b, Ht); if (p) return { Ht, p }; } return null; };
+  const groups = [];
+  for (let i = 0; i < items.length;) {
+    let cnt = 1, cur = best(i, i + 1) || { Ht: AH - CH, p: fit(i, i + 1, AH - CH) };
+    while (i + cnt < items.length) { const t = best(i, i + cnt + 1); if (!t) break; cur = t; cnt++; }
+    groups.push({ a: i, b: i + cnt, Ht: cur.Ht, p: cur.p }); i += cnt;
+  }
+  const sl = it => parseInt(it.v.SoLuong) || 1, totT = items.reduce((t, it) => t + sl(it), 0), totL = items.reduce((t, it) => t + sl(it) * holeCount(it), 0);
+  const date = imgDateStr(info[0]), pages = [];
+  groups.forEach((gr, gi) => {
+    let o = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+    for (let i = gr.a; i < gr.b; i++) {
+      const it = items[i], q = gr.p[i - gr.a], x = M + q.x, y = M + q.y, v = it.v, n = sl(it);
+      o += '<text x="' + x + '" y="' + (y + 34) + '" ' + F + ' font-size="32" font-weight="bold" fill="#000">' + esc(cut((v.TenTam || 'Tấm') + (n > 1 ? '  x' + n : ''), Math.max(8, Math.floor(q.w / 30)))) + '</text>' +
+        '<text x="' + (x + q.w) + '" y="' + (y + 34) + '" text-anchor="end" ' + F + ' font-size="24" fill="#000">M' + it.mode + (parseFloat(v.D) > 0 ? ' · ⌀' + parseFloat(v.D) : '') + '</text>' +
+        '<rect x="' + x + '" y="' + (y + CH) + '" width="' + q.w + '" height="' + gr.Ht + '" fill="#fff" stroke="#999" stroke-width="2"/>';
+      const R = renderPV(it.mode, it.v, Math.round(q.w / s), Math.round(gr.Ht / s), { full: true, dims: true, fs: ANH_FS, padTop: 4 });
+      o += '<svg x="' + x + '" y="' + (y + CH) + '" width="' + q.w + '" height="' + gr.Ht + '" viewBox="0 0 ' + Math.round(q.w / s) + ' ' + Math.round(gr.Ht / s) + '">' + R.svg + '</svg>';
+    }
+    const bw = 1000, bx = W - M - bw, by = H - M - 108, T = (x, y, t, b) => '<text x="' + x + '" y="' + y + '" ' + F + ' font-size="24"' + (b ? ' font-weight="bold"' : '') + ' fill="#000">' + esc(t) + '</text>';
+    o += '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="108" fill="#fff" stroke="#000" stroke-width="2"/>' +
+      '<line x1="' + bx + '" y1="' + (by + 36) + '" x2="' + (bx + bw) + '" y2="' + (by + 36) + '" stroke="#000" stroke-width="1"/><line x1="' + bx + '" y1="' + (by + 72) + '" x2="' + (bx + bw) + '" y2="' + (by + 72) + '" stroke="#000" stroke-width="1"/>' +
+      '<line x1="' + (bx + 500) + '" y1="' + by + '" x2="' + (bx + 500) + '" y2="' + (by + 108) + '" stroke="#000" stroke-width="1"/>' +
+      T(bx + 12, by + 27, 'Ngày: ' + date) + T(bx + 512, by + 27, 'Đại lý: ' + cut(info[1], 24)) +
+      T(bx + 12, by + 63, 'Khách: ' + cut(info[2], 24)) + T(bx + 512, by + 63, 'Loại kính: ' + cut(info[3], 22)) +
+      T(bx + 12, by + 99, 'Trang ' + (gi + 1) + '/' + groups.length + ' · ' + (gr.b - gr.a) + ' tấm', true) + T(bx + 512, by + 99, 'Tổng: ' + totT + ' tấm / ' + totL + ' lỗ', true);
+    o += '<text x="' + M + '" y="' + (H - M) + '" ' + F + ' font-size="24" fill="#555">' + esc(ANH_CHAN) + '</text></svg>';
+    pages.push({ svg: o, W, H });
+  });
+  return pages;
+}
 function svgToPng(p, type, q) {      // T33: type 'image/jpeg' + q = anh nhe/nhanh hon PNG
   return new Promise((ok, no) => {
     const img = new Image(), u = URL.createObjectURL(new Blob([p.svg], { type: 'image/svg+xml;charset=utf-8' }));
@@ -4752,15 +4828,16 @@ async function makeImgs(which, group) {
     const items = which === 'cur' ? (tamTrong(cur, readForm()) ? [] : [{ mode: cur, v: readForm() }]) : S.panels.map(p => ({ mode: p.mode, v: p.v }));      // T41: tam chua nhap so -> khong xuat
     if (!items.length) { closeImgSheet(); toast(which === 'cur' ? 'Tấm đang xem chưa nhập số – chưa có gì để xuất' : 'Chưa có tấm nào'); return; }
     const pages = buildImgSvgs(items, S.info, group), d = new Date();
-    const ymd = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'), base = 'Anh_' + (asciiName(S.info[2]) || 'KhachHang') + '_' + ymd;
-    const res = [];
+    const fi = document.getElementById('fnIn'); FN_BASE = fnClean(fi ? fi.value : FN_BASE) || fnBase(S.info);      // T60: ten file chung (sua duoc)
+    const res = [], used = {};
     // T33: JPEG 0.9 thay PNG – nhanh hon ~1/3, nhe hon ~35% (do tren Edge, xem bao-cao/T33.md); may khong ho tro JPEG thi toBlob tu ra PNG
-    for (let i = 0; i < pages.length; i++) { const b = await svgToPng(pages[i], 'image/jpeg', 0.9), ext = /jpeg/.test(b.type) ? '.jpg' : '.png'; res.push({ blob: b, url: URL.createObjectURL(b), name: base + (pages.length > 1 ? '_' + String(i + 1).padStart(2, '0') : '') + (which === 'cur' ? '_tam' : '') + ext }); }
+    for (let i = 0; i < pages.length; i++) { const b = await svgToPng(pages[i], 'image/jpeg', 0.9), ext = /jpeg/.test(b.type) ? '.jpg' : '.png'; let suf = ''; if (pages.length > 1) { suf = '_' + (!group && fnPart(items[i].v.TenTam) || String(i + 1)); if (used[suf]) suf = '_' + String(i + 1) + suf; used[suf] = 1; }
+      res.push({ blob: b, url: URL.createObjectURL(b), suf, ext, name: FN_BASE + suf + ext }); }
     IMGR = res; showImgResult();
   } catch (e) { box.innerHTML = '<h3>Không vẽ được ảnh</h3><small>' + esc(String(e && e.message || e)) + '</small><button class="bt" onclick="closeImgSheet()">Đóng</button>'; }
 }
 function showImgResult() {
-  $('isbox').innerHTML = '<h3>Ảnh đã sẵn sàng (' + IMGR.length + ')</h3><small>Bấm “Chia sẻ” để gửi Zalo. Nếu máy không hỗ trợ: “Tải về”, hoặc bấm “Xem ảnh” rồi nhấn giữ ảnh để lưu.</small>' +
+  $('isbox').innerHTML = '<h3>Ảnh đã sẵn sàng (' + IMGR.length + ')</h3><small>Bấm “Chia sẻ” để gửi Zalo. Nếu máy không hỗ trợ: “Tải về”, hoặc bấm “Xem ảnh” rồi nhấn giữ ảnh để lưu.</small>' + fnInputHtml() + (CO_PICKER() ? '<small>“Tải về” sẽ hỏi chọn thư mục lưu.</small>' : HINT_DT) +
     (IMGR.length > 1 ? '<div class="row"><button class="bt pri" onclick="shareAll()">Chia sẻ tất cả (' + IMGR.length + ' ảnh)</button><button class="bt" onclick="saveAll()">Tải tất cả</button></div>' : '') +
     IMGR.map((r, i) => '<img src="' + r.url + '" alt="' + esc(r.name) + '" onclick="viewImg(' + i + ')"><div class="row"><button class="bt pri" onclick="shareImg(' + i + ')">Chia sẻ</button><button class="bt" onclick="saveImg(' + i + ')">Tải về</button><button class="bt" onclick="viewImg(' + i + ')">Xem ảnh</button></div>').join('') +
     '<button class="bt" onclick="closeImgSheet()">Đóng</button>';
@@ -4771,7 +4848,7 @@ async function shareImg(i) {
     const f = new File([r.blob], r.name, { type: r.blob.type || 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: r.name }); toast('Đã chia sẻ ' + r.name); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  toast('Máy không chia sẻ được – đang tải về'); saveImg(i);
+  toast('Máy không chia sẻ được – đang tải về'); saveImg(i, true);
 }
 async function shareAll() {
   try {
@@ -4780,9 +4857,18 @@ async function shareAll() {
   } catch (e) { if (e && e.name === 'AbortError') return; }
   toast('Máy không gửi 1 lần nhiều ảnh được – đang tải từng ảnh'); saveAll();
 }
-function saveAll() { IMGR.forEach((r, i) => setTimeout(() => saveImg(i), i * 500)); }
-function saveImg(i) {
+async function saveAll() {
+  if (typeof window.showDirectoryPicker === 'function') {      // T60: chon 1 thu muc, ghi het cac anh vao do
+    try { const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+      for (const r of IMGR) { const h = await dir.getFileHandle(r.name, { create: true }), w = await h.createWritable(); await w.write(r.blob); await w.close(); }
+      toast('Đã lưu ' + IMGR.length + ' ảnh vào thư mục đã chọn'); return;
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  IMGR.forEach((r, i) => setTimeout(() => saveImg(i, true), i * 500));
+}
+async function saveImg(i, plain) {
   const r = IMGR[i]; if (!r) return;
+  if (!plain) { const k = await saveToFolder(r.blob, r.name, 'Ảnh'); if (k) return; }
   const a = document.createElement('a'); a.href = r.url; a.download = r.name; document.body.appendChild(a); a.click(); a.remove();
   toast('Đã tải ' + r.name + ' (nếu không thấy: bấm “Xem ảnh” rồi nhấn giữ ảnh để lưu)');
 }
@@ -5002,24 +5088,24 @@ async function pdfBuild(pages, title) {
   });
   out.push(pdfU8('xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') +
     'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + pos + '\n%%EOF\n'));
-  return new Blob(out, { type: 'application/pdf' });
+  const pb = new Blob(out, { type: 'application/pdf' }); pb.nPages = pages.length; return pb;
 }
-function pdfName() { const d = new Date(); return 'BanVe_' + (asciiName(S.info[2]) || 'KhachHang') + '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.pdf'; }
-function makePdfBlob(items, info) { return pdfBuild(buildImgSvgs(items, info, 'pdf'), 'Bản vẽ ' + [info[1], info[2]].filter(Boolean).join(' – ')); }
+function makePdfBlob(items, info, mode) { return pdfBuild(mode === 'one' ? buildImgSvgs(items, info, 'pdf') : buildSheetSvgs(items, info), 'Bản vẽ ' + [info[1], info[2]].filter(Boolean).join(' – ')); }
 let PDFR = null;
-async function makePdf() {
-  const box = $('isbox'); box.innerHTML = '<h3>Đang tạo PDF…</h3><small>Mỗi tấm 1 trang – chờ vài giây.</small>';
+async function makePdf(mode) {
+  const box = $('isbox'), fi = document.getElementById('fnIn'); FN_BASE = fnClean(fi ? fi.value : FN_BASE, '.pdf') || fnBase(S.info);
+  box.innerHTML = '<h3>Đang tạo PDF…</h3><small>' + (mode === 'one' ? 'Mỗi tấm 1 trang' : 'Xếp nhiều tấm mỗi trang') + ' – chờ vài giây.</small>';
   await new Promise(r => setTimeout(r, 30));          // cho man hinh hien chu "Dang tao" truoc khi tinh
   try {
     const t0 = performance.now(), items = S.panels.length ? S.panels.map(p => ({ mode: p.mode, v: p.v })) : tamTrong(cur, readForm()) ? [] : [{ mode: cur, v: readForm() }];
     if (!items.length) { closeImgSheet(); toast('Tấm đang xem chưa nhập số – chưa có gì để xuất'); return; }      // T41: so mau khong bao gio vao anh / PDF
-    const blob = await makePdfBlob(items, S.info);
+    const blob = await makePdfBlob(items, S.info, mode);
     if (PDFR) try { URL.revokeObjectURL(PDFR.url); } catch (e) {}
-    PDFR = { blob, url: URL.createObjectURL(blob), name: pdfName(), n: items.length, ms: performance.now() - t0 };
-    box.innerHTML = '<h3>PDF đã sẵn sàng</h3><small>' + esc(PDFR.name) + ' · ' + PDFR.n + ' trang · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB · ' + (PDFR.ms / 1000).toFixed(1) + ' giây</small>' +
-      '<button class="bt pri" onclick="sharePdf()">Chia sẻ PDF (Zalo…)</button>' +
-      '<div class="row"><button class="bt" onclick="savePdf()">Tải về</button><button class="bt" onclick="viewPdf()">Mở xem</button></div>' +
-      '<small>Nét vẽ dạng vector: phóng to trên điện thoại vẫn nét. Máy không chia sẻ được thì bấm “Tải về” hoặc “Mở xem”.</small>' +
+    PDFR = { blob, url: URL.createObjectURL(blob), name: FN_BASE + '.pdf', suf: '', n: items.length, ms: performance.now() - t0 };
+    box.innerHTML = '<h3>PDF đã sẵn sàng</h3><small>' + esc(PDFR.name) + ' · ' + (blob.nPages || '?') + ' trang · ' + PDFR.n + ' tấm · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB · ' + (PDFR.ms / 1000).toFixed(1) + ' giây</small>' +
+      fnInputHtml() + '<button class="bt pri" onclick="sharePdf()">Chia sẻ PDF (Zalo…)</button>' +
+      '<div class="row"><button class="bt" onclick="savePdf()">' + (CO_PICKER() ? 'Lưu… (chọn thư mục)' : 'Tải về') + '</button><button class="bt" onclick="viewPdf()">Mở xem</button></div>' +
+      '<small>Nét vẽ dạng vector: phóng to trên điện thoại vẫn nét. Máy không chia sẻ được thì bấm “Tải về” hoặc “Mở xem”.</small>' + (CO_PICKER() ? '' : HINT_DT) +
       '<button class="bt" onclick="closeImgSheet()">Đóng</button>';
   } catch (e) { box.innerHTML = '<h3>Không tạo được PDF</h3><small>' + esc(String(e && e.message || e)) + '</small><button class="bt" onclick="makeImgs(\'all\')">Xuất ảnh thay thế</button><button class="bt" onclick="closeImgSheet()">Đóng</button>'; }
 }
@@ -5029,10 +5115,11 @@ async function sharePdf() {
     const f = new File([PDFR.blob], PDFR.name, { type: 'application/pdf' });
     if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: PDFR.name }); toast('Đã chia sẻ ' + PDFR.name); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  toast('Máy không chia sẻ được – đang tải về'); savePdf();
+  toast('Máy không chia sẻ được – đang tải về'); savePdf(true);
 }
-function savePdf() {
+async function savePdf(plain) {
   if (!PDFR) return;
+  if (plain !== true) { const k = await saveToFolder(PDFR.blob, PDFR.name, 'PDF'); if (k) return; }
   const a = document.createElement('a'); a.href = PDFR.url; a.download = PDFR.name; document.body.appendChild(a); a.click(); a.remove();
   toast('Đã tải ' + PDFR.name + ' (nếu không thấy: bấm “Mở xem”)');
 }
@@ -5049,9 +5136,10 @@ async function exportCSV() {
     const msg = [sm.bad.length ? sm.bad.length + ' tấm còn ô sai/thiếu (' + nm(sm.bad) + ')' : '', sm.red.length ? sm.red.length + ' tấm ĐỎ – số đo rất có thể sai (' + nm(sm.red) + ')' : '', sm.yellow.length ? sm.yellow.length + ' tấm vàng – nên xem lại' : ''].filter(Boolean).join('\n');
     if (!confirm(msg + '\nVẫn xuất file?')) return;
   }
-  const d = new Date(), ymd = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-  const name = 'CongTrinh_' + (asciiName(S.info[2]) || 'KhachHang') + '_' + ymd + '.csv';
+  let name = fnBase(S.info) + '.csv';      // T60
   const blob = new Blob([toCSV(S.info, S.panels)], { type: 'text/csv;charset=utf-8' });
+  if (CO_PICKER()) { const k = await saveToFolder(blob, name, 'File CSV số đo'); if (k === 'huy') return; if (k) return; }      // hop thoai co o ten file sua duoc + chon thu muc
+  else { const nn = prompt('Tên file CSV (sửa được):', name); if (nn === null) return; name = (fnClean(nn, '.csv') || fnBase(S.info)) + '.csv'; }
   // dien thoai: uu tien chia se thang (Zalo, Gmail, Drive...) neu trinh duyet ho tro
   try {
     const file = new File([blob], name, { type: 'text/csv' });
