@@ -4914,12 +4914,12 @@ function buildImgSvgs(items, info, group) {
 // T60 -> T67: PDF / anh kieu ban ve – KHUNG DONG: trang (khung) keo to/nho duoc, tam tu xep lai cho vua; khoi chu thong tin keo tha (hit goc phai tren / duoi).
 // Don vi px trang: 1 px = 0,15 mm (A4 ngang 1980 x 1400, A3 ngang 2800 x 1980). PDF: trang dung kich thuoc khung (pdfBuild doc W/H). Chu dim 12 * SHEET_S = 18 px = 2,7 mm.
 const SHEET_S = 1.5;
-const KH_M = 40, KH_G = 24, KH_CH = 48, KB_W = 1000, KB_H = 144, KH_KEY = 'ctk_khung';
-const KH_DEF = { W: 1980, H: 1400, goc: 'br', ix: 40, iy: 40, hmin: 400 };
+const KH_M = 36, KH_G = 16, KH_CH = 44, KB_W = 1000, KB_H = 144, KH_KEY = 'ctk_khung';
+const KH_DEF = { W: 1980, H: 1400, goc: 'br', ix: 40, iy: 40, hmin: 360 };
 const KH_LIM = { W: [1100, 4000], H: [760, 2800], hmin: [250, 900] };
 function khFix(k) {
   const c = (v, a, d) => { v = Math.round(+v); return isFinite(v) ? Math.min(a[1], Math.max(a[0], v)) : d; };
-  const o = { W: c(k.W, KH_LIM.W, 1980), H: c(k.H, KH_LIM.H, 1400), hmin: c(k.hmin, KH_LIM.hmin, 400), goc: /^(tr|br|tl|bl)$/.test(k.goc) ? k.goc : '' };
+  const o = { W: c(k.W, KH_LIM.W, 1980), H: c(k.H, KH_LIM.H, 1400), hmin: c(k.hmin, KH_LIM.hmin, 360), goc: /^(tr|br|tl|bl)$/.test(k.goc) ? k.goc : '' };
   o.ix = Math.min(o.W - KH_M - KB_W, Math.max(KH_M, Math.round(+k.ix) || KH_M));
   o.iy = Math.min(o.H - KH_M - KB_H, Math.max(KH_M, Math.round(+k.iy) || KH_M));
   return o;
@@ -5072,6 +5072,7 @@ function khDown(e) {
   e.preventDefault();
   const svg = $('ksvg'), ctm = svg.getScreenCTM(); if (!ctm) return;
   const xy = khInfoXY(KHUNG);
+  if (h.getAttribute('data-h') === 'info') { KHUNG.ix = xy[0]; KHUNG.iy = xy[1]; }      // T73/L1: dong bo ix/iy voi goc hien tai -> cham khong keo thi khUp van hit dung goc cu
   KS.drag = { t: h.getAttribute('data-h'), m: ctm.inverse(), k0: Object.assign({}, KHUNG), i0: xy, id: e.pointerId };
   KS.drag.p0 = khPt(e);
   try { svg.setPointerCapture(e.pointerId); } catch (er) {}
