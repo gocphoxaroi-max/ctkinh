@@ -1,0 +1,17 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,T62
+Tên KH,Thu 2 lo cung truc cong trai
+Loại Kính,10XK
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong
+T62-M1-2LO,60-960-945-135,952,696,24,85/130-80/130-80/130,70/L470@125/40/145,,,,,,,,,,,
+T62-M1-NGHIENG,445-920-940-185,627,429,24,30/145-40/145-43/145,L470@125/40/145,,,,,,,,,,,
+T62-M1-1LO,445-920-940-185,627,429,24,30/145-40/145-43/145,L345@120/95,,,,,,,,,,,
+TG,200-187,580,0,22,80/130,,,,,,,1195,P,0,X725/30/130-T15/50@16
+#MODE 2
+TenTam,W,CutP1X,CutP1Y,AList,H1,C1,H2,C2,D,HoleYList,CutP3,X,Y,Huong,SoLuong,GocDo
+T62-M2-2LO,2876,0,0,405-77-800-78-812-73,915,636,915,636,20,59-168-53-167-51-161,70/L470@125/40/145,,,,2,
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong
+T62-M3-2LO,643,770,126,1227-1218,2794,22,54/145-45/145-46/145,70/L470@125/40/145,,,,,,,
