@@ -1693,7 +1693,8 @@ function dims1(o) {
   if (o.lx && !isRect) {
     out.forEach(d => { if (['cR', 'cTL', 'H'].includes(d.tag) || d.src === 'H') { d.ref = 1; d.qs = 'calc'; d.src = 'CanhXien C'; } if (d.tag === 'top') d.src = 'AList KiemTong'; });
     const nL = [-u[1], u[0]];
-    add(p1, p4, P(mid(p1, p4), nL, 60), '012', 'CanhXien', 1, 'L');
+    const wL = m.lft > 0 ? m.lft : 0;      // T61: co cat/cong trai L -> dim L ra NGOAI vuot qua phan do
+    add(p1, p4, P(mid(p1, p4), nL, 60 + wL), '012', 'CanhXien', 1, 'L');
     const ph = Math.atan2(Math.abs(p3[0] - p2[0]), Math.abs(p3[1] - p2[1])) * 180 / Math.PI;
     out.push({ kind: 'goc', c: p3, a: p2p, b: p2, off: 170, st: '010-ok', val: ph, text: fmtAng(ph), src: 'C', pri: 1, tag: '', lxk: 'phi' });
   }
@@ -3381,8 +3382,25 @@ function fillForm(v) {
   document.querySelectorAll('#form details').forEach(d => { d.open = [...d.querySelectorAll('input,select')].some(e => e.value && e.value !== '' && e.tagName === 'INPUT'); });
   live();
 }
+// T61: the "do canh xien + goc": o "Canh xien L" (bat buoc) thay cho o H (an; H tu tinh, chi hien chu xam), o C = "Goc voi canh dung"
+function xgLayout() {
+  const on = cur === '1' && curShape() === 'xiengoc', eL = $('f_CanhXien'), eH = $('f_H'), eC = $('f_C'); if (!eL || !eH || !eC) return;
+  const wL = eL.parentNode, wH = eH.parentNode, wC = eC.parentNode, lab = (w, t) => { const l = w.querySelector('label'); if (l) l.innerHTML = t; };
+  if (on) {
+    if (wL.parentNode !== wH.parentNode) wH.parentNode.insertBefore(wL, wH);
+    wH.style.display = 'none'; lab(wL, 'Cạnh xiên L – đo dọc cạnh xiên *'); lab(wC, 'Góc với cạnh đứng * (gõ 36 → tự lưu V36)'); eC.placeholder = 'vd 36';
+    let hn = $('xgH'); if (!hn) { hn = document.createElement('div'); hn.id = 'xgH'; hn.className = 'cuthint'; hn.style.color = '#888'; wL.appendChild(hn); }
+    const x = m1Slant(readForm()); hn.textContent = x ? 'H ≈ ' + Math.round(x.H) + ' (tự tính)' : 'H tự tính từ L và góc';
+  } else if (wL.parentNode === wH.parentNode) {
+    const sec = document.querySelector('#sec_' + SEC_XG.replace(/\W/g, '') + ' .fields'); if (sec) sec.appendChild(wL);
+    wH.style.display = ''; lab(wL, esc(F0('CanhXien').label)); lab(wC, esc(F0('C').label) + ' *'); eC.placeholder = 'vd ' + F0('C').ex; const hn = $('xgH'); if (hn) hn.remove();
+  }
+}
+function F0(k) { return MODES[cur].fields.find(f => f.k === k) || {}; }
+document.addEventListener('change', e => { if (e.target && e.target.id === 'f_C' && cur === '1' && curShape() === 'xiengoc') { const t = e.target.value.trim().replace(',', '.'); if (/^\d+(\.\d+)?$/.test(t)) { e.target.value = 'V' + t; live(); } } });
 function live() {
-  const v = readForm(), r = validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3] });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
+  xgLayout();
+  const v = readForm(), r =validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3] });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
   for (const f of MODES[cur].fields) {
     const el = $('f_' + f.k), e = $('e_' + f.k); if (!el) continue;
     const shown = (v[f.k] || '') !== '' || el.dataset.touched;
