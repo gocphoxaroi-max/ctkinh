@@ -3777,7 +3777,7 @@ function qPick(i) {
   else inp.value = qGet(v, m);
   inp.classList.remove('bad');
   qInputMode(m);
-  inp.focus(); try { inp.select(); } catch (e) {}
+  inp.focus({ preventScroll: true }); try { inp.select(); } catch (e) {}
   drawPreview(v); sizeDock();
 }
 function qInputMode(m) {
@@ -3865,7 +3865,7 @@ function sgOpen(corner, type) {
   qPick(i);
   const c = cutGet(readForm().CutP3, corner);
   QCT = type; $('qin').value = c && c.type === type ? c.val : '';
-  qInputMode(QLAST[i]); drawPreview(readForm()); sizeDock(); $('qin').focus();
+  qInputMode(QLAST[i]); drawPreview(readForm()); sizeDock(); $('qin').focus({ preventScroll: true });
   toast(type === 'GT' ? 'Nhập số cộng thêm, đo DỌC cạnh xiên (vd 50)' : 'Nhập độ dài đường cắt (vd 193) – cắt vuông góc cạnh xiên');
 }
 function qMoreT() { QMORE = !QMORE; drawPreview(readForm()); toast(QMORE ? 'Chạm dấu + ở góc để cắt / cộng / khoét (có cả số kiểm)' : 'Ẩn nút sửa góc – hình gọn'); }
@@ -3904,17 +3904,17 @@ function qShort(m) {
 function qSetKind(k) {
   try { localStorage.setItem(QKEY, k); } catch (e) {}
   const m = qMark(), v = readForm(); if (m) $('qin').value = slopeRead(k, qGet(v, m), parseFloat(v.H));
-  $('qin').classList.remove('bad'); drawPreview(v); $('qin').focus();
+  $('qin').classList.remove('bad'); drawPreview(v); $('qin').focus({ preventScroll: true });
 }
 function qSetCT(t) {
   const m = qMark(); if (!m) return; QCT = t;
   if ($('qin').value.trim() !== '') qWrite($('qin').value); else drawPreview(readForm());       // doi loai -> ghi lai so dang go theo loai moi
-  qInputMode(m); $('qin').focus();
+  qInputMode(m); $('qin').focus({ preventScroll: true });
 }
 function qIns(k) {
   const inp = $('qin'), s = inp.selectionStart == null ? inp.value.length : inp.selectionStart, e = inp.selectionEnd == null ? s : inp.selectionEnd;
   inp.value = inp.value.slice(0, s) + k + inp.value.slice(e); try { inp.setSelectionRange(s + k.length, s + k.length); } catch (x) {}
-  inp.focus(); qWrite(inp.value);
+  inp.focus({ preventScroll: true }); qWrite(inp.value);
 }
 function qWrite(val) {
   const m = qMark(); if (!m) return;
@@ -4012,7 +4012,7 @@ function ltEdit(i) { const l = ltParse(readForm().LoTuDo); if (!l[i]) return; LT
 function ltInVal() { const x = LT.st === 1 ? LT.o.a : LT.st === 2 ? LT.o.b : LT.o.d; return isFinite(x) ? ltNum(x) : ''; }
 function ltOpen() {
   QSEL = 'lt'; const inp = $('qin'); inp.value = ltInVal(); inp.classList.remove('bad'); inp.setAttribute('inputmode', 'decimal');
-  drawPreview(readForm()); sizeDock(); inp.focus(); try { inp.select(); } catch (e) {}
+  drawPreview(readForm()); sizeDock(); inp.focus({ preventScroll: true }); try { inp.select(); } catch (e) {}
 }
 function ltSave() {        // ghi lo dang nhap vao o LoTuDo (chi khi du 2 so dung)
   const el = $('f_LoTuDo'); if (!el || !LT || !ltOk(LT.o)) return false;
@@ -4034,9 +4034,9 @@ function ltSetM(k) {
   if (!LT) return;
   if (LT.st === 1) { LT.o.m1 = k; if (LT.o.m2 === k || (LT.o.m2 === 'V' && k[0] !== 'C')) LT.o.m2 = k === 'X' ? 'Y' : 'X'; }
   else LT.o.m2 = k;
-  ltSave(); live(); $('qin').focus();
+  ltSave(); live(); $('qin').focus({ preventScroll: true });
 }
-function ltSign() { const inp = $('qin'); let s = inp.value.trim(); s = s[0] === '-' ? s.slice(1) : '-' + s; inp.value = s; ltWrite(s); inp.focus(); }
+function ltSign() { const inp = $('qin'); let s = inp.value.trim(); s = s[0] === '-' ? s.slice(1) : '-' + s; inp.value = s; ltWrite(s); inp.focus({ preventScroll: true }); }
 function ltNext() {
   if (!LT) return;
   const x = LT.st === 1 ? LT.o.a : LT.o.b;
@@ -4110,7 +4110,7 @@ function q5Info(m, v) {
   if (m.k === 'H') return 'Hai đầu cao khác nhau: gõ trái/phải ở bảng dưới (vd 900/1285)';
   return '';
 }
-function q5Q() { const i = $('qin'); i.value = '?'; qWrite('?'); i.focus(); }
+function q5Q() { const i = $('qin'); i.value = '?'; qWrite('?'); i.focus({ preventScroll: true }); }
 function q5Repick(id) { QSEL = id; QACT = null; QCHN = []; DIRTY = true; live(); const i = QLAST.findIndex(x => x.id === id); if (i >= 0) qPick(i); }
 function q5Kind(k) {
   const m = qMark(), el = $('f_Day'); if (!m || !m.day || !el) return;
@@ -4539,6 +4539,19 @@ function sizeDock() {
   document.documentElement.style.setProperty('--dockh', h + 'px');
   placeBar();
   trackDock();
+  alignDock();
+}
+// T76: dang go 1 so tren hinh + co ban phim -> khung xem truoc (da cao bang vung thay) phai nam sat dinh vung thay, khong de o tren/duoi; khong cuon nhay khi focus (preventScroll)
+let _ad = 0;
+function alignDock() {
+  clearTimeout(_ad);
+  const run = () => {
+    const d = $('dock');
+    if (!isNarrow() || KBF.on || !document.body.classList.contains('kb') || !d.classList.contains('qtyp')) return;
+    const vv = window.visualViewport, top = vv ? vv.offsetTop : 0, r = d.getBoundingClientRect();
+    if (r.top - top > 2) window.scrollBy(0, r.top - top);
+  };
+  run(); _ad = setTimeout(run, 230);      // lan 2 sau khi khung gian xong (trang dai ra moi cuon duoc het)
 }
 // du phong: neu vung nhin that (visualViewport) bi day lech khoi vung bo cuc (ban phim, zoom) thi keo khung xem truoc theo
 let _td = 0;
@@ -4598,7 +4611,7 @@ function gocPick(ev) {
   if (GOCK === 'lt') { if (best.hole != null) ltEdit(best.hole); else ltNew(best.n); return; }      // T49
   if (GOCK === 'bo') {       // T38: chon dinh -> thanh nhap R
     QSEL = 'bo:' + best.n; const inp = $('qin'), eb = $('f_BoGoc'); inp.value = boGet(eb ? eb.value : '', best.n); inp.classList.remove('bad');
-    inp.setAttribute('inputmode', 'decimal'); drawPreview(readForm()); sizeDock(); inp.focus(); try { inp.select(); } catch (e) {}
+    inp.setAttribute('inputmode', 'decimal'); drawPreview(readForm()); sizeDock(); inp.focus({ preventScroll: true }); try { inp.select(); } catch (e) {}
     return;
   }
   if (best.auto) { toast('Góc ' + best.n + ' đã có sẵn trên bản vẽ'); return; }
@@ -4671,7 +4684,7 @@ function updateBar(el) {
   $('kPrev').disabled = i <= 0; $('kNext').disabled = i < 0 || i >= l.length - 1;
 }
 function engageKbf(a) {
-  if (!KBF.on) { KBF.on = true; KBF.scroll = window.scrollY; $('kbar').hidden = false; document.body.classList.add('kbf'); window.scrollTo(0, 0); }
+  if (!KBF.on) { KBF.on = true; KBF.scroll = window.scrollY; $('kbar').hidden = false; document.body.classList.add('kbf'); window.scrollTo(0, 0); setTimeout(sizeDock, 80); setTimeout(sizeDock, 320); }      // T76: thanh phim phu vua hien -> do lai khung hinh sau khi biet chieu cao thanh
   if (KBF.el !== a) { KBF.el = a; setFcur(a); updateBar(a); }
 }
 function leaveKbf() {
