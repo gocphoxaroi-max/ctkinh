@@ -282,10 +282,37 @@ details.sec summary{cursor:pointer;font-weight:bold;color:#1e8449;padding:4px 0}
 .ksheet .kct button,.ksheet .khd button{min-height:44px;min-width:44px;padding:8px 10px;font-size:16px;border:1px solid #1f4e9c;background:#fff;color:#1f4e9c;border-radius:10px}
 .ksheet .kct button.pri{background:#1f4e9c;color:#fff}
 .ksheet .kct .sep{flex-basis:100%;height:0}
+
+/* T78: nut cham >=44px (chi man cam ung), toast co nut Hoan tac, nut tam truoc/sau */
+.toast.act{pointer-events:auto;display:flex;align-items:center;gap:10px}
+.toast .tbtn{min-height:44px;min-width:44px;padding:6px 14px;font-size:16px;font-weight:bold;border:1px solid #fff;background:#fff;color:#1b2a3a;border-radius:10px}
+.edhead .pnav{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:14px;color:#55657a}
+.edhead .pnav button{min-height:44px;min-width:44px;padding:0;font-size:22px;font-weight:bold}
+.bbar button.dup{flex:1.2 1 0;font-size:16px}
+.bbar button.dup small{font-size:11px;white-space:nowrap}
+details.card>summary{min-height:44px}
+@media(pointer:coarse){
+  header{gap:8px}
+  header button{min-height:44px;min-width:44px}
+  header button.nw{margin-right:10px}
+  .dtabs button{min-height:44px}
+  .dmin{width:44px}
+  .qgo,.qopt button,.qopt button.qk{min-height:44px}
+  .qchips button{min-height:44px;min-width:48px}
+  .chips button{min-height:44px}
+  .qbk,.qsp,.qx{min-height:44px;flex-basis:44px}
+  .qnext{min-height:44px}
+  #qin{height:44px}
+  .rbk button,.kieughi button{min-height:44px}
+  .pca button{min-height:44px;min-width:44px}
+  .pca button.warn{margin-left:auto}
+  .shflip{min-height:48px}
+  .dtool button{min-height:48px}
+}
 </style></head><body>
 <header>
   <h1>Nhập liệu CTKinh</h1>
-  <button onclick="newJob()" title="Công trình mới"><span class="hide-s">Công trình mới</span><span class="only-s">Mới</span></button>
+  <button class="nw" onclick="newJob()" title="Công trình mới"><span class="hide-s">Công trình mới</span><span class="only-s">Mới</span></button>
   <button onclick="document.getElementById('fin').click()">Mở<span class="hide-s"> file</span> CSV</button>
   <input type="file" id="fin" accept=".csv,text/csv,text/plain" style="display:none" onchange="openCSV(this)">
   <button onclick="openImgSheet()" title="Xuất PDF / ảnh có đủ số đo"><span class="hide-s">Xuất PDF / ảnh</span><span class="only-s">PDF</span></button>
@@ -303,7 +330,7 @@ details.sec summary{cursor:pointer;font-weight:bold;color:#1e8449;padding:4px 0}
     </div>
   </details>
   <section class="card" id="edCard">
-    <div class="edhead"><h2 id="edTitle">2. Nhập tấm</h2></div>
+    <div class="edhead"><h2 id="edTitle">2. Nhập tấm</h2><span class="pnav" id="pnav"><button type="button" id="pPrev" onclick="panelNav(-1)" aria-label="Tấm trước">‹</button><span id="pPos"></span><button type="button" id="pNext" onclick="panelNav(1)" aria-label="Tấm sau">›</button></span></div>
     <div class="modesel" id="modesel">
       <div class="shcur">
         <button type="button" class="modecur" id="modeCur" aria-expanded="false" onclick="toggleModes()"><svg class="shpic" id="shCurPic" viewBox="0 0 100 60"></svg><span class="mname" id="modeCurT"></span><span class="mhint">đổi hình</span><span class="caret">▾</span></button>
@@ -353,6 +380,7 @@ details.sec summary{cursor:pointer;font-weight:bold;color:#1e8449;padding:4px 0}
   <button onclick="goList()" title="Danh sách">☰<small id="bCnt">0 tấm</small></button>
   <button onclick="startNew();goEditor()" title="Tấm mới">＋<small>Tấm mới</small></button>
   <button id="bCancel" onclick="cancelEdit()" hidden>↺<small>Huỷ sửa</small></button>
+  <button class="dup" id="bDup" onclick="savePanel(true)" title="Lưu tấm này và tạo ngay tấm giống (giữ số, tên +1)">⎘<small>Lưu+giống</small></button>
   <button class="pri big" id="bSave" onclick="savePanel()">✓ <span id="bSaveT">Lưu tấm</span></button>
 </nav>
 <div class="viewer" id="viewer" hidden>
@@ -3363,7 +3391,44 @@ const KEY = 'ctkinh_nhaplieu_v1', UIKEY = 'ctkinh_ui_v1';
 let S = { info: ['Today', '', '', ''], panels: [], defD: '' }, cur = '1', editIdx = -1, UI = { tab: 'pv', dmin: false, size: 'm', dim: true, dimLv: 'chinh' };
 const $ = id => document.getElementById(id);
 const isNarrow = () => window.matchMedia('(max-width:899px)').matches;
-function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('show'), 2400); }
+function toast(t, ms) { const e = $('toast'); e.classList.remove('act'); e.textContent = t; e.classList.add('show'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('show'), ms || 2400); }
+// T78: toast co nut "Hoan tac" (giu ~10 giay hoac toi khi nhap tiep)
+let UNDO = null;
+function toastUndo(t, fn, ms) {
+  const e = $('toast'); e.textContent = ''; const sp = document.createElement('span'); sp.textContent = t; e.appendChild(sp);
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tbtn'; b.textContent = 'Hoàn tác'; b.onclick = () => { const u = UNDO; undoClear(); if (u) u.fn(); };
+  b.onmousedown = ev => ev.preventDefault(); e.appendChild(b); e.classList.add('show', 'act'); clearTimeout(e._t);
+  UNDO = { fn }; e._t = setTimeout(undoClear, ms || 10000);
+}
+function undoClear() { UNDO = null; const e = $('toast'); clearTimeout(e._t); e.classList.remove('show', 'act'); }
+document.addEventListener('input', ev => { if (UNDO && ev.target && (ev.target.id === 'qin' || (ev.target.id || '').indexOf('f_') === 0)) undoClear(); }, true);
+// T78: chup / khoi phuc tam dang nhap (cho Hoan tac va luu nhap)
+function snapForm() { return { cur, shape: SHAPE, editIdx, vals: readForm(), dirty: DIRTY }; }
+function restoreSnap(s) {
+  QSEL = null; QACT = null; QCHN = []; QORIG = null;
+  if (s.editIdx >= 0 && S.panels[s.editIdx]) editPanel(s.editIdx);
+  else { editIdx = -1; $('bCancel').hidden = true; $('bSaveT').textContent = 'Lưu tấm'; $('edTitle').textContent = '2. Nhập tấm mới'; }
+  if (s.cur !== cur) setMode(s.cur, false);
+  fillForm(s.vals); DIRTY = !!s.dirty;
+  SHAPE = s.shape && shapeFits(s.shape, cur) ? s.shape : shapeOf(cur, readForm()); markMode(); live(); renderList(); navUpd();
+}
+// T78: luu nhap tu dong (chua bam Luu) - tai lai / xoay man hinh khong mat so dang nhap
+const DKEY = 'ctkinh_nhap_dang_v1';
+function draftSave() {
+  try {
+    if (!DIRTY) { localStorage.removeItem(DKEY); return; }
+    const s = snapForm(); s.t = Date.now(); s.n = S.panels.length; localStorage.setItem(DKEY, JSON.stringify(s));
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') draftSave(); });
+function draftRead() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DKEY) || 'null');
+    if (!d || !d.vals || !MODES[d.cur] || Date.now() - (d.t || 0) > 7 * 864e5) return null;
+    const KEEP = { TenTam: 1, D: 1, SoLuong: 1 };
+    return Object.keys(d.vals).some(k => !KEEP[k] && String(d.vals[k] || '').trim() !== '' && MODES[d.cur].fields.some(f => f.k === k && f.type !== 'sel')) ? d : null;
+  } catch (e) { return null; }
+}
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 function load() { try { const x = JSON.parse(localStorage.getItem(KEY)); if (x && x.panels) S = x; } catch (e) {} try { const u = JSON.parse(localStorage.getItem(UIKEY)); if (u) UI = Object.assign(UI, u); } catch (e) {} if (!/^[sml]$/.test(UI.size)) UI.size = 'm'; }
 function saveUI() { try { localStorage.setItem(UIKEY, JSON.stringify({ tab: UI.tab, dmin: UI.dmin, size: UI.size, dim: UI.dim, dimLv: UI.dimLv, q: UI.q })); } catch (e) {} }
@@ -3379,10 +3444,12 @@ function pickMode(m) {
   toggleModes(false); if (m === cur) return;
   // T46: doi mode cung XOA so da nhap (giu ten tam, phi, so luong) nhu doi hinh
   const v0 = readForm(), hk0 = huongKey(cur), KEEP = { TenTam: 1, D: 1, SoLuong: 1 };
-  if (MODES[cur].fields.some(f => !KEEP[f.k] && f.k !== hk0 && f.type !== 'sel' && String(v0[f.k] == null ? '' : v0[f.k]).trim() !== '') && !confirm('Đổi hình sẽ xoá số đã nhập của tấm này – tiếp tục?')) return;
+  const hasNum0 = MODES[cur].fields.some(f => !KEEP[f.k] && f.k !== hk0 && f.type !== 'sel' && String(v0[f.k] == null ? '' : v0[f.k]).trim() !== '');
+  const snap0 = hasNum0 ? snapForm() : null;      // T78: khong hoi nua - cho Hoan tac ~10 giay
   QSEL = null; QACT = null; QCHN = []; QORIG = null;
   setMode(m, false); fillForm({ TenTam: v0.TenTam || '', SoLuong: v0.SoLuong || '', D: S.defD || v0.D || '' }); DIRTY = false;
-  SHAPE = shapeOf(cur, readForm()); markMode(); toast('Đã chọn ' + MODES[m].name);
+  SHAPE = shapeOf(cur, readForm()); markMode();
+  if (snap0) toastUndo('Đã chọn ' + MODES[m].name + ' – số cũ đã xoá', () => restoreSnap(snap0)); else toast('Đã chọn ' + MODES[m].name);
 }
 function centerMode() { const box = $('modes'), c = $('mc' + cur); if (box && c) box.scrollLeft = c.offsetLeft - (box.clientWidth - c.offsetWidth) / 2; }   // chi cuon ngang thanh mode, khong keo ca trang
 function toggleModes(v) {
@@ -3497,7 +3564,7 @@ function pickShape(id) {
   if (id === SHAPE && id === curShape()) { toggleModes(false); return; }
   const v0 = readForm(), hk0 = huongKey(cur), KEEP = { TenTam: 1, D: 1, SoLuong: 1 };
   const hasNum = MODES[cur].fields.some(f => !KEEP[f.k] && f.k !== hk0 && f.type !== 'sel' && String(v0[f.k] == null ? '' : v0[f.k]).trim() !== '');
-  if (hasNum && !confirm('Đổi hình sẽ xoá số đã nhập của tấm này – tiếp tục?')) return;
+  const snap0 = hasNum ? snapForm() : null;      // T78: Hoan tac thay cho hoi xac nhan
   const huong = isLeft(cur, v0);
   const sm = s.mode;     // T42: Mode 1 / Mode 6 thuong la 2 the rieng (bo cong tac "Kieu ghi so")
   toggleModes(false); QSEL = null; QACT = null; QCHN = []; QORIG = null;
@@ -3514,7 +3581,8 @@ function pickShape(id) {
   if (s.hl) { const el = $('f_' + s.hl); if (el) { el.parentNode.classList.add('fhint'); setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80); } }
   else if (s.sec) { const d = [...document.querySelectorAll('#form details')].find(d => d.open); if (d) setTimeout(() => d.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80); }
   SHAPE = id; try { localStorage.setItem(SHKEY, id); } catch (e) {}
-  live(); markMode(); toast('Hình: ' + s.name + ' (Mode ' + sm + ')');
+  live(); markMode();
+  if (snap0) toastUndo('Hình: ' + s.name + ' – số cũ đã xoá', () => restoreSnap(snap0)); else toast('Hình: ' + s.name + ' (Mode ' + sm + ')');
 }
 
 // ---------- form ----------
@@ -3600,7 +3668,7 @@ function live() {
   $('warns').innerHTML = r.red.map(w => '<div class="wr"><span class="dot r"></span>' + esc(w) + '</div>').concat(r.warn.concat(r.yellow).map(w => '<div class="wy"><span class="dot y"></span>' + esc(w) + '</div>')).join('');
   const rbT = $('rbT'); if (rbT && !rbT.hidden) rbT.textContent = Object.keys(r.err).length ? 'Còn ô thiếu / sai – điền đủ rồi đọc lại.' : readBack(cur, v);
   const dc = $('d_CutP3'); if (dc) dc.textContent = r.err.CutP3 ? '' : describeCut(v.CutP3);
-  drawPreview(v); markFlip();
+  drawPreview(v); markFlip(); draftSave();
   const bs = $('bSave'); if (bs) bs.classList.toggle('notyet', Object.keys(r.err).length > 0);     // T34: du so bat buoc -> nut Luu sang
   return r;
 }
@@ -4901,15 +4969,46 @@ function pfToggleRot() { const e = pfRotOn(); PF.rot = !e; PF.z = 1; PF.vx = 0; 
 // ---------- luu / sua / danh sach ----------
 function goEditor() { const t = $('edCard').getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: Math.max(0, t), behavior: 'smooth' }); }
 function goList() { const t = $('listCard').getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: Math.max(0, t), behavior: 'smooth' }); }
-function savePanel() {
+function fieldShort(f) { let t = String(f.label || f.k).replace(/<[^>]*>/g, ''); t = t.split(/\s[–-]\s|\(/)[0].trim(); return t.length > 22 ? t.slice(0, 21) + '…' : t; }
+function savePanel(dup) {
   document.querySelectorAll('#form input,#form select').forEach(e => e.dataset.touched = 1);
   const v = readForm(), r = live();
-  if (Object.keys(r.err).length) { toast('Còn ô sai hoặc thiếu (tô đỏ) – sửa trước khi lưu'); const k = Object.keys(r.err)[0], el = $('f_' + k); if (el) { const d = el.closest('details'); if (d) d.open = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (KBF.on) goField(el); else el.focus({ preventScroll: true }); } return; }
-  if (S.panels.some((p, i) => i !== editIdx && p.v.TenTam.toUpperCase() === v.TenTam.toUpperCase()) && !confirm('Tên tấm "' + v.TenTam + '" đã có trong danh sách. Vẫn lưu?')) return;
-  if (editIdx >= 0) { S.panels[editIdx] = { mode: cur, v }; toast('Đã cập nhật tấm ' + v.TenTam); }
-  else { S.panels.push({ mode: cur, v }); toast('Đã thêm tấm ' + v.TenTam + ' (' + S.panels.length + ' tấm)'); }
-  save(); renderList(); startNew();
+  const bad = MODES[cur].fields.filter(f => r.err[f.k]);
+  if (bad.length) {
+    // T78: toast noi ro o nao thieu/sai + nhay toi o dau tien (giu 5 giay)
+    const f0 = bad[0], el = $('f_' + f0.k);
+    toast('Còn ' + bad.length + ' ô thiếu/sai: ' + bad.slice(0, 4).map(fieldShort).join(', ') + (bad.length > 4 ? '…' : '') + ' – đã nhảy tới ô «' + fieldShort(f0) + '»: ' + r.err[f0.k], 5200);
+    if (el) { const d = el.closest('details'); if (d) d.open = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (KBF.on) goField(el); else el.focus({ preventScroll: true }); }
+    return false;
+  }
+  if (S.panels.some((p, i) => i !== editIdx && p.v.TenTam.toUpperCase() === v.TenTam.toUpperCase()) && !confirm('Tên tấm "' + v.TenTam + '" đã có trong danh sách. Vẫn lưu?')) return false;
+  let at;
+  if (editIdx >= 0) { S.panels[editIdx] = { mode: cur, v }; at = editIdx; toast('Đã cập nhật tấm ' + v.TenTam); }
+  else { S.panels.push({ mode: cur, v }); at = S.panels.length - 1; toast('Đã thêm tấm ' + v.TenTam + ' (' + S.panels.length + ' tấm)'); }
+  save(); renderList(); DIRTY = false; startNew();
+  if (dup === true) {      // T78: luu & tao tam giong (giu so + so luong, ten +1) - o ngay sau tam vua luu
+    const nv = Object.assign({}, v, { TenTam: freeName(v.TenTam) }); fillForm(nv); DIRTY = false;
+    SHAPE = shapeOf(cur, readForm()) || SHAPE; markMode(); toast('Đã lưu ' + v.TenTam + ' · tạo sẵn tấm giống ' + nv.TenTam + ' (sửa số khác rồi Lưu)', 3200);
+  }
   if (KBF.on) kDone();   // dang go tren dien thoai -> dong ban phim, tra bo cuc cu de thay danh sach
+  return true;
+}
+// T78: tam truoc / sau (duyet de sua) - phan dang nhap do dang bi bo thi cho Hoan tac
+function navUpd() {
+  const n = S.panels.length, pp = $('pPos'); if (!pp) return;
+  const i = editIdx >= 0 ? editIdx : n;
+  pp.textContent = n ? (editIdx >= 0 ? (editIdx + 1) + '/' + n : 'mới') : '';
+  $('pPrev').disabled = !n || i <= 0; $('pNext').disabled = editIdx < 0;
+  $('pnav').style.display = n ? '' : 'none';
+}
+function panelNav(d) {
+  const n = S.panels.length; if (!n) return;
+  const i = (editIdx >= 0 ? editIdx : n) + d; if (i < 0 || i > n) return;
+  const snap = DIRTY ? snapForm() : null;
+  DIRTY = false;
+  if (i >= n) startNew(); else editPanel(i);
+  if (snap) toastUndo('Đã bỏ phần đang nhập dở', () => restoreSnap(snap));
+  navUpd();
 }
 function startNew() {
   editIdx = -1; DIRTY = false; $('bCancel').hidden = true; $('bSaveT').textContent = 'Lưu tấm'; $('edTitle').textContent = '2. Nhập tấm mới';
@@ -4917,14 +5016,14 @@ function startNew() {
   const v = last ? Object.assign({}, last.v, { TenTam: freeName(last.v.TenTam), SoLuong: '' }) : { TenTam: freeName(lastAny ? lastAny.v.TenTam : '') };
   if (S.defD) v.D = S.defD;     // T37: phi mac dinh ca cong trinh (van sua rieng tung tam)
   document.querySelectorAll('#form input,#form select').forEach(e => delete e.dataset.touched);
-  fillForm(v); const t = $('f_TenTam');
+  fillForm(v); const t = $('f_TenTam'); navUpd();
   SHAPE = shapeOf(cur, readForm()) || (SHAPE && shapeFits(SHAPE, cur) ? SHAPE : null); markMode();   // T12
   // tren dien thoai khong tu bat ban phim (de xem hinh truoc)
   if (t && !isNarrow()) { t.focus(); t.select(); }
 }
 function editPanel(i) {
   editIdx = i; const p = S.panels[i]; setMode(p.mode, false); fillForm(p.v); DIRTY = false; SHAPE = shapeOf(p.mode, p.v); markMode();
-  $('bCancel').hidden = false; $('bSaveT').textContent = 'Lưu sửa'; $('edTitle').textContent = '2. Sửa tấm ' + p.v.TenTam; renderList();
+  $('bCancel').hidden = false; $('bSaveT').textContent = 'Lưu sửa'; $('edTitle').textContent = '2. Sửa tấm ' + p.v.TenTam; renderList(); navUpd();
   goEditor();
 }
 function cancelEdit() { startNew(); renderList(); }
@@ -4956,7 +5055,7 @@ function renderList() {
   }).join('') || '<div class="empty">Chưa có tấm nào – nhập ở mục 2 rồi bấm “Lưu tấm”.</div>';
   const sm = summarizePanels(S.panels);
   $('sum').textContent = n ? ('Tổng: ' + n + ' dòng tấm · ' + q + ' tấm (tính số lượng)' + (sm.bad.length ? ' · ' + sm.bad.length + ' tấm lỗi' : '') + (sm.red.length ? ' · ' + sm.red.length + ' tấm ĐỎ' : '') + (sm.yellow.length ? ' · ' + sm.yellow.length + ' tấm vàng' : '')) : '';
-  $('bCnt').textContent = n + ' tấm';
+  $('bCnt').textContent = n + ' tấm'; navUpd();
 }
 function infoSummary() { const s = [S.info[2], S.info[3]].filter(Boolean).join(' · '); $('infoSum').textContent = s ? '– ' + s : ''; }
 function readInfo() { S.info = [0, 1, 2, 3].map(i => $('i' + i).value.trim()); S.defD = fixComma('num', $('i4').value); infoSummary(); save(); }
@@ -5681,6 +5780,7 @@ function openCSV(inp) {
 function setHH() { document.documentElement.style.setProperty('--hh', document.querySelector('header').offsetHeight + 'px'); }
 window.addEventListener('resize', setHH);
 document.addEventListener('DOMContentLoaded', () => {
+  const DR = draftRead();      // T78: doc ban nhap dang do TRUOC khi form dung lai (live() se xoa ban nhap khi DIRTY=false)
   setHH(); load(); buildModes(); buildShapes(); fillInfo();
   [0, 1, 2, 3, 4].forEach(i => $('i' + i).addEventListener('input', readInfo));
   $('i4').addEventListener('change', () => { const n = fixComma('num', $('i4').value); if (n !== $('i4').value.trim()) $('i4').value = n; readInfo(); });
@@ -5689,7 +5789,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const lastMode = S.panels.length ? S.panels[S.panels.length - 1].mode : '1';
   setMode(lastMode, false); renderList(); startNew();
   if (!S.panels.length) toggleModes(true);     // T12: chua co tam -> mo san bang 10 hinh
-  if (S.panels.length && S.info[2] && isNarrow()) $('infoCard').open = false;   // da co thong tin -> thu gon
+  if (isNarrow() && (S.panels.length || S.info[2] || S.info[1] || S.info[3])) $('infoCard').open = false;   // da co thong tin -> thu gon (T78: chi can co 1 o khung ten)
+  if (DR) {      // T78: khoi phuc tam dang nhap dang do
+    try { restoreSnap(DR); DIRTY = true; draftSave(); toast('Đã khôi phục tấm đang nhập dở (chưa Lưu)', 3500); if (!S.panels.length) toggleModes(false); } catch (e) {}
+  }
+  $('i4').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (isNarrow()) $('infoCard').open = false; goEditor(); } });
   dtab(UI.tab || 'pv'); if (UI.dmin) dockMin(true);
   sizeDock(); window.addEventListener('resize', sizeDock);
   window.addEventListener('scroll', trackDock, { passive: true });
