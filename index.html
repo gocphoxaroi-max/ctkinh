@@ -1750,9 +1750,13 @@ function dims1(o) {
     out.forEach(d => { if (['cR', 'cTL', 'H'].includes(d.tag) || d.src === 'H') { d.ref = 1; d.qs = 'calc'; d.src = 'CanhXien C'; } if (d.tag === 'top') d.src = 'AList KiemTong'; });
     const nL = [-u[1], u[0]];
     const wL = m.lft > 0 ? m.lft : 0;      // T61: co cat/cong trai L -> dim L ra NGOAI vuot qua phan do
-    add(p1, p4, P(mid(p1, p4), nL, 60 + wL), '012', 'CanhXien', 1, 'L');
+    // T74: tam CO CAT GOC -> dim L + goc phi ghi o CANH NGUYEN (lisp 05 modL/modR). Chi 1 ben bi sua -> sang ben kia; 2 ben / khong -> nhu cu.
+    const modL = m.lft > 0 || m.gt > 0 || m.vc > 0, modR = m.cut > 0 || m.top > 0 || m.bot > 0 || m.kw > 0;
+    if (modL && !modR) add(p2, p3, P(mid(p2, p3), nL, -60), '012', 'CanhXien', 1, 'L');
+    else add(p1, p4, P(mid(p1, p4), nL, 60 + wL), '012', 'CanhXien', 1, 'L');
     const ph = Math.atan2(Math.abs(p3[0] - p2[0]), Math.abs(p3[1] - p2[1])) * 180 / Math.PI;
-    out.push({ kind: 'goc', c: p3, a: p2p, b: p2, off: 170, st: '010-ok', val: ph, text: fmtAng(ph), src: 'C', pri: 1, tag: '', lxk: 'phi' });
+    if (modR && !modL) out.push({ kind: 'goc', c: p1, a: p4p, b: p4, off: 170, st: '010-ok', val: ph, text: fmtAng(ph), src: 'C', pri: 1, tag: '', lxk: 'phi' });
+    else out.push({ kind: 'goc', c: p3, a: p2p, b: p2, off: 170, st: '010-ok', val: ph, text: fmtAng(ph), src: 'C', pri: 1, tag: '', lxk: 'phi' });
   }
   // --- 5. dim goc canh xien (CTHL-DimAngleLabel) ---
   if (!isRect && (!ext || extL) && !o.lx) {
@@ -1817,7 +1821,7 @@ function dims1(o) {
     if (okR && !mr && (yBot < p2[1] - 0.5 || yTop > p3[1] + 0.5)) add([xR, yBot], [xR, yTop], [xR + 165, yBot], '020-ok', 'H CutP3', 1);
     if (top > 0) add([p3[0], p2[1]], p3, [p3[0] + 80, p2[1]], '012', 'H', 1);
   }
-  // nhan ten tam (giua p1 - p3): Ten-SoLo%%CD (so lo = lo chinh + lo mo rong, chua tinh lo cong trai)
+  // nhan ten tam (giua p1 - p3): Ten-SoLo%%CD (so lo = lo chinh + lo mo rong; lo cong trai L cong sau trong geom - T74)
   const nh = o.holes.filter(h => h.src !== 'L').length, lbP = mid(p1, extR ? nm.P3e || p3 : p3);
   if (o.name) out.push({ kind: 'nhan', a: lbP, b: lbP, val: 0, text: o.name + '-' + nh + '⌀' + Math.round(o.D), src: 'TenTam', pri: 2, tag: '' });
   if (!extR) leftCornerDims(out, { p1, p2, p3, p4, m, nm, mr });      // T57: GT / V (sau CTK-ApplyCornerMods)
@@ -2276,9 +2280,9 @@ function geomTG(v, flip) {
       // T64: H<s>/<lo1>/<kc>..[@phi] = (T70) chan truc tren CANH XIEN cach CHAN canh huyen (dau thap) s, do DOC canh xien;
       //   lo DUNG len tu chan truc: lo 1 cach chan lo1 (do dung), cac lo sau cach nhau kc (mau Mautamgiac S7-3 / TG-5)
       const Ls = V2.dist(sA, sB);
-      if (Ls > 1e-6 && dd > 0 && dd < Ls) {
+      if (Ls > 1e-6 && dd >= 0 && dd < Ls) {          // T74: cho H0 (truc qua dung chan canh huyen)
         const E = V2.add(sA, V2.u(sA, sB), dd);       // T70: do tu CHAN canh huyen (sA)
-        holeDimAdd(dims, sA, E, dd, 45, !sideT, 'TG_LoThem', 2);
+        if (dd > 0.01) holeDimAdd(dims, sA, E, dd, 45, !sideT, 'TG_LoThem', 2);
         let prev = null;
         ns.slice(1).forEach(k => { const h = [E[0], (prev || E)[1] + k]; holeDimAdd(dims, prev || E, h, k, 55, sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
         if (hs.length > 1) holeDimAdd(dims, E, prev, V2.dist(E, prev), 110, sideT, 'TG_LoThem', 2);
@@ -3214,6 +3218,8 @@ function geom(mode, v) {
       if (r.flip) flip = true;
     }
     if (S.dims && S.dims.length) chainTotals(S.dims, S.holes.map(h => [h.x, h.y]), S.dims.xtot);   // T29: dim tong chuoi dim day (truoc lat guong)
+    // T74: nhan tam dem CA lo phan cong trai L (lisp CTK-ApplyCornerMods -> CTK-LtLabel). Mode 5 lisp chua cong (module 16 ngoai phieu).
+    if (mode !== '5') { const nL = S.holes.filter(h => h.src === 'L').length, lb = nL && S.dims.find(d => d.kind === 'nhan'); if (lb) lb.text = lb.text.replace(/(\d+)⌀/, (q, x) => (+x + nL) + '⌀'); }
     // T08b: CTK-ApplyQty - so luong >= 2 -> nhan ten tam them "SL = n" (lisp: dong thu 2 "SL = n Tam")
     const qty = parseInt(v.SoLuong, 10);
     if (qty > 1) S.dims.forEach(d => { if (d.kind === 'nhan') d.text += ' SL=' + qty; });
