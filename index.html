@@ -109,6 +109,25 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
 .dtool button.on{background:#d35400;border-color:#d35400;color:#fff}
 .dtool .dq.on{background:#e67e22;border-color:#e67e22}
 .dtool .ddim{color:#1e7a46;border-color:#8cc4a3}.dtool .ddim.off{color:#7f8c8d;border-color:#b9c6d3}
+/* T80: dai the tu an. Dien thoai: thu thanh nut nho mo o mep hinh, bung de len hinh, tu thu sau 4 giay. May tinh: giu hien nhung mo, nut ghim */
+.drailh,.drailchip,.dpin{display:none}
+.dtool{transition:opacity .2s}
+@media(min-width:900px){
+  .dtool{opacity:.45}.dtool:hover,.dtool:focus-within,.dtool.pinned{opacity:1}
+  .dtool .dpin{display:flex;min-height:34px;font-size:10px}.dtool .dpin.on{background:#1f4e79;border-color:#1f4e79;color:#fff}
+}
+@media(max-width:899px){
+  .dtool{position:absolute;right:0;top:0;bottom:0;width:62px;z-index:6;transform:translateX(105%);visibility:hidden;pointer-events:none;box-shadow:-3px 0 10px rgba(0,0,0,.18);transition:transform .2s ease,visibility 0s .2s}
+  #dpPv.rail-open .dtool{transform:none;visibility:visible;pointer-events:auto;transition:transform .2s ease,visibility 0s}
+  .drailh{display:flex;align-items:center;justify-content:center;position:absolute;right:0;top:50%;margin-top:-30px;width:28px;height:60px;padding:0;font-size:24px;line-height:1;border:1px solid #b9c6d3;border-right:0;border-radius:10px 0 0 10px;background:rgba(238,242,246,.6);color:#1f4e79;opacity:.45;z-index:4;touch-action:manipulation}
+  .drailh:active{opacity:1}
+  #dpPv.rail-open .drailh{display:none}
+  .drailchip{position:absolute;right:30px;top:6px;z-index:4;min-height:30px;padding:2px 10px;border-radius:15px;border:0;background:#d35400;color:#fff;font-size:13px;font-weight:bold;touch-action:manipulation}
+  .drailchip:not([hidden]){display:block}
+  #dpPv.rail-open .drailchip{display:none}
+  body.kbf .drailh,body.kbf .drailchip,.dock.qtyp .drailh{display:none !important}
+}
+@media (prefers-reduced-motion:reduce){.dtool{transition:none !important}}
 .dpane .pvnote{position:absolute;left:6px;right:6px;bottom:3px;margin:0;font-size:12px;background:#ffffffcc;pointer-events:none}
 /* --- T34: cham "?" tren hinh de ghi so --- */
 .dock.qon .dinfo{display:none}
@@ -352,7 +371,7 @@ details.card>summary{min-height:44px}
           <button type="button" class="dsize" id="dsizeB" onclick="cycleDockSize()" title="Cỡ khung xem trước: Nhỏ / Vừa / Lớn (bấm để đổi)">Cỡ: Vừa</button>
           <button type="button" class="dmin" id="dminB" onclick="dockMin()" title="Thu gọn / mở">▴</button>
         </div>
-        <div class="dpane" id="dpPv"><div class="pvbox"><svg id="pv" onclick="pvTap(event)"></svg><div class="pvnote" id="pvnote"></div></div><div class="dtool" id="dtool" role="toolbar" aria-label="Công cụ hình"><button type="button" class="dq on" id="dqB" title="Ghi số trên hình (bật / tắt)" onclick="toggleQ()"><i>✎</i>Ghi số</button><button type="button" class="ddim" id="ddimB" title="Dim: Chính / Đủ / Tắt (bấm để đổi)" onclick="toggleDim()"><i>↔</i><span id="ddimT">Chính</span></button><button type="button" class="dzoom" id="dzoomB" title="Xem toàn màn hình" onclick="openPreview()"><i>⤢</i>Phóng</button><button type="button" class="dsg" id="dsgB" title="Sửa góc: cắt / cộng / khoét (hiện nút + ở các góc)" onclick="toggleSg()"><i>✂</i>Sửa góc</button><button type="button" class="dgoc" id="dgocB" title="Chọn đỉnh tấm để đo góc (khách yêu cầu)" onclick="toggleGoc()"><i>∠</i>Đo góc</button><button type="button" class="dbo" id="dboB" title="Chạm đỉnh tấm rồi nhập bán kính R để bo góc" onclick="toggleBo()"><i>◜</i>Bo góc</button><button type="button" class="dlt" id="dltB" title="Thêm lỗ ở điểm bất kỳ: chạm đỉnh làm mốc rồi nhập 2 số đo như thợ ghi" onclick="toggleLt()"><i>⊕</i>Lỗ tự do</button><button type="button" class="dgt" id="dgtB" title="Cộng thêm ở góc trên phía cạnh xiên TRÁI, đo DỌC cạnh xiên (vd thợ ghi +50). Tấm nghiêng trái: góc này nằm bên phải." onclick="sgOpen('TL','GT')"><i>⊿</i>+ Trên trái</button><button type="button" class="dvc" id="dvcB" title="Cắt góc dưới-trái VUÔNG GÓC cạnh xiên, ghi 1 số = độ dài đường cắt (kiểu thợ Hải, có dấu góc vuông). Chỉ tấm chuỗi đáy (Mode 1)." onclick="sgOpen('BL','V')"><i>◺</i>Cắt 1 số</button></div></div>
+        <div class="dpane" id="dpPv"><div class="pvbox"><svg id="pv" onclick="pvTap(event)"></svg><button type="button" class="drailh" id="drailH" title="Mở dải công cụ" aria-label="Mở dải công cụ" onclick="railOpen()">&#8249;</button><button type="button" class="drailchip" id="drailChip" hidden onclick="railChipOff()"></button><div class="pvnote" id="pvnote"></div></div><div class="dtool" id="dtool" role="toolbar" aria-label="Công cụ hình"><button type="button" class="dpin" id="dpinB" title="Ghim dải (luôn rõ)" onclick="railPin()"><i>&#128204;</i>Ghim</button><button type="button" class="dq on" id="dqB" title="Ghi số trên hình (bật / tắt)" onclick="toggleQ()"><i>✎</i>Ghi số</button><button type="button" class="ddim" id="ddimB" title="Dim: Chính / Đủ / Tắt (bấm để đổi)" onclick="toggleDim()"><i>↔</i><span id="ddimT">Chính</span></button><button type="button" class="dzoom" id="dzoomB" title="Xem toàn màn hình" onclick="openPreview()"><i>⤢</i>Phóng</button><button type="button" class="dsg" id="dsgB" title="Sửa góc: cắt / cộng / khoét (hiện nút + ở các góc)" onclick="toggleSg()"><i>✂</i>Sửa góc</button><button type="button" class="dgoc" id="dgocB" title="Chọn đỉnh tấm để đo góc (khách yêu cầu)" onclick="toggleGoc()"><i>∠</i>Đo góc</button><button type="button" class="dbo" id="dboB" title="Chạm đỉnh tấm rồi nhập bán kính R để bo góc" onclick="toggleBo()"><i>◜</i>Bo góc</button><button type="button" class="dlt" id="dltB" title="Thêm lỗ ở điểm bất kỳ: chạm đỉnh làm mốc rồi nhập 2 số đo như thợ ghi" onclick="toggleLt()"><i>⊕</i>Lỗ tự do</button><button type="button" class="dgt" id="dgtB" title="Cộng thêm ở góc trên phía cạnh xiên TRÁI, đo DỌC cạnh xiên (vd thợ ghi +50). Tấm nghiêng trái: góc này nằm bên phải." onclick="sgOpen('TL','GT')"><i>⊿</i>+ Trên trái</button><button type="button" class="dvc" id="dvcB" title="Cắt góc dưới-trái VUÔNG GÓC cạnh xiên, ghi 1 số = độ dài đường cắt (kiểu thợ Hải, có dấu góc vuông). Chỉ tấm chuỗi đáy (Mode 1)." onclick="sgOpen('BL','V')"><i>◺</i>Cắt 1 số</button></div></div>
         <div class="qbar" id="qbar" hidden>
           <div class="qr"><span class="qlab" id="qlab"></span></div>
           <div class="qprog" id="qprog"></div>
@@ -4708,6 +4727,43 @@ function keepVisible(el) {
   else if (r.bottom > bot - 8) window.scrollBy(0, r.bottom - bot + 48);
 }
 function openPreview() { if (!$('dinfo').textContent) return; openPF(); }
+
+// ---------- T80: dai the cong cu tu an ----------
+let _railT = 0;
+function railOpen() {
+  const p = $('dpPv'); if (!p) return;
+  p.classList.add('rail-open'); railTimer();
+}
+function railClose() { const p = $('dpPv'); if (p) p.classList.remove('rail-open'); clearTimeout(_railT); }
+function railTimer() { clearTimeout(_railT); _railT = setTimeout(railClose, 4000); }
+function railPin() {
+  const d = $('dtool'), on = !d.classList.contains('pinned');
+  d.classList.toggle('pinned', on); $('dpinB').classList.toggle('on', on);
+  try { localStorage.setItem('ctk_railpin', on ? '1' : '0'); } catch (e) {}
+}
+function railChipOff() {
+  if (GOCP) gocSw();
+  else if (typeof QMORE !== 'undefined' && QMORE && qOn()) toggleSg();
+  updRailChip();
+}
+function updRailChip() {
+  const c = $('drailChip'); if (!c) return;
+  let t = '';
+  if (GOCP) t = GOCK === 'bo' ? 'Bo góc' : GOCK === 'lt' ? 'Lỗ tự do' : 'Đo góc';
+  else if (typeof QMORE !== 'undefined' && QMORE && qOn()) t = 'Sửa góc';
+  c.hidden = !t; c.textContent = t ? t + ' ✕' : '';
+}
+(function railInit() {
+  const d = $('dtool'), pv = $('pv'); if (!d) return;
+  try { if (localStorage.getItem('ctk_railpin') === '1') { d.classList.add('pinned'); $('dpinB').classList.add('on'); } } catch (e) {}
+  d.addEventListener('click', ev => {
+    const b = ev.target.closest && ev.target.closest('button'); if (!b || b.id === 'dpinB') return;
+    setTimeout(() => { updRailChip(); railClose(); }, 150);
+  });
+  d.addEventListener('pointerdown', railTimer);
+  if (pv) pv.addEventListener('pointerdown', railClose);
+  setInterval(updRailChip, 600);      // nhan cong cu dang bat luon dung (khong can moc vao tung ham)
+})();
 
 
 // ---------- thanh phim phu + che do go (T14) ----------
