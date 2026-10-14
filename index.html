@@ -3040,24 +3040,45 @@ function gocTokens(mode, v) {
 // CAD: them 1 token "PHU:x/y/g1/g2" vao cot GocDo (cung dinh dang T22); lisp CTK-GocDoDraw ve du da co dim alpha.
 var GOCPHU = false;
 function gocPhuList(S) {
-  const out = [];
-  (S.dims || []).forEach(d => {
-    if (d.kind !== 'goc' || d.tag === 'gocphu' || (d.src !== 'C H' && d.src !== 'C2 H2') || !d.c || !d.a) return;
+  const out = [], vs = S.verts || [], isAl = d => d.kind === 'goc' && d.tag !== 'gocphu' && (d.src === 'C H' || d.src === 'C2 H2') && d.c && d.a;
+  const al = (S.dims || []).filter(isAl);
+  al.forEach(d => {
     if (!(d.val > 0.01 && d.val < 89.99)) return;
-    if (!(S.verts || []).some(q => V2.dist(q.p, d.c) <= 0.5)) return;
+    if (!vs.some(q => V2.dist(q.p, d.c) <= 0.5)) return;
     const dn = [d.c[0], d.c[1] + (d.a[1] < d.c[1] ? -100 : 100)], ph = Math.round((90 - d.val) * 100) / 100;
     out.push({ c: d.c, a: dn, b: d.a, val: ph });
   });
+  // T86: tam co cat goc P3 / phan mo rong (khong co dim alpha tai dinh that) -> goc phu ghi o GOC DOI DIEN canh xien
+  // (canh xien ben phai -> dinh duoi-TRAI; nghieng trai -> duoi-phai): 1 canh dung len, 1 tia song song canh xien.
+  if (!out.length && S.sl && vs.length > 2) {
+    const e = V2.sub(S.sl.b, S.sl.a), dy = Math.abs(e[1]);
+    if (dy > 1e-6) {
+      const ph = Math.round(Math.atan(Math.abs(e[0]) / dy) * 18000 / Math.PI) / 100;
+      if (ph > 0.01 && ph < 89.99) {
+        const xs = vs.map(q => q.p[0]), cx = (Math.min(...xs) + Math.max(...xs)) / 2, rightSlant = S.sl.b[0] >= cx;
+        const ex = rightSlant ? Math.min(...xs) : Math.max(...xs), bot = vs.filter(q => Math.abs(q.p[0] - ex) <= 0.5);   // canh dung ngoai cung phia doi dien
+        const v = bot.reduce((m, q) => q.p[1] < m.p[1] ? q : m, bot[0]);
+        const sg = e[1] > 0 ? 1 : -1, r = [e[0] * sg / dy * 100, 100];
+        out.push({ c: v.p, a: [v.p[0], v.p[1] + 100], b: [v.p[0] + r[0], v.p[1] + r[1]], val: ph });
+      }
+    }
+  }
   return out;
 }
 function gocPhuDims(S) {
-  gocPhuList(S).forEach(q => S.dims.push({ kind: 'goc', c: q.c, a: q.a, b: q.b, off: 170, st: '010-ok', val: q.val, text: fmtAng(q.val), src: 'C H', pri: 1, tag: 'gocphu', ray: 1, id: S.dims.length }));
+  const L = gocPhuList(S);
+  if (!L.length) return;
+  S.phuL = L;                                   // CSV token dung lai (alpha da bi bo khoi dims)
+  // T86: bat goc phu -> BO ket qua alpha (chi con goc phu)
+  S.dims = S.dims.filter(d => !(d.kind === 'goc' && d.tag !== 'gocphu' && (d.src === 'C H' || d.src === 'C2 H2')));
+  L.forEach(q => S.dims.push({ kind: 'goc', c: q.c, a: q.a, b: q.b, off: 170, st: '010-ok', val: q.val, text: fmtAng(q.val), src: 'C H', pri: 1, tag: 'gocphu', ray: 1 }));
+  S.dims.forEach((d, i) => { d.id = i; });
 }
 // token CSV "PHU:x/y/g1/g2" (toa do nhu gocTokens; g1 -> g2 quay nguoc kim dong ho = 90-alpha)
 function gocPhuTokens(mode, v) {
   if (!GOCPHU) return '';
   const sh = geom(mode, v).shape || {};
-  let vs = sh.verts || [], L = gocPhuList(sh);
+  let vs = sh.verts || [], L = sh.phuL || gocPhuList(sh);
   if (vs.length < 3 || !L.length) return '';
   const fl = (mode === '2' || mode === '4') && /^T/i.test((v.Huong || '').trim()), fx = p => fl ? [-p[0], p[1]] : p;
   if (fl) vs = vs.map(q => ({ n: q.n, p: fx(q.p) }));
@@ -3356,6 +3377,7 @@ function geom(mode, v) {
         }
         S.dims = dims1({ a, Sa, C, H, u, p1, p2, p3, p4, ext, extL, db, E, mainAx, extAx, topAx, m, D, m3, lx: mode === '1' && !ext ? m1Slant(v) : null,
           verts: S.verts, holes: S.holes, axes: S.axes, name: (v.TenTam || '').trim(), kalist: mode === '1' && m.kw > 0 && H > 0 && (!db.length || m.mt) });
+        if (!(mode === '1' && !ext && m1Slant(v)) && Math.abs(p3[0] - p2[0]) > 1e-6) S.sl = { a: p2, b: p3 };      // T86: canh xien (cho goc phu)
         if (m3) {             // o nhap Mode 3 (de sang o - T02): AList/HoleGroups/C cua Mode 1 -> cot Mode 3
           const MAP = { AList: C < 1e-6 ? 'AKnownList' : 'OffsetLeft AKnownList Total', HoleGroups: 'HoleHeights', C: 'DiagLen' };
           S.dims.forEach(d => { if (d.src) d.src = d.src.split(' ').map(t => MAP[t] || t).join(' '); });
@@ -3372,6 +3394,7 @@ function geom(mode, v) {
       nums(v.AList).forEach((ai, i) => { x += ai; if (ys[i] > 0) { addHole([x, ys[i]], 'main', i); S.axes.push({ a: [x, 0], b: [x, ys[i]], src: 'main' }); } });
       { const vp = S.verts.map(q => q.p); mrCorner(S.refs, vp, minRect(vp)); }      // T66: goc khung phoi xoay (CTK-DrawMinRect)
       const nmap = {}; S.verts.forEach(q => { nmap[q.n] = q.p; });
+      if (Math.abs(p3[0] - p2[0]) > 1e-6) S.sl = { a: p2, b: p3 };      // T86
       S.dims = dims2({ W, H1, H2, C1, C2, cx, cy, cp, p4, a: nums(v.AList), ys, m, nm: nmap, D, name: (v.TenTam || '').trim(), verts: S.verts.map(q => q.p),
         hp: S.holes.filter(h => h.src === 'main').map(h => [h.x, h.y]) });
     } else if (mode === '4') {
@@ -3424,6 +3447,7 @@ function geom(mode, v) {
       const xs = S.verts.map(p => p.p[0]), X = Math.min(...xs) + Math.max(...xs), fx = p => [X - p[0], p[1]];
       S.verts = S.verts.map(p => nm(p.n, fx(p.p)));
       S.holes.forEach(h => { h.x = X - h.x; });
+      if (S.sl) S.sl = { a: fx(S.sl.a), b: fx(S.sl.b) };
       S.axes = S.axes.map(l => Object.assign({}, l, { a: fx(l.a), b: fx(l.b) }));
       S.refs = S.refs.map(r => Object.assign({}, r, { a: fx(r.a), b: fx(r.b) }));
       S.dims = S.dims.map(d => Object.assign({}, d, { a: fx(d.a), b: fx(d.b) }, d.n ? { n: [-d.n[0], d.n[1]] } : {}, d.c ? { c: fx(d.c) } : {}, d.p ? { p: fx(d.p) } : {}));
