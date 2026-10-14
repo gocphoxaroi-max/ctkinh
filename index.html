@@ -1909,7 +1909,8 @@ function dims1(o) {
     const wL = m.lft > 0 ? m.lft : 0;      // T61: co cat/cong trai L -> dim L ra NGOAI vuot qua phan do
     // T74: tam CO CAT GOC -> dim L + goc phi ghi o CANH NGUYEN (lisp 05 modL/modR). Chi 1 ben bi sua -> sang ben kia; 2 ben / khong -> nhu cu.
     const modL = m.lft > 0 || m.gt > 0 || m.vc > 0, modR = m.cut > 0 || m.top > 0 || m.bot > 0 || m.kw > 0;
-    if (modL && !modR) add(p2, p3, P(mid(p2, p3), nL, -60), '012', 'CanhXien', 1, 'L');
+    // T82: cat CA 2 BEN -> dim L o canh xien PHAI, ra ngoai cung phia dim cat 70 (cach 70 neu co cat P3), goc phi o p3
+    if (modL) add(p2, p3, P(mid(p2, p3), nL, -(modR && m.cut > 0 ? 70 : 60)), '012', 'CanhXien', 1, 'L');
     else add(p1, p4, P(mid(p1, p4), nL, 60 + wL), '012', 'CanhXien', 1, 'L');
     const ph = Math.atan2(Math.abs(p3[0] - p2[0]), Math.abs(p3[1] - p2[1])) * 180 / Math.PI;
     if (modR && !modL) out.push({ kind: 'goc', c: p1, a: p4p, b: p4, off: 170, st: '010-ok', val: ph, text: fmtAng(ph), src: 'C', pri: 1, tag: '', lxk: 'phi' });
