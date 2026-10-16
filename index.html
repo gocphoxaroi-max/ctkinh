@@ -365,7 +365,8 @@ body.ks #edCard,body.ks #listCard,body.ks .bbar:not(.ksb){display:none}
       <div><label for="i1">Tên Đại Lý</label><input id="i1" enterkeyhint="next"></div>
       <div><label for="i2">Tên khách hàng</label><input id="i2" enterkeyhint="next"></div>
       <div><label for="i3">Loại kính</label><input id="i3" placeholder="vd 10 cường lực" enterkeyhint="next"></div>
-      <div><label for="i4">Đường kính lỗ mặc định φ (mm)</label><input id="i4" inputmode="decimal" autocomplete="off" placeholder="vd 18 – tấm mới tự điền D" enterkeyhint="done"></div>
+      <div id="i4wrap"><label for="i4">Đường kính lỗ mặc định φ (mm)</label><input id="i4" inputmode="decimal" autocomplete="off" placeholder="vd 18 – tấm mới tự điền D" enterkeyhint="done"></div>
+      <div id="ksHead" style="display:none"></div>
     </div>
   </details>
   <section class="card" id="edCard">
@@ -7168,14 +7169,14 @@ function ksJetExport(panels, prefix) {
 // chi them lop phu: khi chon "Kinh son" thi an the nhap + danh sach lan can, hien ksApp; cac nut Xuat / Mo CSV / Cong trinh moi
 // chuyen sang ban kinh son. Phu thuoc: kinhson.js (logic) + ham san co cua app (S, $, toast, esc, pdfBuild, svgToPng, fnBase, readInfo, isNarrow).
 // ============================================================================
-var KSKEY = 'ctkinh_ks_v1', KSS = { on: false, panels: [], recent: [], unit: 'mm', def: null }, KSE = null, KSI = -1, KSXFILE = null, KSR = { h: '', w: ['', '', '', ''] };
-function ksSave() { try { localStorage.setItem(KSKEY, JSON.stringify({ on: KSS.on, panels: KSS.panels, draft: KSE, idx: KSI, unit: KSS.unit, def: KSS.def, row: KSR })); } catch (e) {} }
-function ksLoad() { try { var o = JSON.parse(localStorage.getItem(KSKEY) || 'null'); if (o) { KSS.on = !!o.on; KSS.panels = o.panels || []; KSS.unit = o.unit === 'cm' ? 'cm' : 'mm'; KSS.def = o.def || null; if (o.row && o.row.w) KSR = o.row; if (o.draft) { KSE = o.draft; KSI = o.idx == null ? -1 : o.idx; (KSE.holes || []).forEach(ksHoleNorm); } } } catch (e) {} }
+var KSKEY = 'ctkinh_ks_v1', KSS = { on: false, panels: [], recent: [], unit: 'mm', def: null, picked: false }, KSE = null, KSI = -1, KSXFILE = null, KSR = { h: '', w: ['', '', '', ''] };
+function ksSave() { try { localStorage.setItem(KSKEY, JSON.stringify({ on: KSS.on, panels: KSS.panels, draft: KSE, idx: KSI, unit: KSS.unit, def: KSS.def, picked: KSS.picked, row: KSR })); } catch (e) {} }
+function ksLoad() { try { var o = JSON.parse(localStorage.getItem(KSKEY) || 'null'); if (o) { KSS.on = !!o.on; KSS.panels = o.panels || []; KSS.unit = o.unit === 'cm' ? 'cm' : 'mm'; KSS.def = o.def || null; KSS.picked = !!o.picked || !!o.def || !!(o.panels && o.panels.length); if (o.row && o.row.w) KSR = o.row; if (o.draft) { KSE = o.draft; KSI = o.idx == null ? -1 : o.idx; (KSE.holes || []).forEach(ksHoleNorm); } } } catch (e) {} }
 function ksSetOn(on) {
   KSS.on = !!on; document.body.classList.toggle('ks', KSS.on);
   $('spLc').classList.toggle('act', !KSS.on); $('spKs').classList.toggle('act', KSS.on);
   var t = document.querySelector('header h1'); if (t) t.textContent = KSS.on ? 'Kính sơn – CTKinh' : 'Nhập liệu CTKinh';
-  if (KSS.on) { if (!KSE) ksStart(); ksRenderEd(); ksRenderList(); ksLive(); }
+  if (KSS.on) { if (!KSE) ksStart(); ksRenderHead(true); ksRenderEd(); ksRenderList(); ksLive(); }
   ksSave(); if (typeof setHH === 'function') setHH(); window.scrollTo({ top: 0 });
 }
 function ksStart(copyFrom) {
@@ -7230,7 +7231,7 @@ function ksShapeFields(p, u, fm) {
   if (sh.t === 'T') return '<div class="ksgrid">' + ksField('kssb', 'Đáy dưới (' + u + ')', fm(sh.b), ph('vd 166', 'vd 1660')) + ksField('kssp', 'Đỉnh trên (' + u + ')', fm(sh.tp), ph('vd 120', 'vd 1200')) + '</div>' +
     '<div class="ksgrid">' + ksField('kssh', 'Cao (' + u + ')', fm(sh.hh), ph('vd 59', 'vd 590')) + ksField('ksso', 'Lệch (' + u + ')', fm(sh.off), 'để trống = cân giữa') + '</div>' +
     '<small class="ksnote">Lệch = khoảng cách ngang từ góc trái-dưới tới góc trái-trên (số âm = lệch sang trái). Để trống: đỉnh nằm cân giữa đáy.</small>';
-  var mode = '<div class="kssw sm"><button type="button" class="' + (sh.m === 'v' ? '' : 'act') + '" onclick="ksQMode('s')">4 cạnh + 1 đường chéo</button><button type="button" class="' + (sh.m === 'v' ? 'act' : '') + '" onclick="ksQMode('v')">Toạ độ 4 đỉnh</button></div>', body = '';
+  var mode = '<div class="kssw sm"><button type="button" class="' + (sh.m === 'v' ? '' : 'act') + '" onclick="ksQMode(\'s\')">4 cạnh + 1 đường chéo</button><button type="button" class="' + (sh.m === 'v' ? 'act' : '') + '" onclick="ksQMode(\'v\')">Toạ độ 4 đỉnh</button></div>', body = '';
   if (sh.m === 'v') { var nm = ['A', 'B', 'C', 'D'], i; body = '<div class="ksgrid">'; for (i = 0; i < 8; i++) body += ksField('ksv' + i, nm[i >> 1] + (i % 2 ? ' dọc y' : ' ngang x') + ' (' + u + ')', fm(sh.v[i]), '0'); body += '</div><small class="ksnote">Toạ độ khách ghi (4 đỉnh đi vòng quanh tấm, ngược chiều kim đồng hồ). Gốc nào cũng được – app tự dời về góc dưới-trái.</small>'; }
   else body = '<div class="ksgrid">' + ['AB (đáy)', 'BC (phải)', 'CD (trên)', 'DA (trái)', 'Đường chéo AC'].map(function (l, i) { return ksField('ksq' + i, l + ' (' + u + ')', fm(sh.s[i]), 'vd 1000'); }).join('') + '</div><small class="ksnote">A = góc trái-dưới, B = phải-dưới, C = phải-trên, D = trái-trên; chéo AC nối A với C. Chạm hình xem trước để thấy A–D.</small>';
   return mode + body;
@@ -7239,7 +7240,7 @@ function ksRowRead() {
   var u = ksUnit(), e = $('krh'); if (!e) return; KSR.h = ksToMm(e.value, u);
   var w = []; for (var i = 0; $('krw' + i); i++) w.push(ksToMm($('krw' + i).value, u)); KSR.w = w;
 }
-function ksSyncDef() { if (KSE && KSI < 0) KSS.def = { ma: KSE.ma, ks: KSE.ks, day: KSE.day }; }
+function ksSyncDef() { if (KSE && KSI < 0 && KSS.picked) KSS.def = { ma: KSE.ma, ks: KSE.ks, day: KSE.day }; }
 function ksField(id, label, val, ph, mode, ghost, hand) {
   return '<div class="ksf"><label for="' + id + '">' + label + '</label><input id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(ph || '') + '" inputmode="' + (mode || 'decimal') + '" autocomplete="off" enterkeyhint="next" oninput="' + (hand || 'ksLive()') + '" onkeydown="' + (hand ? 'ksRowKey(event)' : 'ksKey(event)') + '"></div>';
 }
@@ -7352,10 +7353,10 @@ function ksTiep(from) {
   var i = all.indexOf(from || document.activeElement);
   var nx = all[i + 1]; if (nx) { nx.focus(); try { nx.select(); } catch (e) {} } else { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); ksSavePanel(); }
 }
-function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.ma) return; ksRead(); KSE.ma = ma; ksRenderEd(); ksLive(); }
+function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.ma) return; ksRead(); KSE.ma = ma; if (KSI < 0) KSS.picked = true; ksRenderEd(); ksLive(); }
 // CSS o chon mau (dat o day de khong phai sua form_ui.html)
 (function () {
-  try { var st = document.createElement('style'); st.textContent = '.ksmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:4px 0 8px}' +
+  try { var st = document.createElement('style'); st.textContent = 'body.ks #i4wrap{display:none}body.ks #ksHead{display:block!important;grid-column:1/-1}#ksHead .ksmgrid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}#ksHead .ksmau{min-height:54px;padding:4px}.ksy{background:#fff7d6;border-radius:8px;padding:6px 8px;font-size:14px}.ksmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:4px 0 8px}' +
     '.ksmau{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:58px;padding:6px;border:2px solid #dde3ea;border-radius:10px;background:#fff;text-align:left;font-size:14px;color:#111;cursor:pointer}' +
     '.ksmau .ksmsw{display:block;width:100%;height:20px;border-radius:6px;border:1px solid #888;margin-bottom:2px}' +
     '.ksmau small{color:#556;font-size:12px;line-height:1.2}' +
@@ -7363,7 +7364,29 @@ function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.m
     '.ksmau:disabled{opacity:.35;cursor:not-allowed}' +
     '.ksmore{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:10px 0;background:#f7fafd}.ksmore>summary{min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:600;color:#1f4e79;cursor:pointer}.kshole .ksmore{background:#fff;margin:6px 0 0}.kshole.cur{border-color:#ff8a00;box-shadow:0 0 0 2px #ff8a0055}.ksrefv{font-size:14px;color:#1f4e79;margin:0 8px}.ksrefhint{margin:2px 0 6px}.ksclr{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:15px}.ksclr button{margin-left:auto;min-height:44px;font-size:15px;border:1px solid #c9d6e3;border-radius:10px;background:#fff;padding:0 10px}.ksmsw2{display:inline-block;width:28px;height:28px;border-radius:7px;border:1px solid #888;flex:none}.ksbtn{min-height:44px;font-size:16px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;padding:0 12px}.kscal .row2{display:flex;gap:8px;align-items:center;margin:8px 0}.kscal .sq{height:54px;border-radius:10px;border:1px solid #888}.kscal input[type=range]{flex:1;min-height:32px}.kscal input[type=text],.kscal select{font-size:16px;min-height:44px;padding:0 8px;border:1px solid #bbb;border-radius:8px}.ksdock{background:#fff}.ksrb{border:1px solid #c9d6e3;border-radius:12px;padding:8px;margin:8px 0;background:#f2f7fc}.ksrb .ksadd button.pri{background:#1f4e79;color:#fff}.ksnote{display:block;color:#7a8794;font-size:12px;margin-top:2px}.kshole .kssw.sm{flex-wrap:wrap;margin:6px 0}.kshole .kssw.sm button{flex:1 1 40%}'; document.head.appendChild(st); } catch (e) {}
 })();
-function ksSetKs(v) { ksRead(); KSE.ks = v; ksRenderEd(); ksLive(); }
+// T101: khung ten dau don (kinh son): MA MAU + KIM SA chon truoc khi ve (thay o phi mac dinh cua lan can) -> mac dinh cho moi tam moi cua don
+var KSHSIG = '';
+function ksHeadVal() { var d = KSS.picked ? KSS.def : null, e = KSE; return { ma: d ? d.ma : (e && KSI < 0 ? e.ma : (e ? e.ma : '')), ks: d ? (d.ks ? 1 : 0) : (e && KSI < 0 ? (e.ks ? 1 : 0) : 0) }; }
+function ksRenderHead(force) {
+  var box = $('ksHead'); if (!box) return; var v = ksHeadVal(), sig = (KSS.picked ? 'P' : 'N') + v.ma + '|' + v.ks + '|' + KS_CFG.colors.length;
+  if (!force && sig === KSHSIG && box.innerHTML) return; KSHSIG = sig;
+  var sw = KS_CFG.colors.map(function (c) { var act = KSS.picked && c.ma === v.ma, off = !!c.hetTon && !act; return '<button type="button" class="ksmau' + (act ? ' act' : '') + (c.hetTon ? ' het' : '') + '"' + (off ? ' disabled' : '') + ' onclick="ksHeadMa(\'' + esc(c.ma) + '\')"><span class="ksmsw" style="background:' + ksHex(c.ma) + '"></span><b>' + esc(c.ma) + '</b><small>' + esc(c.ten) + (c.hetTon ? ' · hết hàng' : '') + '</small></button>'; }).join('');
+  box.innerHTML = '<div class="kshh">Mã màu <small>(mặc định cho mọi tấm của đơn; ô mờ = hết hàng)</small></div><div class="ksmgrid">' + sw + '</div>' +
+    (KSS.picked ? '' : '<div class="ksy" style="margin:4px 0">ℹ Chưa chọn mã màu – chọn trước khi vẽ (đang tạm tô màu đầu bảng; vẫn vẽ được).</div>') +
+    '<div class="ksf"><label>Kim sa</label><div class="kssw"><button type="button" class="' + (v.ks ? '' : 'act') + '" onclick="ksHeadKs(0)">Không</button><button type="button" class="' + (v.ks ? 'act' : '') + '" onclick="ksHeadKs(1)">Có</button></div></div>' +
+    '<small class="ksnote">Tấm nào khác màu / kim sa: đổi riêng trong "⋯ Thêm" của tấm đó. Màu chỉ để tham khảo.</small>';
+}
+function ksHeadSet(ma, ks) {
+  if (KSE && $('ksten')) ksRead();
+  var d = KSS.def || { ma: (KSE && KSE.ma) || KS_CFG.colors[0].ma, ks: 0, day: (KSE && KSE.day) || KS_CFG.defDay };
+  if (ma != null) d.ma = ma; if (ks != null) d.ks = ks; if (KSE && KSI < 0) d.day = KSE.day;
+  KSS.def = d; KSS.picked = true;
+  if (KSE && KSI < 0) { KSE.ma = d.ma; KSE.ks = d.ks; }
+  ksRenderHead(true); ksRenderEd(); ksLive(); ksSave();
+}
+function ksHeadMa(ma) { if (ksColor(ma).hetTon) return; ksHeadSet(ma, null); }
+function ksHeadKs(v) { ksHeadSet(null, v); }
+function ksSetKs(v) { ksRead(); KSE.ks = v; if (KSI < 0) KSS.picked = true; ksRenderEd(); ksLive(); }
 function ksHoleAdd(t, kind) {
   ksRead(); var nh = ksNewHole(t, kind), last = KSE.holes[KSE.holes.length - 1]; nh.ref = last ? ksRefOf(last) : (ksIsShape(KSE) ? 'V0' : 'BL');
   if (/^[BT][LR]$/.test(nh.ref)) { nh.side = nh.ref.charAt(1) === 'L' ? 'T' : 'P'; nh.vs = nh.ref.charAt(0) === 'T' ? 'T' : 'D'; }
@@ -7377,7 +7400,7 @@ function ksLive() {
   if (pv) { var hc = KSE.holes[KSH], svg = ksPreviewSvg(KSE, vw, vh, { checker: true, refs: hc ? { cur: ksRefOf(hc) } : null }); pv.innerHTML = svg || '<div class="ksempty">Nhập rộng × cao để thấy hình</div>'; }
   var w = $('kswarn'); if (w) w.innerHTML = Object.keys(v.err).filter(function (k) { return /^h\d/.test(k) || k === 'sl'; }).map(function (k) { return '<div class="kse">⚠ ' + esc(v.err[k]) + '</div>'; }).join('') + v.warn.map(function (m) { return '<div class="ksy">⚠ ' + esc(m) + '</div>'; }).join('') + (v.info || []).map(function (m) { return '<div class="ksi">ℹ ' + esc(m) + ' (khoét theo số khách)</div>'; }).join('');
   ['ksw', 'ksh', 'ksten'].forEach(function (id) { var e = $(id), k = id === 'ksw' ? 'w' : id === 'ksh' ? 'h' : 'ten'; if (e) e.classList.toggle('bad', !!(v.err[k] && e.value.trim() !== '' )); });
-  ksSyncDef(); ksSave();
+  ksSyncDef(); ksRenderHead(); ksSave();
 }
 function ksSavePanel(dup) {
   ksRead(); var v = ksValidate(KSE), ks = Object.keys(v.err);
