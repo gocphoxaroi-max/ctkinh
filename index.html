@@ -6699,7 +6699,7 @@ var KS_TS = 15;
 function ksDraw(p, k, opt) {
   opt = opt || {}; var ts = opt.ts || KS_TS, W = ksNum(p.w), H = ksNum(p.h);
   if (!(W > 0 && H > 0)) return { svg: '', w: 0, h: 0 };
-  var shp = ksIsShape(p), ml = ts * (shp ? 4 : 3.4), mb = ts * 3.2, mt = ts * (shp ? 3.2 : 1.6), mr = ts * (shp ? 3.4 : 1.2), pw = W * k, ph = H * k, w = ml + pw + mr, h = mt + ph + mb;
+  var shp = ksIsShape(p), ml = ts * (shp ? 4 : 3.4), mb = ts * 3.2, mt = ts * (shp ? 3.2 : 1.6), mr = ts * (shp ? 3.4 : 3.2), pw = W * k, ph = H * k, w = ml + pw + mr, h = mt + ph + mb;
   var X = function (x) { return ml + x * k; }, Y = function (y) { return mt + (H - y) * k; }, o = [];
   var cm = ksColor(p.ma), line = '#1b2a3a', dimc = '#c0392b';
   var tw = function (s) { return String(s).length * ts * 0.56; };
@@ -6719,17 +6719,44 @@ function ksDraw(p, k, opt) {
     }
     return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + f + '" fill="' + (fs ? '#6b7a89' : dimc) + '" text-anchor="' + an + '" font-family="Arial,sans-serif"' + (rot ? ' transform="rotate(' + rot + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')"' : '') + '>' + s + '</text>'; };
   // dim ngang: tu px a den b (a<b) tai dong y (px); ext = [y goc gioi 1, y goc gioi 2] net gioi mong
-  var dimH = function (a, b, y, label, e1, e2) {
+  var dimH = function (a, b, y, label, e1, e2, od) {
     var s = '<line x1="' + a.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + b.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + arrow(a, y, 1, 0) + arrow(b, y, -1, 0);
     if (e1 != null) s += '<line x1="' + a.toFixed(1) + '" y1="' + e1.toFixed(1) + '" x2="' + a.toFixed(1) + '" y2="' + (y + (y > e1 ? ts * .4 : -ts * .4)).toFixed(1) + '" stroke="' + dimc + '" stroke-width=".7"/>';
     if (e2 != null) s += '<line x1="' + b.toFixed(1) + '" y1="' + e2.toFixed(1) + '" x2="' + b.toFixed(1) + '" y2="' + (y + (y > e2 ? ts * .4 : -ts * .4)).toFixed(1) + '" stroke="' + dimc + '" stroke-width=".7"/>';
-    return s + ((b - a) >= tw(label) + ts ? txt((a + b) / 2, y - 3, label) : txt(b + 4, y - 3, label, 'start'));
+    if ((b - a) >= tw(label) + ts) return s + txt((a + b) / 2, y - 3, label);
+    // T104: dim ngan -> chu ra ngoai (khong thu nho) kem duong dan keo dai duoi chu (nhu CAD)
+    if (od < 0) return s + '<line x1="' + (a - 4 - tw(label)).toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + a.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + txt(a - 4, y - 3, label, 'end');
+    return s + '<line x1="' + b.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + (b + 4 + tw(label)).toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + txt(b + 4, y - 3, label, 'start');
   };
-  var dimV = function (a, b, x, label, e1, e2) {      // a<b theo px Y (a tren, b duoi)
+  var dimV = function (a, b, x, label, e1, e2, od) {      // a<b theo px Y (a tren, b duoi)
     var s = '<line x1="' + x.toFixed(1) + '" y1="' + a.toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + b.toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + arrow(x, a, 0, 1) + arrow(x, b, 0, -1);
     if (e1 != null) s += '<line x1="' + e1.toFixed(1) + '" y1="' + a.toFixed(1) + '" x2="' + (x + (x > e1 ? ts * .4 : -ts * .4)).toFixed(1) + '" y2="' + a.toFixed(1) + '" stroke="' + dimc + '" stroke-width=".7"/>';
     if (e2 != null) s += '<line x1="' + e2.toFixed(1) + '" y1="' + b.toFixed(1) + '" x2="' + (x + (x > e2 ? ts * .4 : -ts * .4)).toFixed(1) + '" y2="' + b.toFixed(1) + '" stroke="' + dimc + '" stroke-width=".7"/>';
-    return s + ((b - a) >= tw(label) + ts ? txt(x - 3, (a + b) / 2, label, 'middle', -90) : txt(x - 3, a - 4, label, 'start', -90));
+    if ((b - a) >= tw(label) + ts) return s + txt(x - 3, (a + b) / 2, label, 'middle', -90);
+    if (od < 0) return s + '<line x1="' + x.toFixed(1) + '" y1="' + b.toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + (b + 4 + tw(label)).toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + txt(x - 3, b + 4, label, 'end', -90);
+    return s + '<line x1="' + x.toFixed(1) + '" y1="' + (a - 4 - tw(label)).toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + a.toFixed(1) + '" stroke="' + dimc + '" stroke-width="1"/>' + txt(x - 3, a - 4, label, 'start', -90);
+  };
+  // T104: bo dim khoet chu nhat THEO MAU GOC Kinhson.dxf: tang 1 = [mep -> khoet gan] + [rong khoet] (tren khoet), tang 2 = [mep -> khoet xa];
+  // doc: tang 1 = [day -> khoet] + [cao khoet] (ben phia xa mep), tang 2 = [day -> dinh khoet]. Tat ca nam TRONG tam (het cho thi lat sang phia con lai). m = so mm.
+  var holeSet = function (g, V, full) {
+    var x1 = X(g.x1), x2 = X(g.x2), yT = Y(g.y2), yB = Y(g.y1), rx = X(V.x), ry = Y(V.y), sx = V.sx > 0 ? 1 : -1, sy = V.sy > 0 ? 1 : -1, e1 = ts * 1.5, e2 = ts * 2.9, out = [];
+    var near = sx > 0 ? x1 : x2, far = sx > 0 ? x2 : x1, mn = sx > 0 ? g.x1 - V.x : V.x - g.x2, mf = sx > 0 ? g.x2 - V.x : V.x - g.x1;
+    var up = (yT - mt) >= e2 + ts * .4 || (yT - mt) >= (mt + ph - yB), hy = up ? yT : yB, d1 = up ? -e1 : e1, d2 = up ? -e2 : e2, ex = hy;
+    if (Math.abs(mn) > 0.01) out.push(dimH(Math.min(rx, near), Math.max(rx, near), hy + d1, ksF(mn), ex, ex, -sx));
+    out.push(dimH(x1, x2, hy + d1, ksF(g.x2 - g.x1), ex, ex, sx));
+    out.push(dimH(Math.min(rx, far), Math.max(rx, far), hy + d2, ksF(mf), ex, ex, -sx));
+    var rI = sx > 0 ? (ml + pw) - x2 : x1 - ml, rO = sx > 0 ? x1 - ml : (ml + pw) - x2, ls = rI >= e2 + ts * .4 || rI >= rO ? sx : -sx, hx = ls > 0 ? x2 : x1, v1 = hx + ls * e1, v2 = hx + ls * e2;
+    var nr = sy > 0 ? g.y1 - V.y : V.y - g.y2, fr = sy > 0 ? g.y2 - V.y : V.y - g.y1;
+    if (Math.abs(nr) > 0.01) { var ny = sy > 0 ? yB : yT; out.push(dimV(Math.min(ry, ny), Math.max(ry, ny), v1, ksF(nr), hx, hx, sy > 0 ? -1 : 1)); }
+    out.push(dimV(yT, yB, v1, ksF(g.y2 - g.y1), hx, hx, sy > 0 ? 1 : -1));
+    var fy = sy > 0 ? yT : yB; out.push(dimV(Math.min(ry, fy), Math.max(ry, fy), v2, ksF(fr), hx, hx, sy > 0 ? 1 : -1));
+    if (full && opt.extra !== false) {      // muc Du: them khoang con lai toi mep doi dien (ngang) va toi mep tren / duoi (doc), neu du cho va khong cat khoet khac
+      var cyy = (yT + yB) / 2, cxx = (x1 + x2) / 2, ox = sx > 0 ? ml + pw : ml, oy = sy > 0 ? mt : mt + ph, fy2 = sy > 0 ? yT : yB;
+      var hitSeg = function (xa, ya, xb, yb) { for (var q = 0; q < okH.length; q++) { var bb = ksBox(okH[q]), bx1 = X(bb.x1), bx2 = X(bb.x2), by1 = Y(bb.y2), by2 = Y(bb.y1); if (Math.abs(bx1 - x1) < 1 && Math.abs(bx2 - x2) < 1 && Math.abs(by1 - yT) < 1) continue; if (bx1 < Math.max(xa, xb) + 1 && bx2 > Math.min(xa, xb) - 1 && by1 < Math.max(ya, yb) + 1 && by2 > Math.min(ya, yb) - 1) return true; } return false; };
+      if (Math.abs(ox - far) >= tw('0000') + ts && !hitSeg(far, cyy, ox, cyy)) out.push(dimH(Math.min(far, ox), Math.max(far, ox), cyy, ksF(Math.abs(ox - far) / k), null, null));
+      if (Math.abs(oy - fy2) >= tw('0000') + ts && !hitSeg(cxx, fy2, cxx, oy)) out.push(dimV(Math.min(oy, fy2), Math.max(oy, fy2), cxx, ksF(Math.abs(oy - fy2) / k), null, null));
+    }
+    return out.join('');
   };
   // T100: dim THANG HANG theo doan (x1,y1)-(x2,y2) (px); off = dich ra ngoai (px, 0 = dim ngay tren doan); cen = tam hinh (px) de chon phia ngoai
   var dimA = function (x1, y1, x2, y2, off, label, cen) {
@@ -6763,6 +6790,7 @@ function ksDraw(p, k, opt) {
   var hd = [];
   // T102: muc dim khoet: 'full' (mac dinh, xuat ban ve) = dim day du moi khoet; 'main' = chi khoet dang chon (opt.cur) day du, khoet khac chi so + kich thuoc nho; 'off' = chi so thu tu
   var lvl = opt.dim === 'main' || opt.dim === 'off' ? opt.dim : 'full', curH = opt.cur == null ? -1 : opt.cur, hlist = [];
+  var nOk = p.holes.filter(ksHoleOk).length, isFull = function (i) { return lvl === 'full' || (lvl === 'main' && (i === curH || (curH < 0 && nOk === 1))); };
   p.holes.forEach(function (h, i) {
     if (!ksHoleOk(h)) return; var hsv = hd, tbn = tb.length; hd = []; var hlc = i === curH ? '#ff8a00' : line, hlw = i === curH ? 2.6 : 1.3;
     (function () {
@@ -6774,7 +6802,7 @@ function ksDraw(p, k, opt) {
       } else {
         var sx1 = X(g.x1), sx2 = X(g.x2), syT = Y(g.y2), syB = Y(g.y1);
         o.push('<rect x="' + sx1.toFixed(1) + '" y="' + syT.toFixed(1) + '" width="' + (sx2 - sx1).toFixed(1) + '" height="' + (syB - syT).toFixed(1) + '" fill="none" stroke="' + hlc + '" stroke-width="' + hlw + '"/>');
-        hd.push(dimH(sx1, sx2, syT - ts * 0.9, ksF(ksNum(h.w)), syT, syT)); hd.push(dimV(syT, syB, sx2 + ts * 1.1, ksF(ksNum(h.h)), null, null));
+        if (me) { hd.push(dimH(sx1, sx2, syT - ts * 0.9, ksF(ksNum(h.w)), syT, syT)); hd.push(dimV(syT, syB, sx2 + ts * 1.1, ksF(ksNum(h.h)), null, null)); }
       }
       var bbx = ksBox(g), hcx = (bbx.x1 + bbx.x2) / 2, hcy = (bbx.y1 + bbx.y2) / 2;
       if (me) {
@@ -6782,8 +6810,10 @@ function ksDraw(p, k, opt) {
         if (!isNaN(ad)) hd.push(dimA(X(fx0), Y(fy0), X(qx), Y(qy), 0, ksF(ad), null));
       } else {
         var V = ksRefVertex(p, rf), nxv = g.t === 'C' ? g.cx : (V.sx > 0 ? g.x1 : g.x2), nyv = g.t === 'C' ? g.cy : (V.sy > 0 ? g.y1 : g.y2);
-        if (Math.abs(nxv - V.x) > 0.01) hd.push(dimH(Math.min(X(V.x), X(nxv)), Math.max(X(V.x), X(nxv)), Y(hcy), ksF(Math.abs(nxv - V.x)), null, null));
-        if (Math.abs(nyv - V.y) > 0.01) hd.push(dimV(Math.min(Y(V.y), Y(nyv)), Math.max(Y(V.y), Y(nyv)), X(hcx), ksF(Math.abs(nyv - V.y)), null, null));
+        if (g.t === 'C') {
+          if (Math.abs(nxv - V.x) > 0.01) hd.push(dimH(Math.min(X(V.x), X(nxv)), Math.max(X(V.x), X(nxv)), Y(hcy), ksF(Math.abs(nxv - V.x)), null, null));
+          if (Math.abs(nyv - V.y) > 0.01) hd.push(dimV(Math.min(Y(V.y), Y(nyv)), Math.max(Y(V.y), Y(nyv)), X(hcx), ksF(Math.abs(nyv - V.y)), null, null));
+        } else hd.push(holeSet(g, V, lvl === 'full'));
       }
       return;
     }
@@ -6797,18 +6827,14 @@ function ksDraw(p, k, opt) {
     } else {
       var x1 = X(g.x1), x2 = X(g.x2), yT = Y(g.y2), yB = Y(g.y1), cyy = (yT + yB) / 2;
       o.push('<rect x="' + x1.toFixed(1) + '" y="' + yT.toFixed(1) + '" width="' + (x2 - x1).toFixed(1) + '" height="' + (yB - yT).toFixed(1) + '" fill="none" stroke="' + hlc + '" stroke-width="' + hlw + '"/>');
-      var near = h.side === 'T' ? x1 : x2, edge = h.side === 'T' ? ml : ml + pw;
-      hd.push(dimH(Math.min(edge, near), Math.max(edge, near), cyy, ksF(ksNum(h.dx)), null, null));
-      hd.push(dimV(yB, mt + ph, (x1 + x2) / 2, ksF(ksNum(h.dy)), null, null));
-      hd.push(dimH(x1, x2, yT - ts * 0.9, ksF(ksNum(h.w)), yT, yT));
-      hd.push(dimV(yT, yB, h.side === 'T' ? x2 + ts * 1.1 : x1 - ts * 1.1, ksF(ksNum(h.h)), null, null));
+      hd.push(holeSet(g, { x: h.side === 'T' ? 0 : W, y: 0, sx: h.side === 'T' ? 1 : -1, sy: 1 }, lvl === 'full'));
     }
     })();
-    if (!(lvl === 'full' || (lvl === 'main' && i === curH))) tb.length = tbn;
+    if (!isFull(i)) tb.length = tbn;
     var mine = hd; hd = hsv; hlist.push({ i: i, h: h, g: ksHoleGeo(p, h), dims: mine });
   });
   hlist.forEach(function (it) {      // dim day du: khoet dang chon (main) hoac tat ca (full); con lai: so thu tu + kich thuoc nho
-    var full = lvl === 'full' || (lvl === 'main' && it.i === curH), b2 = ksBox(it.g), cx2 = X((b2.x1 + b2.x2) / 2), cy2 = Y((b2.y1 + b2.y2) / 2);
+    var full = isFull(it.i), b2 = ksBox(it.g), cx2 = X((b2.x1 + b2.x2) / 2), cy2 = Y((b2.y1 + b2.y2) / 2);
     if (full) it.dims.forEach(function (d) { hd.push(d); });
     else {
       var sz = it.h.t === 'C' ? 'φ' + ksF(ksNum(it.h.d)) : ksF(ksNum(it.h.w)) + '×' + ksF(ksNum(it.h.h));
@@ -6864,7 +6890,7 @@ function ksRefSpotsShape(PP, cen, cur, ts) {
 function ksRefName(c) { var mv = /^V([0-3])$/.exec(c), me = /^E([0-3])$/.exec(c); if (mv) return 'đỉnh ' + ksVName(+mv[1]); if (me) return 'cạnh ' + ksEdgeName(+me[1]); return { BL: 'góc trái-dưới', BR: 'góc phải-dưới', TL: 'góc trái-trên', TR: 'góc phải-trên', L: 'cạnh trái', R: 'cạnh phải', B: 'cạnh dưới', T: 'cạnh trên' }[c] || ''; }
 function ksRefOf(h) { return h.ref || ((h.vs === 'T' ? 'T' : 'B') + (h.side === 'T' ? 'L' : 'R')).replace('TL', 'TL').replace('BL', 'BL'); }
 function ksEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function ksMargins(p) { return ksIsShape(p) ? [7.4, 6.4] : [4.6, 4.8]; }      // tong le ngang / doc (don vi chu)
+function ksMargins(p) { return ksIsShape(p) ? [7.4, 6.4] : [6.6, 4.8]; }      // tong le ngang / doc (don vi chu)
 function ksPreviewSvg(p, maxW, maxH, opt) {
   var W = ksNum(p.w), H = ksNum(p.h); if (!(W > 0 && H > 0)) return '';
   var ts = KS_TS, mg = ksMargins(p), k = Math.min((maxW - ts * mg[0]) / W, (maxH - ts * mg[1]) / H), r = ksDraw(p, k, opt || {});
@@ -7581,7 +7607,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261016160839';
+var CTK_BUILD = '20261016162843';
 (function () {
   function chk() {
     try {
