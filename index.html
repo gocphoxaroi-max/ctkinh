@@ -4360,17 +4360,9 @@ function pvInside(p, poly) {
   }
   return c;
 }
-// Xep dim theo pixel voi ti le k (px/mm). Toa do px: X = x*k, Y = -y*k (chua cong goc).
-function pvLayout(dims, k, fs, poly) {
-  const items = [], texts = [], lines = [], LANE = fs + 7, ppx = poly.map(p => [p[0] * k, -p[1] * k]);
-  const tw = (s, f) => s.length * f * 0.56 + 4;
-  const ang = t => { let a = Math.atan2(t[1], t[0]) * 180 / Math.PI; if (a > 90.01) a -= 180; if (a <= -89.99) a += 180; return a; };
-  const fz = d => (d.st === '020-ok' || d.st === '015-ok') ? fs + 1 : d.st === '010-ok' ? Math.max(11, fs - 1) : fs;
-  // xep theo do lech cua lisp (gan truoc, xa sau); nhan ten tam xep CUOI (tu ne cho trong)
-  const key = d => (d.kind === 'goc' || d.kind === 'vuong') ? 20 : (d.off || 0);      // dim goc dat som (gan dinh goc), cac dim khac tu ne
-  const order = dims.map((d, i) => i).sort((i, j) => (dims[i].kind === 'nhan' ? 1 : 0) - (dims[j].kind === 'nhan' ? 1 : 0) || key(dims[i]) - key(dims[j]));
-  for (const i of order) {
-    const d = dims[i]; let f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2;
+// dim KHONG thang (nhan ten tam / o vuong / duong kinh lo / goc): dat va day vao items. Tra ve true neu da xu ly.
+function pvPlaceOther(d, k, fs, poly, texts, lines, items, f, W, Hh) {
+  {
     if (d.kind === 'nhan') {
       // nhan ten tam: tim cho trong quanh tam hinh; khong co cho trong thi bo (ten da hien o o nhap)
       let best = null;
@@ -4380,12 +4372,12 @@ function pvLayout(dims, k, fs, poly) {
         if (pvInside([c[0] / k, -c[1] / k], poly) && !texts.some(x => pvHit(x, b)) && !lines.some(x => pvHit(x, b))) best = { c, b };
       }
       if (best) { texts.push(best.b); items.push({ d, c: best.c, f }); }
-      continue;
+      return true;
     }
     if (d.kind === 'vuong') {      // T23: o vuong nho o goc, khong chu
       const C = [d.c[0] * k, -d.c[1] * k], ua = Math.atan2(-(d.a[1] - d.c[1]), d.a[0] - d.c[0]), ub = Math.atan2(-(d.b[1] - d.c[1]), d.b[0] - d.c[0]);
       const sq = Math.max(9, Math.round(fs * 1.1));
-      items.push({ d, C, ua, ub, sq, r: sq * 1.5 }); continue;
+      items.push({ d, C, ua, ub, sq, r: sq * 1.5 }); return true;
     }
     if (d.kind === 'dk') {        // T08c: dim duong kinh lo (lisp AddDimDiametric): duong qua tam 45 do, chu ngoai lo phia diem a
       const C = [d.c[0] * k, -d.c[1] * k], r = Math.max(d.val / 2 * k, 2.5), a0 = Math.atan2(-(d.a[1] - d.c[1]), d.a[0] - d.c[0]);
@@ -4396,7 +4388,7 @@ function pvLayout(dims, k, fs, poly) {
         const hh = texts.filter(x => pvHit(x, bx)).length + lines.filter(x => pvHit(x, bx)).length;
         if (hh < bh) { bh = hh; best = { u, e, tc, bx }; }
       }
-      texts.push(best.bx); items.push({ d, C, r, u: best.u, e: best.e, tc: best.tc, f }); continue;
+      texts.push(best.bx); items.push({ d, C, r, u: best.u, e: best.e, tc: best.tc, f }); return true;
     }
     if (d.kind === 'goc') {
       const C = [d.c[0] * k, -d.c[1] * k], ua = Math.atan2(-(d.a[1] - d.c[1]), d.a[0] - d.c[0]), ub = Math.atan2(-(d.b[1] - d.c[1]), d.b[0] - d.c[0]);
@@ -4408,8 +4400,179 @@ function pvLayout(dims, k, fs, poly) {
         const bx = pvBox(tc, [1, 0], W / 2, Hh), hh = texts.filter(x => pvHit(x, bx)).length + lines.filter(x => pvHit(x, bx)).length;
         if (hh < bh) { bh = hh; best = { r, tc, bx }; }
       }
-      texts.push(best.bx); items.push({ d, C, ua, da, r: best.r, tc: best.tc, f }); continue;
+      texts.push(best.bx); items.push({ d, C, ua, da, r: best.r, tc: best.tc, f }); return true;
     }
+  }
+  return false;
+}
+// Xep dim theo pixel voi ti le k (px/mm). Toa do px: X = x*k, Y = -y*k (chua cong goc).
+// T83b: xep theo quy uoc that cua anh Dampt (T84). window.PV_XEP_CU = true -> cach xep cu (so anh truoc/sau).
+function pvLayout(dims, k, fs, poly) { return (typeof window !== 'undefined' && window.PV_XEP_CU) ? pvLayoutCu(dims, k, fs, poly) : pvLayoutT84(dims, k, fs, poly); }
+// T83b (T84): - long: dim ngan trong, dai ngoai (moi canh, moi phia); chuoi doan + lo chung 1 tang; dim tong ngoai cung
+//   - khoang tang: tang 1 cach canh 2 x co chu, moi tang sau +2,5 x co chu, dim 020-ok +80/30 x co chu (co chu = 0,72 fs px ~ chu 30 mm CAD)
+//   - dim lo cat dim khac -> thu tang ngoai, roi dat TRONG tam canh lo (doi phia); khong ngat gion
+//   - chu KHONG thu nho: lot -> giua; khong lot giua 2 gion -> ra ngoai sat gion (phia trong), chat ca 2 dau -> duong dan + gach ngang
+//   - bo dim ngang ghi TRUNG (cung so, cung khoang do) o canh tren lan duoi: giu ban duoi
+function pvLayoutT84(dims, k, fs, poly) {
+  const items = [], texts = [], lines = [], segs = [], fam = [], ppx = poly.map(p => [p[0] * k, -p[1] * k]);
+  const tw = (s, f) => String(s).length * f * 0.56 + 4;
+  const ang = t => { let a = Math.atan2(t[1], t[0]) * 180 / Math.PI; if (a > 90.01) a -= 180; if (a <= -89.99) a += 180; return a; };
+  const fz = d => (d.st === '020-ok' || d.st === '015-ok') ? fs + 1 : d.st === '010-ok' ? Math.max(11, fs - 1) : fs;
+  const Ht = fs * 0.72, G1 = 2 * Ht, ST = 2.5 * Ht, GT = 80 / 30 * Ht, G1I = Ht;
+  const recs = [];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const xs = (p, q, r, s) => { const de = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0]); if (Math.abs(de) < 1e-9) return false;
+    const u = ((r[0] - p[0]) * (s[1] - r[1]) - (r[1] - p[1]) * (s[0] - r[0])) / de, v = ((r[0] - p[0]) * (q[1] - p[1]) - (r[1] - p[1]) * (q[0] - p[0])) / de;
+    return u > 0.02 && u < 0.98 && v > 0.02 && v < 0.98; };
+  const isLin = d => !!(d.a && d.b) && d.kind !== 'nhan' && d.kind !== 'vuong' && d.kind !== 'dk' && d.kind !== 'goc';
+  const P2 = p => [p[0] * k, -p[1] * k];
+  // bo dim ngang trung (tong rong ghi ca tren lan duoi)
+  const drop = new Set(), lin0 = dims.filter(isLin);
+  lin0.forEach((a, i) => lin0.forEach((b, j) => {
+    if (j <= i || drop.has(a) || drop.has(b) || String(a.text) !== String(b.text)) return;
+    if (Math.abs(a.a[1] - a.b[1]) > 1e-6 || Math.abs(b.a[1] - b.b[1]) > 1e-6) return;
+    const sa = [Math.min(a.a[0], a.b[0]), Math.max(a.a[0], a.b[0])], sb = [Math.min(b.a[0], b.b[0]), Math.max(b.a[0], b.b[0])];
+    if (Math.abs(sa[0] - sb[0]) > 0.5 || Math.abs(sa[1] - sb[1]) > 0.5) return;
+    const keep = d => d.qon || (d.qs && d.qi >= 0);
+    const up = d => !!(d.n && d.n[1] > 0);      // dim dat phia tren (canh tren)
+    let x = up(a) && !up(b) ? a : b;
+    if (keep(x)) x = x === a ? b : a;
+    if (!keep(x)) drop.add(x);
+  }));
+  const pre = [], lin = [], lab = [];
+  dims.forEach(d => { if (drop.has(d)) return; if (d.kind === 'nhan') lab.push(d); else if (isLin(d)) lin.push(d); else pre.push(d); });
+  pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
+  // dim thang: xep theo do dai khoang do tang dan (ngan truoc -> nam trong)
+  const L = lin.map(d => { const A = P2(d.a), B = P2(d.b); return { d, A, B, len: Math.hypot(B[0] - A[0], B[1] - A[1]) }; }).filter(x => x.len >= 0.5);
+  // dim XIEN (canh xien) dat truoc: sat canh, gion ngan -> dim ngang/doc tu ne ra ngoai (khong cat gion dim xien)
+  const xien = x => { const dx = Math.abs(x.B[0] - x.A[0]), dy = Math.abs(x.B[1] - x.A[1]); return dx > 0.02 * x.len && dy > 0.02 * x.len ? 0 : 1; };
+  L.sort((p, q) => xien(p) - xien(q) || p.len - q.len || (p.d.st === '020-ok' ? 1 : 0) - (q.d.st === '020-ok' ? 1 : 0));
+  const fkey = n => (Math.round(Math.atan2(n[1], n[0]) * 180 / Math.PI) + 360) % 360;
+  // cham diem cac vi tri (cands) cua 1 dim: chu de chu x20, cat dim khac x10, cat vien x4 ... ; self = dim dang xep lai (bo hop cua chinh no)
+  const pick = (X, cands, crFn, self) => {
+    const { A, B, len, t, f, W, Hh, ho, short, tout } = X;
+    const TX = self ? texts.filter(z => z !== self.best.tb) : texts, LN = self ? lines.filter(z => z !== self.best.lb) : lines;
+    let best = null;
+    for (const c of cands) {
+      const n = c.S.n, o = c.P - c.S.hA, D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o];
+      const m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2], lb = pvBox(m, t, len / 2 + (short ? 9 : 0), 1.5);
+      c.D1 = D1; c.D2 = D2;
+      const cr = crFn(c);
+      const par = LN.filter(z => Math.abs(z.t[0] * t[1] - z.t[1] * t[0]) < 0.05 && pvHit(z, pvBox(m, t, Math.max(0.5, len / 2 - 2), 3))).length;
+      let pc = 0; for (let i = 0; i < ppx.length; i++) if (xs(D1, D2, ppx[i], ppx[(i + 1) % ppx.length])) pc++;
+      if (c.S.inner && !pvInside([m[0] / k, -m[1] / k], poly)) pc += 2;      // dim trong tam bi day ra ngoai vien
+      const opts = [];
+      if (!tout) opts.push({ tc: [m[0] + n[0] * ho, m[1] + n[1] * ho], p: 0 });
+      else {      // chu khong lot giua 2 gion: ra ngoai sat gion (dau b / dau a), chat ca 2 dau -> duong dan + gach ngang
+        const dB = 10 + W / 2, E = [m[0] + n[0] * (ho + f * 0.9), m[1] + n[1] * (ho + f * 0.9)];
+        opts.push({ tc: [D2[0] + t[0] * dB + n[0] * ho, D2[1] + t[1] * dB + n[1] * ho], p: 0 });
+        opts.push({ tc: [D1[0] - t[0] * dB + n[0] * ho, D1[1] - t[1] * dB + n[1] * ho], p: 1 });
+        const E2 = [E[0] + t[0] * (W + 6), E[1] + t[1] * (W + 6)];
+        opts.push({ tc: [E[0] + t[0] * (W / 2 + 3) + n[0] * ho, E[1] + t[1] * (W / 2 + 3) + n[1] * ho], p: 4, ld: [m, E, E2] });
+      }
+      const lt = TX.filter(z => pvHit(z, lb)).length;
+      for (const op of opts) {
+        const tb = pvBox(op.tc, t, W / 2, Hh), tt = TX.filter(z => pvHit(z, tb)).length, tl = LN.filter(z => pvHit(z, tb)).length;
+        const sc = tt * 20 + (cr + par) * 10 + pc * 4 + tl * 3 + lt * 6 + c.pen + op.p;
+        if (!best || sc < best.sc) best = { sc, c, D1, D2, lb, tb, tc: op.tc, ld: op.ld || null, cr, tt };
+      }
+    }
+    return best;
+  };
+  for (const x of L) {
+    const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len];
+    const f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, is20 = d.st === '020-ok';
+    const short = len < W + 10, tout = len < W - 2;      // T84: chu khong lot giua 2 gion -> ra ngoai
+    const st = is20 ? GT : ST;
+    const side = n => {
+      const key = fkey(n), tc = [-n[1], n[0]], sa = dot(A, tc), sb = dot(B, tc), s0 = Math.min(sa, sb), s1 = Math.max(sa, sb), hA = dot(A, n);
+      const nm = [n[0], -n[1]], mid = [(d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2];
+      const inner = pvInside([mid[0] + nm[0] * Math.max(d.off || 0, 1), mid[1] + nm[1] * Math.max(d.off || 0, 1)], poly);
+      let b = hA;
+      if (!inner) {          // ngoai tam: vuot qua moi phan vien trong khoang do
+        for (let i = 0; i < ppx.length; i++) {
+          const p = ppx[i], q = ppx[(i + 1) % ppx.length], sp = dot(p, tc), sq = dot(q, tc);
+          const lo = Math.max(Math.min(sp, sq), s0 - 2), hi = Math.min(Math.max(sp, sq), s1 + 2);
+          if (lo > hi) continue;
+          const hAt = s => Math.abs(sq - sp) < 1e-9 ? Math.max(dot(p, n), dot(q, n)) : dot(p, n) + (dot(q, n) - dot(p, n)) * (s - sp) / (sq - sp);
+          b = Math.max(b, hAt(lo), hAt(hi));
+        }
+      }
+      let P = b + (inner ? G1I : is20 ? GT : G1);      // trong tam (dim lo): sat lo hon
+      for (let ch = true, it = 0; ch && it < 60; it++) {
+        ch = false;
+        for (const o of fam) {
+          if (o.key !== key || !(s0 < o.s1 - 0.5 && o.s0 < s1 - 0.5)) continue;
+          if (o.b <= P + 0.5 && b <= o.P + 0.5 && P < o.P + st - 0.01) { P = o.P + st; ch = true; }
+        }
+      }
+      return { n, key, s0, s1, b, P, hA, inner };
+    };
+    const n0 = [d.n[0], -d.n[1]], cands = [];
+    const sides = [[side(n0), 0]];
+    if (pvIsHoleDim(d)) sides.push([side([-n0[0], -n0[1]]), 8]);      // T84: dim lo duoc doi phia (vao trong tam canh lo)
+    for (const [S, pen] of sides) for (let e = 0; e < 5; e++) cands.push({ S, P: S.P + e * st, pen: pen + e * 5 });
+    const X = { d, A, B, len, t, f, W, Hh, ho, short, tout };
+    const best = pick(X, cands, c => {      // so lan cat cac dim DA dat (gion + duong dim)
+      let cr = 0;
+      for (const sg of segs) {
+        if (sg.dl) { if (xs(c.D1, c.D2, sg.p, sg.q) || xs(A, c.D1, sg.p, sg.q) || xs(B, c.D2, sg.p, sg.q)) cr++; }
+        else if (xs(c.D1, c.D2, sg.p, sg.q)) cr++;
+      }
+      return cr;
+    }, null);
+    const c = best.c, n = c.S.n;
+    texts.push(best.tb); lines.push(best.lb);
+    segs.push({ p: best.D1, q: best.D2, dl: 1 }, { p: A, q: best.D1 }, { p: B, q: best.D2 });
+    const fe = { key: c.S.key, s0: c.S.s0, s1: c.S.s1, b: c.S.b, P: c.P, len };
+    fam.push(fe);
+    const it = { d, A, B, t, n, o: c.P - c.S.hA, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short, f, tout, ld: best.ld };
+    items.push(it); recs.push({ X, cands, best, fe, it });
+  }
+  // T83b: lan sua 2 - dim con cat dim khac (ke ca dim dat SAU no) -> thu lai cac vi tri khac, giu dung long ngan trong / dai ngoai
+  const segOf = r => [[r.best.D1, r.best.D2], [r.X.A, r.best.D1], [r.X.B, r.best.D2]];
+  const crossAll = (r, D1, D2) => { let n = 0;
+    for (const o of recs) { if (o === r) continue;
+      for (const s of segOf(o)) if (xs(D1, D2, s[0], s[1])) n++;
+      if (xs(r.X.A, D1, o.best.D1, o.best.D2)) n++; if (xs(r.X.B, D2, o.best.D1, o.best.D2)) n++; }
+    return n; };
+  const nestOk = (r, c) => recs.every(o => { if (o === r) return true; const F = o.fe, S = c.S;
+    if (F.key !== S.key || !(S.s0 < F.s1 - 0.5 && F.s0 < S.s1 - 0.5) || !(F.b <= c.P + 0.5 && S.b <= F.P + 0.5)) return true;
+    if (Math.abs(c.P - F.P) < ST - 0.01) return false;
+    if (F.len > r.X.len + 1 && c.P > F.P) return false;
+    if (F.len < r.X.len - 1 && c.P < F.P) return false;
+    return true; });
+  for (let pass = 0; pass < 2; pass++) for (const r of recs) {
+    if (!crossAll(r, r.best.D1, r.best.D2)) continue;
+    const ti = texts.indexOf(r.best.tb), li = lines.indexOf(r.best.lb), cf = c => crossAll(r, c.D1, c.D2);
+    const cur = pick(r.X, [r.best.c], cf, r), nb = pick(r.X, r.cands.filter(c => c !== r.best.c && nestOk(r, c)), cf, r);
+    if (!nb || nb.cr >= cur.cr || nb.tt > cur.tt || nb.sc >= cur.sc) continue;
+    texts[ti] = nb.tb; lines[li] = nb.lb;
+    Object.assign(r.fe, { key: nb.c.S.key, s0: nb.c.S.s0, s1: nb.c.S.s1, b: nb.c.S.b, P: nb.c.P });
+    Object.assign(r.it, { n: nb.c.S.n, o: nb.c.P - nb.c.S.hA, D1: nb.D1, D2: nb.D2, tc: nb.tc, tb: nb.tb, ld: nb.ld });
+    r.best = nb;
+  }
+  lab.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
+  let bx = [Infinity, -Infinity, Infinity, -Infinity];
+  const grow = (x, y) => { bx[0] = Math.min(bx[0], x); bx[1] = Math.max(bx[1], x); bx[2] = Math.min(bx[2], y); bx[3] = Math.max(bx[3], y); };
+  texts.concat(lines).forEach(b => {
+    const e = [b.t[0] * b.hw, b.t[1] * b.hw], g = [-b.t[1] * b.hh, b.t[0] * b.hh];
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(s => grow(b.c[0] + s[0] * e[0] + s[1] * g[0], b.c[1] + s[0] * e[1] + s[1] * g[1]));
+  });
+  items.forEach(it => { if (it.C) { grow(it.C[0] - it.r, it.C[1] - it.r); grow(it.C[0] + it.r, it.C[1] + it.r); } if (it.ld) it.ld.forEach(p => grow(p[0], p[1])); });
+  return { items, box: bx };
+}
+// T83b: CU (xep theo do lech lisp) - giu de so anh truoc/sau (window.PV_XEP_CU = true)
+function pvLayoutCu(dims, k, fs, poly) {
+  const items = [], texts = [], lines = [], LANE = fs + 7, ppx = poly.map(p => [p[0] * k, -p[1] * k]);
+  const tw = (s, f) => s.length * f * 0.56 + 4;
+  const ang = t => { let a = Math.atan2(t[1], t[0]) * 180 / Math.PI; if (a > 90.01) a -= 180; if (a <= -89.99) a += 180; return a; };
+  const fz = d => (d.st === '020-ok' || d.st === '015-ok') ? fs + 1 : d.st === '010-ok' ? Math.max(11, fs - 1) : fs;
+  const key = d => (d.kind === 'goc' || d.kind === 'vuong') ? 20 : (d.off || 0);
+  const order = dims.map((d, i) => i).sort((i, j) => (dims[i].kind === 'nhan' ? 1 : 0) - (dims[j].kind === 'nhan' ? 1 : 0) || key(dims[i]) - key(dims[j]));
+  for (const i of order) {
+    const d = dims[i]; let f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2;
+    if (pvPlaceOther(d, k, fs, poly, texts, lines, items, f, W, Hh)) continue;
     const A = [d.a[0] * k, -d.a[1] * k], B = [d.b[0] * k, -d.b[1] * k], len = Math.hypot(B[0] - A[0], B[1] - A[1]);
     if (len < 0.5) continue;
     const t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len];
@@ -4624,7 +4787,7 @@ function renderPV(mode, v, W, H, opt) {
     const col = (/^\+/.test(dd.text) || dd.red) ? '#c0392b' : dc;     // T08c: dd.red = dim "KT" lisp to do (CTK5-MarkKT)
     const sup = extSup.get(it) || [], ep = (sup.includes(0) ? '' : 'M' + Q(e1) + ' L' + Q(f1)) + (sup.includes(1) ? '' : ' M' + Q(e2) + ' L' + Q(f2));
     s += '<g' + at + '>' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +
-      '<path d="M' + Q(L1) + ' L' + Q(L2) + '"/>' +
+      '<path d="M' + Q(L1) + ' L' + Q(L2) + '"/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') +      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc) + arrow(it.D2, [-t[0], -t[1]], dc) : arrow(it.D1, [-t[0], -t[1]], dc) + arrow(it.D2, t, dc)) +
       tx(it.tc, it.ang, it.f, qs ? dc : col, dd.text, qs === 'q' && !dd.qon ? false : dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
   }
