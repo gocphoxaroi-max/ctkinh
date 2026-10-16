@@ -6255,10 +6255,8 @@ function setupFieldListeners() {
 //   dy = tu DAY den MEP DUOI cua khoet (lo tron: den TAM)
 // Khoet chu nhat {t:'R', w, h, side, dx, dy}; lo tron {t:'C', d, side, dx, dy}
 // ============================================================================
-var KS_CFG = {      // <-- anh Dampt / quan ly chinh o DAY (1 cho duy nhat)
-  // bang 24 ma mau Kinh son (Bangmamau.jpg). hetTon:true = gach do tren bang = het hang: hien mo, khach KHONG chon duoc.
-  // hex chi de to mau xem truoc (lay gan dung tu o mau anh). Ma co chu D (vd SĐE02) -> ten file dung ksMaAscii.
-  colors: [
+// T99: BANG MAU tach rieng, de sua (ma, ten, hex). hetTon:true = gach do tren bang = het hang. hex chi de to mau xem truoc (xap xi tu ANH CHUP bang mau -> co the lech anh sang; chinh bang 'Hieu chinh mau' hoac sua o day).
+var KS_COLORS = [
     { ma: 'STX01', ten: 'Trắng xanh', nhom: 'Trắng/ghi/đen', hex: '#e9ecea' },
     { ma: 'STS02', ten: 'Trắng sữa', nhom: 'Trắng/ghi/đen', hex: '#eeeeea' },
     { ma: 'SGH01', ten: 'Ghi', nhom: 'Trắng/ghi/đen', hex: '#4a4f55' },
@@ -6283,7 +6281,9 @@ var KS_CFG = {      // <-- anh Dampt / quan ly chinh o DAY (1 cho duy nhat)
     { ma: 'STI01', ten: 'Tím', nhom: 'Khác', hex: '#7a3a9a', hetTon: true },
     { ma: 'SNA01', ten: 'Nâu', nhom: 'Khác', hex: '#5a3a20', hetTon: true },
     { ma: 'SĐV01', ten: 'Đỏ vang', nhom: 'Khác', hex: '#4a1a2a', hetTon: true }
-  ],
+];
+var KS_CFG = {      // <-- anh Dampt / quan ly chinh o DAY (1 cho duy nhat)
+  colors: KS_COLORS,
   days: [5, 6, 8, 10, 12],      // do day kinh (mm)
   defDay: 8,
   socket: { w: 100, h: 60 },    // o dien NGANG mac dinh
@@ -6302,7 +6302,31 @@ function ksF(n) { return String(Math.round(n * 100) / 100); }
 function ksAscii(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^\x20-\x7e]/g, ''); }
 function ksMaAscii(ma) { return ksAscii(ma).toUpperCase().replace(/\s+/g, ''); }   // SĐE02 -> SDE02 (ten file / DXF)
 function ksHasMa(ma) { for (var i = 0; i < KS_CFG.colors.length; i++) if (KS_CFG.colors[i].ma === ma) return true; return false; }
-function ksColor(ma) { for (var i = 0; i < KS_CFG.colors.length; i++) if (KS_CFG.colors[i].ma === ma) return KS_CFG.colors[i]; return { ma: ma, ten: '', hex: '#e8eef5' }; }
+function ksColor(ma) { var c = ksBaseColor(ma); if (!c) return { ma: ma, ten: '', hex: '#e8eef5' }; var o = {}; for (var k in c) o[k] = c[k]; o.hex = ksHex(ma); return o; }
+// T99: hieu chinh mau (luu localStorage, xuat/nhap JSON). KS_CAL = { ma: { hex:'#rrggbb' (tuy chon), br:-50..50, ct:-50..50 } }
+var KS_CALKEY = 'ctkinh_ks_mau_v1', KS_CAL = {}, KS_FXKEY = 'ctkinh_ks_fx_v1', KS_FX = { on: true }, KS_UID = 0;
+function ksCalLoad() { try { var o = JSON.parse(localStorage.getItem(KS_CALKEY) || 'null'); if (o && typeof o === 'object') KS_CAL = o; var f = JSON.parse(localStorage.getItem(KS_FXKEY) || 'null'); if (f && f.on === false) KS_FX.on = false; } catch (e) {} }
+function ksCalSave() { try { localStorage.setItem(KS_CALKEY, JSON.stringify(KS_CAL)); } catch (e) {} }
+function ksFxSet(on) { KS_FX.on = !!on; try { localStorage.setItem(KS_FXKEY, JSON.stringify({ on: KS_FX.on })); } catch (e) {} }
+ksCalLoad();
+function ksHexOk(h) { return /^#[0-9a-f]{6}$/i.test(String(h || '')); }
+function ksAdjHex(hex, br, ct) {
+  if (!ksHexOk(hex)) return hex; br = +br || 0; ct = +ct || 0; var o = '#';
+  for (var i = 0; i < 3; i++) { var v = parseInt(hex.substr(1 + i * 2, 2), 16); v = (v - 128) * (1 + ct / 100) + 128; v = v * (1 + br / 100); v = Math.max(0, Math.min(255, Math.round(v))); o += (v < 16 ? '0' : '') + v.toString(16); }
+  return o;
+}
+function ksBaseColor(ma) { for (var i = 0; i < KS_COLORS.length; i++) if (KS_COLORS[i].ma === ma) return KS_COLORS[i]; return null; }
+function ksHex(ma) {      // mau hien thi cuoi cung (bang goc + hieu chinh)
+  var c = ksBaseColor(ma); if (!c) return '#e8eef5'; var k = KS_CAL[ma]; if (!k) return c.hex;
+  return ksAdjHex(ksHexOk(k.hex) ? k.hex : c.hex, k.br, k.ct);
+}
+function ksCalExport() { var cs = []; for (var ma in KS_CAL) { var k = KS_CAL[ma]; cs.push({ ma: ma, hex: ksHexOk(k.hex) ? k.hex : (ksBaseColor(ma) || {}).hex, br: +k.br || 0, ct: +k.ct || 0, final: ksHex(ma) }); } return JSON.stringify({ ctkinh: 'mau-kinh-son', version: 1, colors: cs }, null, 1); }
+function ksCalImport(text) {      // -> so ma doc duoc
+  var o; try { o = JSON.parse(String(text).replace(/^﻿/, '')); } catch (e) { return -1; }
+  var a = o && o.colors; if (!a || !a.length) return 0; var n = 0;
+  a.forEach(function (c) { if (c && ksBaseColor(c.ma)) { KS_CAL[c.ma] = { hex: ksHexOk(c.hex) ? c.hex : undefined, br: Math.max(-50, Math.min(50, +c.br || 0)), ct: Math.max(-50, Math.min(50, +c.ct || 0)) }; n++; } });
+  ksCalSave(); return n;
+}
 function ksNewPanel() { return { nhom: '', ten: '', w: '', h: '', ma: KS_CFG.colors[0].ma, ks: 0, day: KS_CFG.defDay, sl: 1, holes: [] }; }
 function ksNewHole(t, kind) {      // T95: kind cho khoet chu nhat: N = o ngang, V = o dung, D = tu nhap. Truong tho a1/a2 (ngang), b1/b2 (doc), ws/hs (kich thuoc tu nhap), vs (D = do tu day, T = do tu tren), ck (so khach ghi them de kiem)
   var base = { side: 'P', dx: '', dy: '', a1: '', a2: '', b1: '', b2: '', ws: '', hs: '', vs: 'D', ck: '' };
@@ -6324,8 +6348,15 @@ function ksHoleNorm(h) {
   return h;
 }
 // so tho (mep gan / mep xa nhu khach ghi) -> w,h,dx,dy chuan (dx tu canh side, dy tu DAY). Khong doi thu tu 2 so: lay nho = mep gan
-function ksHoleSync(h, H) {
-  ksHoleNorm(h); var n = ksNum, S = function (v) { return isNaN(v) ? '' : ksF(v); }, a1 = n(h.a1), b1 = n(h.b1), top = h.vs === 'T', y;
+function ksHoleSync(h, H, W) {
+  ksHoleNorm(h); var n = ksNum, S = function (v) { return isNaN(v) ? '' : ksF(v); };
+  // T99: tham chieu theo CANH (L/R/B/T): chi nhap 1 so tu canh do, truc con lai can giua tam
+  if (h.ref === 'L' || h.ref === 'R' || h.ref === 'B' || h.ref === 'T') {
+    var pr0 = ksPresetOf(h), sw = h.t === 'C' ? 0 : pr0 ? pr0.w : n(h.ws), sh = h.t === 'C' ? 0 : pr0 ? pr0.h : n(h.hs);
+    if (h.ref === 'L' || h.ref === 'R') { h.side = h.ref === 'L' ? 'T' : 'P'; h.vs = 'D'; h.b2 = ''; h.b1 = isNaN(H) || isNaN(sh) ? '' : S((H - sh) / 2); }
+    else { h.vs = h.ref === 'T' ? 'T' : 'D'; h.a2 = ''; if (W !== undefined) h.a1 = isNaN(W) || isNaN(sw) ? '' : S((W - sw) / 2); if (!h.side) h.side = 'P'; }
+  }
+  var a1 = n(h.a1), b1 = n(h.b1), top = h.vs === 'T', y;
   if (h.t === 'C') { h.dx = S(a1); h.dy = S(top ? (isNaN(b1) || isNaN(H) ? NaN : H - b1) : b1); return h; }
   var pr = ksPresetOf(h), a2 = n(h.a2), b2 = n(h.b2), w, hh, x, y0;
   if (!isNaN(a1) && !isNaN(a2)) { w = Math.abs(a2 - a1); x = Math.min(a1, a2); } else { w = pr ? pr.w : n(h.ws); x = a1; }
@@ -6552,24 +6583,37 @@ function ksDraw(p, k, opt) {
     if (e2 != null) s += '<line x1="' + e2.toFixed(1) + '" y1="' + b.toFixed(1) + '" x2="' + (x + (x > e2 ? ts * .4 : -ts * .4)).toFixed(1) + '" y2="' + b.toFixed(1) + '" stroke="' + dimc + '" stroke-width=".7"/>';
     return s + ((b - a) >= tw(label) + ts ? txt(x - 3, (a + b) / 2, label, 'middle', -90) : txt(x - 3, a - 4, label, 'start', -90));
   };
-  o.push('<rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="' + cm.hex + '" stroke="' + line + '" stroke-width="1.6"/>');
-  if (p.ks) {      // kim sa: cham nho
-    var dots = '', n = Math.min(260, Math.ceil(pw * ph / 700)), sd = 7; for (var i = 0; i < n; i++) { sd = (sd * 9301 + 49297) % 233280; var rx = sd / 233280; sd = (sd * 9301 + 49297) % 233280; var ry = sd / 233280; dots += '<circle cx="' + (ml + 3 + rx * (pw - 6)).toFixed(1) + '" cy="' + (mt + 3 + ry * (ph - 6)).toFixed(1) + '" r="1" fill="#d4af37"/>'; }
+  // T99: tam to day mau, khoet/lo TRONG SUOT (mask) -> thay nen; kim sa = gradient nhe + lap lanh (tat duoc: KS_FX.on)
+  var uid = 'ksm' + (++KS_UID), okH = p.holes.filter(ksHoleOk).map(function (h) { return ksHoleGeo(p, h); });
+  var holeShape = function (g, fill) { return g.t === 'C' ? '<circle cx="' + X(g.cx).toFixed(1) + '" cy="' + Y(g.cy).toFixed(1) + '" r="' + (g.r * k).toFixed(1) + '" fill="' + fill + '"/>' : '<rect x="' + X(g.x1).toFixed(1) + '" y="' + Y(g.y2).toFixed(1) + '" width="' + ((g.x2 - g.x1) * k).toFixed(1) + '" height="' + ((g.y2 - g.y1) * k).toFixed(1) + '" fill="' + fill + '"/>'; };
+  var fx = !!p.ks && KS_FX.on !== false, defs = '<mask id="' + uid + '" maskUnits="userSpaceOnUse" x="0" y="0" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '"><rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="#fff"/>' + okH.map(function (g) { return holeShape(g, '#000'); }).join('') + '</mask>';
+  if (fx) defs += '<linearGradient id="' + uid + 'g" gradientUnits="userSpaceOnUse" x1="' + ml + '" y1="' + mt + '" x2="' + (ml + pw).toFixed(1) + '" y2="' + (mt + ph).toFixed(1) + '"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#ffe9a0" stop-opacity=".22"/><stop offset=".78" stop-color="#000" stop-opacity=".10"/><stop offset="1" stop-color="#fff" stop-opacity=".22"/></linearGradient>';
+  o.push('<defs>' + defs + '</defs>');
+  if (opt.checker) {      // nen caro (chi o xem truoc) de thay khoet trong suot
+    var cs = 8, ck = ''; for (var cy0 = 0; cy0 * cs < ph; cy0++) for (var cx0 = 0; cx0 * cs < pw; cx0++) if ((cx0 + cy0) % 2) ck += '<rect x="' + (ml + cx0 * cs) + '" y="' + (mt + cy0 * cs) + '" width="' + Math.min(cs, pw - cx0 * cs).toFixed(1) + '" height="' + Math.min(cs, ph - cy0 * cs).toFixed(1) + '" fill="#e3e8ee"/>';
+    o.push('<g>' + ck + '</g>');
+  }
+  var inHole = function (x, y) { for (var q = 0; q < okH.length; q++) { var bb = ksBox(okH[q]); if (x >= bb.x1 - 2 && x <= bb.x2 + 2 && y >= bb.y1 - 2 && y <= bb.y2 + 2) return true; } return false; };
+  o.push('<g mask="url(#' + uid + ')"><rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="' + cm.hex + '"/>');
+  if (fx) {
+    o.push('<rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="url(#' + uid + 'g)"/>');
+    var dots = '', n = Math.min(240, Math.ceil(pw * ph / 800)), sd = 7; for (var i = 0; i < n; i++) { sd = (sd * 9301 + 49297) % 233280; var rx = sd / 233280; sd = (sd * 9301 + 49297) % 233280; var ry = sd / 233280; sd = (sd * 9301 + 49297) % 233280; var rz = sd / 233280; dots += '<circle cx="' + (ml + 2 + rx * (pw - 4)).toFixed(1) + '" cy="' + (mt + 2 + ry * (ph - 4)).toFixed(1) + '" r="' + (0.6 + rz * 1.1).toFixed(2) + '" fill="' + (rz > 0.7 ? '#fffbe6' : '#d4af37') + '" opacity="' + (0.45 + rz * 0.5).toFixed(2) + '"/>'; }
     o.push(dots);
   }
+  o.push('</g><rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="none" stroke="' + line + '" stroke-width="1.6"/>');
   var hd = [];
   p.holes.forEach(function (h, i) {
     if (!ksHoleOk(h)) return; var g = ksHoleGeo(p, h);
     if (g.t === 'C') {
       var cx = X(g.cx), cy = Y(g.cy);
-      o.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (g.r * k).toFixed(1) + '" fill="#fff" stroke="' + line + '" stroke-width="1.3"/>');
+      o.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (g.r * k).toFixed(1) + '" fill="none" stroke="' + line + '" stroke-width="1.3"/>');
       var ex = h.side === 'T' ? ml : ml + pw;
       hd.push(dimH(Math.min(ex, cx), Math.max(ex, cx), cy - (g.r * k + 4 < ts ? ts : 0) - 0, ksF(ksNum(h.dx)), ex, cx));
       hd.push(dimV(cy, mt + ph, cx + (g.r * k + ts * 0.9), ksF(ksNum(h.dy)), null, null));
       hd.push(txt(cx, cy + 4, 'φ' + ksF(ksNum(h.d)), 'middle'));
     } else {
       var x1 = X(g.x1), x2 = X(g.x2), yT = Y(g.y2), yB = Y(g.y1), cyy = (yT + yB) / 2;
-      o.push('<rect x="' + x1.toFixed(1) + '" y="' + yT.toFixed(1) + '" width="' + (x2 - x1).toFixed(1) + '" height="' + (yB - yT).toFixed(1) + '" fill="#fff" stroke="' + line + '" stroke-width="1.3"/>');
+      o.push('<rect x="' + x1.toFixed(1) + '" y="' + yT.toFixed(1) + '" width="' + (x2 - x1).toFixed(1) + '" height="' + (yB - yT).toFixed(1) + '" fill="none" stroke="' + line + '" stroke-width="1.3"/>');
       var near = h.side === 'T' ? x1 : x2, edge = h.side === 'T' ? ml : ml + pw;
       hd.push(dimH(Math.min(edge, near), Math.max(edge, near), cyy, ksF(ksNum(h.dx)), null, null));
       hd.push(dimV(yB, mt + ph, (x1 + x2) / 2, ksF(ksNum(h.dy)), null, null));
@@ -6578,6 +6622,7 @@ function ksDraw(p, k, opt) {
     }
   });
   o.push(hd.join(''));
+  if (opt.refs) o.push(ksRefSpots(ml, mt, pw, ph, opt.refs.cur));
   // dim tong: rong (duoi, tang 1 = 2 x chu), cao (trai)
   o.push(dimH(ml, ml + pw, mt + ph + ts * 2, ksF(W), mt + ph, mt + ph));
   o.push(dimV(mt, mt + ph, ml - ts * 2, ksF(H), ml, ml));
@@ -6585,10 +6630,22 @@ function ksDraw(p, k, opt) {
   o.push('<text x="' + (ml + pw / 2).toFixed(1) + '" y="' + (mt + ph - 6).toFixed(1) + '" font-size="' + ts + '" fill="#111" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" opacity=".0">' + title + '</text>');
   return { svg: o.join(''), w: w, h: h, title: title };
 }
+// T99: diem cham chon THAM CHIEU tren hinh xem truoc: 4 goc (BL,BR,TL,TR) + 4 canh (L,R,B,T). cur = diem dang chon (cam)
+function ksRefSpots(ml, mt, pw, ph, cur) {
+  var pts = [['TL', ml, mt], ['TR', ml + pw, mt], ['BL', ml, mt + ph], ['BR', ml + pw, mt + ph], ['T', ml + pw / 2, mt], ['B', ml + pw / 2, mt + ph], ['L', ml, mt + ph / 2], ['R', ml + pw, mt + ph / 2]], s = '';
+  pts.forEach(function (q) {
+    var on = q[0] === cur, edge = q[0].length === 1;
+    s += '<g onclick="ksPickRef(\'' + q[0] + '\')" style="cursor:pointer"><circle cx="' + q[1].toFixed(1) + '" cy="' + q[2].toFixed(1) + '" r="22" fill="#fff" fill-opacity="0.01"/>' +
+      (edge ? '<rect x="' + (q[1] - 6).toFixed(1) + '" y="' + (q[2] - 6).toFixed(1) + '" width="12" height="12" transform="rotate(45 ' + q[1].toFixed(1) + ' ' + q[2].toFixed(1) + ')"' : '<circle cx="' + q[1].toFixed(1) + '" cy="' + q[2].toFixed(1) + '" r="' + (on ? 10 : 8) + '"') + ' fill="' + (on ? '#ff8a00' : '#ffffff') + '" stroke="' + (on ? '#b35c00' : '#1f4e79') + '" stroke-width="2.2"/></g>';
+  });
+  return s;
+}
+function ksRefName(c) { return { BL: 'góc trái-dưới', BR: 'góc phải-dưới', TL: 'góc trái-trên', TR: 'góc phải-trên', L: 'cạnh trái', R: 'cạnh phải', B: 'cạnh dưới', T: 'cạnh trên' }[c] || ''; }
+function ksRefOf(h) { return h.ref || ((h.vs === 'T' ? 'T' : 'B') + (h.side === 'T' ? 'L' : 'R')).replace('TL', 'TL').replace('BL', 'BL'); }
 function ksEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function ksPreviewSvg(p, maxW, maxH) {
+function ksPreviewSvg(p, maxW, maxH, opt) {
   var W = ksNum(p.w), H = ksNum(p.h); if (!(W > 0 && H > 0)) return '';
-  var ts = KS_TS, k = Math.min((maxW - ts * 4.6) / W, (maxH - ts * 4.8) / H), r = ksDraw(p, k);
+  var ts = KS_TS, k = Math.min((maxW - ts * 4.6) / W, (maxH - ts * 4.8) / H), r = ksDraw(p, k, opt || {});
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + r.w.toFixed(0) + ' ' + r.h.toFixed(0) + '" width="100%" style="max-width:' + r.w.toFixed(0) + 'px">' + r.svg + '</svg>';
 }
 // ---- khung ban ve xuat anh / PDF: moi Nhom 1 trang (cac tam + bang thong ke), cuoi cung bang tong hop. trang doc 1400 x 1980
@@ -6613,7 +6670,7 @@ function ksFrame(info, title, pageNo, pageCnt, body) {
     '<rect x="30" y="' + (H - 120) + '" width="' + (W - 60) + '" height="90" fill="#fff" stroke="#1b2a3a" stroke-width="2"/>';
   var cells = [['Ngày', i[0]], ['Đại lý', i[1]], ['Khách hàng', i[2]], ['Loại kính', i[3]], ['Trang', pageNo + '/' + pageCnt]], cw = (W - 60) / cells.length;
   cells.forEach(function (c, n) { s += '<line x1="' + (30 + cw * n) + '" y1="' + (H - 120) + '" x2="' + (30 + cw * n) + '" y2="' + (H - 30) + '" stroke="#1b2a3a" stroke-width="1"/><text x="' + (38 + cw * n) + '" y="' + (H - 98) + '" font-size="13" fill="#666" font-family="Arial,sans-serif">' + c[0] + '</text><text x="' + (38 + cw * n) + '" y="' + (H - 62) + '" font-size="19" font-weight="bold" fill="#111" font-family="Arial,sans-serif">' + ksEsc(c[1] || '') + '</text>'; });
-  s += '<text x="' + (W / 2) + '" y="72" font-size="26" font-weight="bold" text-anchor="middle" fill="#1f4e79" font-family="Arial,sans-serif">' + ksEsc(title) + '</text></svg>';
+  s += '<text x="' + (W / 2) + '" y="72" font-size="26" font-weight="bold" text-anchor="middle" fill="#1f4e79" font-family="Arial,sans-serif">' + ksEsc(title) + '</text><text x="' + (W / 2) + '" y="92" font-size="13" text-anchor="middle" fill="#777" font-family="Arial,sans-serif">Màu hiển thị chỉ mang tính tham khảo – theo mẫu màu thực tế của xưởng</text></svg>';
   return s;
 }
 function ksSheetPages(panels, info) {
@@ -6865,7 +6922,7 @@ function ksStart(copyFrom) {
   if (copyFrom) { p.nhom = copyFrom.nhom; p.ten = ksNextName(copyFrom.ten); p.h = copyFrom.h; p.ma = copyFrom.ma; p.ks = copyFrom.ks; p.day = copyFrom.day; }
   else { var last = KSS.panels[KSS.panels.length - 1]; if (last) { p.nhom = last.nhom; p.ma = last.ma; p.ks = last.ks; p.day = last.day; p.h = last.h; p.ten = ksNextName(last.ten); } else { p.nhom = 'N1'; p.ten = 'A'; } }
   if (d && !copyFrom) { p.ma = d.ma; p.ks = d.ks; p.day = d.day; }
-  KSE = p;
+  KSE = p; KSH = -1;
 }
 function ksUnit() { return KSS.unit === 'cm' ? 'cm' : 'mm'; }
 function ksRead() {      // doc o nhap -> KSE (doi ra mm theo don vi dang chon)
@@ -6878,7 +6935,7 @@ function ksRead() {      // doc o nhap -> KSE (doi ra mm theo don vi dang chon)
     var g = function (n) { var e = $('kh' + n + '_' + i); return e ? ksToMm(e.value, u) : (h[n] == null ? '' : h[n]); };
     if (h.t === 'C') h.d = g('d');
     ['a1', 'a2', 'b1', 'b2', 'ws', 'hs', 'ck'].forEach(function (n) { h[n] = g(n); });
-    ksHoleSync(h, H);
+    ksHoleSync(h, H, ksNum(KSE.w));
   });
   ksRowRead();
 }
@@ -6890,54 +6947,77 @@ function ksSyncDef() { if (KSE && KSI < 0) KSS.def = { ma: KSE.ma, ks: KSE.ks, d
 function ksField(id, label, val, ph, mode, ghost, hand) {
   return '<div class="ksf"><label for="' + id + '">' + label + '</label><input id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(ph || '') + '" inputmode="' + (mode || 'decimal') + '" autocomplete="off" enterkeyhint="next" oninput="' + (hand || 'ksLive()') + '" onkeydown="' + (hand ? 'ksRowKey(event)' : 'ksKey(event)') + '"></div>';
 }
+var KSH = -1, KSO = {};      // KSH = khoet dang chon (de to diem tham chieu tren hinh); KSO = trang thai mo/dong cac muc "..."
+function ksDet(id, title, inner, openDef) { var op = KSO[id] == null ? !!openDef : KSO[id]; return '<details class="ksmore" id="ksdet_' + id + '"' + (op ? ' open' : '') + ' ontoggle="KSO[\'' + id + '\']=this.open"><summary>' + title + '</summary>' + inner + '</details>'; }
+function ksOpenMore() { KSO.more = true; var d = $('ksdet_more'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }
 function ksRenderEd() {
   if (!KSE) return; var p = KSE, mas = KS_CFG.colors, days = KS_CFG.days.slice(), u = ksUnit(), fm = function (v) { return ksFromMm(v, u); };
   if (days.indexOf(ksNum(p.day)) < 0 && ksNum(p.day) > 0) days.push(ksNum(p.day));
-  // o chon mau: 24 o; ma gach do (hetTon) hien mo, khong chon duoc. Ma cu trong CSV khong co trong bang: van hien (de sua)
-  var sw = mas.map(function (c) { var off = !!c.hetTon && c.ma !== p.ma; return '<button type="button" class="ksmau' + (c.ma === p.ma ? ' act' : '') + (c.hetTon ? ' het' : '') + '"' + (off ? ' disabled' : '') + ' onclick="ksPickMa(\'' + esc(c.ma) + '\')"><span class="ksmsw" style="background:' + c.hex + '"></span><b>' + esc(c.ma) + '</b><small>' + esc(c.ten) + (c.hetTon ? ' · hết hàng' : '') + '</small></button>'; }).join('');
+  if (KSH >= p.holes.length) KSH = p.holes.length - 1; if (KSH < 0 && p.holes.length) KSH = p.holes.length - 1;
+  var sw = mas.map(function (c) { var off = !!c.hetTon && c.ma !== p.ma, hx = ksHex(c.ma); return '<button type="button" class="ksmau' + (c.ma === p.ma ? ' act' : '') + (c.hetTon ? ' het' : '') + '"' + (off ? ' disabled' : '') + ' onclick="ksPickMa(\'' + esc(c.ma) + '\')"><span class="ksmsw" style="background:' + hx + '"></span><b>' + esc(c.ma) + '</b><small>' + esc(c.ten) + (c.hetTon ? ' · hết hàng' : '') + '</small></button>'; }).join('');
   if (!ksHasMa(p.ma)) sw = '<button type="button" class="ksmau act" onclick="ksPickMa(\'' + esc(p.ma) + '\')"><span class="ksmsw" style="background:#e8eef5"></span><b>' + esc(p.ma) + '</b><small>không có trong bảng</small></button>' + sw;
-  var isNew = KSI < 0, nm = ksField('ksnhom', 'Bếp / công trình', p.nhom, 'vd N1', 'text'), rw = KSR.w.slice(); if (!rw.length) rw = ['', '', '', ''];
+  var isNew = KSI < 0, rw = KSR.w.slice(); if (!rw.length) rw = ['', '', '', ''];
   var rowBox = '';
   if (isNew) {
     var nmx = p.ten || 'A', lab = []; for (var q = 0; q < rw.length; q++) { lab.push(nmx); nmx = ksNextName(nmx); }
-    rowBox = '<div class="ksrb"><div class="kshh">Nhập cả HÀNG <small>(1 lần cao chung + rộng từng tấm A, B, C… – tấm tạo ra kế thừa cao, màu, dày, kim sa; muốn sửa riêng bấm vào tấm trong danh sách)</small></div><div class="ksgrid">' + nm +
+    rowBox = '<div class="ksrb"><div class="kshh">Nhập cả HÀNG <small>(1 lần cao chung + rộng từng tấm A, B, C… – tấm tạo ra kế thừa cao, màu, dày, kim sa)</small></div><div class="ksgrid">' +
       ksField('krh', 'Cao chung (' + u + ')', fm(KSR.h || p.h), u === 'cm' ? 'vd 59,5' : 'vd 590', 'decimal', 0, 'ksRowLive()') + '</div><div class="ksgrid">' +
       rw.map(function (v, i) { return ksField('krw' + i, 'Rộng tấm ' + lab[i] + ' (' + u + ')', fm(v), u === 'cm' ? 'vd 166,2' : 'vd 1662', 'decimal', 0, 'ksRowLive()'); }).join('') + '</div>' +
       '<div class="ksadd"><button type="button" onclick="ksRowAdd()">+ thêm tấm</button><button type="button" class="pri" onclick="ksRowMake()">✓ Tạo hàng</button></div></div>';
   }
-  var h = '<div class="ksdock" id="ksdock"><div id="kspv"></div><div class="ksw" id="ksw_"></div></div>' +
-    '<div class="ksrb"><div class="kshh">Đầu đơn <small>(Đại lý, Khách, Ngày ở thanh trên cùng)</small></div>' +
-    '<div class="ksf"><label>Đơn vị số đo</label><div class="kssw"><button type="button" class="' + (u === 'mm' ? 'act' : '') + '" onclick="ksSetUnit(\'mm\')">mm</button><button type="button" class="' + (u === 'cm' ? 'act' : '') + '" onclick="ksSetUnit(\'cm\')">cm</button></div><small class="ksnote">' + (u === 'cm' ? 'Gõ cm (dấu phẩy được: 28,5 → 285 mm). Muốn một số theo mm gõ thêm mm: 50mm.' : 'Gõ mm. Số khách ghi cm: gõ thêm cm, vd 28,5cm.') + '</small></div>' +
+  var cm = ksColor(p.ma);
+  var more = '<div class="ksrb"><div class="kshh">Đầu đơn / bếp</div>' + ksField('ksnhom', 'Bếp / công trình', p.nhom, 'vd N1', 'text') +
+    '<div class="ksf"><label>Đơn vị số đo</label><div class="kssw"><button type="button" class="' + (u === 'mm' ? 'act' : '') + '" onclick="ksSetUnit(\'mm\')">mm</button><button type="button" class="' + (u === 'cm' ? 'act' : '') + '" onclick="ksSetUnit(\'cm\')">cm</button></div><small class="ksnote">' + (u === 'cm' ? 'Gõ cm (dấu phẩy được: 28,5 → 285 mm). Muốn một số theo mm gõ thêm mm: 50mm.' : 'Gõ mm. Số khách ghi cm: gõ thêm cm, vd 28,5cm.') + '</small></div></div>' +
     '<div class="kshh">' + (isNew ? 'Mã màu' : 'Mã màu tấm này') + ' <small>(ô mờ "hết hàng" không chọn được)</small></div><input type="hidden" id="ksma" value="' + esc(p.ma) + '"><div class="ksmgrid">' + sw + '</div>' +
+    '<small class="ksnote">Màu chỉ mang tính tham khảo (xấp xỉ từ ảnh chụp bảng màu, có thể lệch do ánh sáng). Màu thật theo mẫu của xưởng.</small>' +
     '<div class="ksgrid"><div class="ksf"><label>Phun kim sa</label><div class="kssw"><button type="button" class="' + (p.ks ? '' : 'act') + '" onclick="ksSetKs(0)">Không</button><button type="button" class="' + (p.ks ? 'act' : '') + '" onclick="ksSetKs(1)">Có</button></div></div>' +
-    '<div class="ksf"><label for="ksday">Độ dày (mm)</label><select id="ksday" onchange="ksLive()">' + days.map(function (d) { return '<option' + (d === ksNum(p.day) ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div></div></div>' +
-    rowBox +
-    '<div class="kshh">' + (isNew ? 'Hoặc nhập MỘT tấm' : 'Sửa tấm ' + esc(p.ten)) + '</div>' +
-    '<div class="ksgrid">' + (isNew ? '' : nm) + ksField('ksten', 'Tên tấm', p.ten, 'vd A', 'text') +
-    ksField('ksw', 'Rộng (' + u + ')', fm(p.w), u === 'cm' ? 'vd 166,2' : 'vd 2100') + ksField('ksh', 'Cao (' + u + ')', fm(p.h), u === 'cm' ? 'vd 59' : 'vd 590') + ksField('kssl', 'Số lượng', p.sl, '1', 'numeric') + '</div>' +
-    '<div class="kshh">Khoét / lỗ <small>(ghi số đúng như khách ghi: 1 số hoặc 2 số mép gần – mép xa, không phải tính)</small></div>' +
+    '<div class="ksf"><label for="ksday">Độ dày (mm)</label><select id="ksday" onchange="ksLive()">' + days.map(function (d) { return '<option' + (d === ksNum(p.day) ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
+    ksField('kssl', 'Số lượng', p.sl, '1', 'numeric') + '</div>' +
+    '<div class="ksgrid"><div class="ksf"><label>Ánh kim trên hình (kim sa)</label><div class="kssw"><button type="button" class="' + (KS_FX.on !== false ? 'act' : '') + '" onclick="ksFxToggle(1)">Bật</button><button type="button" class="' + (KS_FX.on === false ? 'act' : '') + '" onclick="ksFxToggle(0)">Tắt</button></div></div>' +
+    '<div class="ksf"><label>Màu hiển thị</label><button type="button" class="ksbtn" onclick="ksCalOpen(KSE.ma)">Hiệu chỉnh màu…</button></div></div>' + rowBox +
+    '<div class="kshh">Thêm khoét nhanh <small>(ổ điện có sẵn kích thước)</small></div><div class="ksadd"><button type="button" onclick="ksHoleAdd(\'R\',\'N\')">+ Ổ ngang ' + KS_CFG.socket.w + '×' + KS_CFG.socket.h + '</button><button type="button" onclick="ksHoleAdd(\'R\',\'V\')">+ Ổ đứng ' + KS_CFG.socketV.w + '×' + KS_CFG.socketV.h + '</button></div>';
+  var h = '<div class="ksdock" id="ksdock"><div id="kspv"></div><div class="ksw" id="ksw_"></div></div>' +
+    '<div class="ksclr"><span class="ksmsw2" style="background:' + cm.hex + '"></span><span><b>' + esc(p.ma) + '</b> ' + esc(cm.ten) + (p.ks ? ' · kim sa' : '') + ' · dày ' + esc(ksF(ksNum(p.day) || 0)) + '</span><button type="button" onclick="ksOpenMore()">Đổi màu / dày ▾</button></div>' +
+    '<div class="ksgrid">' + ksField('ksten', 'Tên tấm', p.ten, 'vd A', 'text') + '</div>' +
+    '<div class="ksgrid">' + ksField('ksw', 'Dài (' + u + ')', fm(p.w), u === 'cm' ? 'vd 166,2' : 'vd 1662') + ksField('ksh', 'Rộng (' + u + ')', fm(p.h), u === 'cm' ? 'vd 59' : 'vd 590') + '</div>' +
+    '<div class="kshh">Khoét / lỗ <small>(nhập kích thước, rồi CHẠM hình xem trước để chọn điểm tham chiếu và nhập khoảng cách)</small></div>' +
     p.holes.map(function (hh, i) { return ksHoleCard(hh, i, u); }).join('') +
-    '<div class="ksadd"><button type="button" onclick="ksHoleAdd(\'R\',\'N\')">+ Ổ ngang ' + KS_CFG.socket.w + '×' + KS_CFG.socket.h + '</button><button type="button" onclick="ksHoleAdd(\'R\',\'V\')">+ Ổ đứng ' + KS_CFG.socketV.w + '×' + KS_CFG.socketV.h + '</button><button type="button" onclick="ksHoleAdd(\'C\')">+ Lỗ tròn Ø</button><button type="button" onclick="ksHoleAdd(\'R\',\'D\')">+ Khoét dài / tự nhập</button></div>' +
-    '<div class="kswarn" id="kswarn"></div>';
+    '<div class="ksadd"><button type="button" class="pri" onclick="ksHoleAdd(\'R\',\'D\')">+ Khoét chữ nhật</button><button type="button" class="pri" onclick="ksHoleAdd(\'C\')">+ Lỗ tròn Ø</button></div>' +
+    '<div class="kswarn" id="kswarn"></div>' + ksDet('more', '⋯ Thêm (mã màu, kim sa, dày, SL, hàng, mm/cm, ổ điện, hiệu chỉnh màu)', more, false);
   $('ksEd').innerHTML = h;
 }
 function ksHoleCard(hh, i, u) {
   ksHoleNorm(hh);
   var c = hh.t === 'C', fm = function (v) { return ksFromMm(v, u); }, e = function (n, lab, v, ph) { return ksField('kh' + n + '_' + i, lab, fm(v), ph); }, top = hh.vs === 'T', sd = hh.side === 'T' ? 'trái' : 'phải';
-  var ttl = c ? 'Lỗ tròn Ø ' : hh.kind === 'V' ? 'Ổ đứng ' : hh.kind === 'D' ? 'Khoét dài / tự nhập ' : 'Ổ ngang ';
-  var kindBtn = c ? '' : '<div class="kssw sm">' + [['N', 'Ổ ngang'], ['V', 'Ổ đứng'], ['D', 'Tự nhập']].map(function (x) { return '<button type="button" class="' + (hh.kind === x[0] ? 'act' : '') + '" onclick="ksHoleKind(' + i + ',\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
-  var f = '';
-  if (c) f = e('d', 'Đường kính Ø', hh.d, 'vd 50') + e('a1', 'Cách cạnh ' + sd + ' (tới tâm)', hh.a1, 'vd 230') + e('b1', (top ? 'Cách trên' : 'Cách đáy') + ' (tới tâm)', hh.b1, 'vd 290');
-  else {
-    f = e('a1', 'Cách cạnh ' + sd + ' – số 1', hh.a1, 'vd 130') + e('a2', 'số 2 (mép xa, nếu có)', hh.a2, 'vd 230') + (hh.kind === 'D' ? e('ws', 'hoặc Rộng khoét', hh.ws, 'vd 1460') : '') +
-      e('b1', (top ? 'Cách trên' : 'Cách đáy') + ' – số 1', hh.b1, 'vd 280') + e('b2', 'số 2 (mép xa, nếu có)', hh.b2, 'vd 340') + (hh.kind === 'D' ? e('hs', 'hoặc Cao khoét', hh.hs, 'vd 60') : '');
-  }
-  f += e('ck', 'Khách ghi thêm ' + (top ? 'cách đáy' : 'cách trên') + ' (để app kiểm)', hh.ck, 'vd 338');
-  return '<div class="kshole"><div class="khtop"><b>' + ttl + (i + 1) + '</b><button type="button" class="warn" onclick="ksHoleDel(' + i + ')">Xoá</button></div>' + kindBtn +
-    '<div class="kssw sm"><button type="button" class="' + (hh.side === 'P' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'P\')">Từ cạnh phải</button><button type="button" class="' + (hh.side === 'T' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'T\')">Từ cạnh trái</button>' +
-    '<button type="button" class="' + (top ? '' : 'act') + '" onclick="ksHoleVs(' + i + ',\'D\')">Đo từ đáy</button><button type="button" class="' + (top ? 'act' : '') + '" onclick="ksHoleVs(' + i + ',\'T\')">Đo từ trên</button></div>' +
-    '<div class="ksgrid">' + f + '</div>' + ksJetOpt(hh, i) + '</div>';
+  var ref = ksRefOf(hh), pre = !!ksPresetOf(hh);
+  var ttl = c ? 'Lỗ tròn Ø ' : hh.kind === 'V' ? 'Ổ đứng ' : hh.kind === 'N' ? 'Ổ ngang ' : 'Khoét ';
+  var kindBtn = c ? '' : '<div class="kssw sm">' + [['N', 'Ổ ngang'], ['V', 'Ổ đứng'], ['D', 'Tự nhập kích thước']].map(function (x) { return '<button type="button" class="' + (hh.kind === x[0] ? 'act' : '') + '" onclick="ksHoleKind(' + i + ',\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
+  var size = c ? e('d', 'Đường kính Ø', hh.d, 'vd 50') : pre ? '<div class="ksnote">Kích thước ổ ' + esc(ksF(ksNum(hh.w))) + '×' + esc(ksF(ksNum(hh.h))) + ' (đổi trong ⋯ khoét)</div>' : e('ws', 'Dài khoét', hh.ws, 'vd 1460') + e('hs', 'Rộng khoét', hh.hs, 'vd 60');
+  var dist = '', ctr = c ? 'tới tâm' : 'tới mép gần';
+  if (ref === 'L' || ref === 'R') dist = e('a1', 'Cách cạnh ' + sd + ' (' + ctr + ')', hh.a1, 'vd 130') + '<div class="ksnote">Căn giữa theo chiều rộng tấm' + (hh.b1 !== '' ? ' (cách đáy ' + esc(ksF(ksNum(hh.b1))) + ')' : '') + '</div>';
+  else if (ref === 'B' || ref === 'T') dist = e('b1', 'Cách ' + (ref === 'T' ? 'cạnh trên' : 'đáy') + ' (' + ctr + ')', hh.b1, 'vd 280') + '<div class="ksnote">Căn giữa theo chiều dài tấm' + (hh.a1 !== '' ? ' (cách mép ' + esc(ksF(ksNum(hh.a1))) + ')' : '') + '</div>';
+  else dist = e('a1', 'Cách cạnh ' + sd + ' (' + ctr + ')', hh.a1, 'vd 130') + e('b1', 'Cách ' + (top ? 'cạnh trên' : 'đáy') + ' (' + ctr + ')', hh.b1, 'vd 280');
+  var adv = kindBtn + '<div class="kssw sm"><button type="button" class="' + (hh.side === 'P' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'P\')">Từ cạnh phải</button><button type="button" class="' + (hh.side === 'T' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'T\')">Từ cạnh trái</button>' +
+    '<button type="button" class="' + (top ? '' : 'act') + '" onclick="ksHoleVs(' + i + ',\'D\')">Đo từ đáy</button><button type="button" class="' + (top ? 'act' : '') + '" onclick="ksHoleVs(' + i + ',\'T\')">Đo từ trên</button></div>';
+  var f2 = '';
+  if (!c) f2 += e('a2', 'Ngang: số 2 (mép xa, nếu khách ghi 2 số)', hh.a2, 'vd 230') + e('b2', 'Dọc: số 2 (mép xa, nếu có)', hh.b2, 'vd 340');
+  f2 += e('ck', 'Khách ghi thêm ' + (top ? 'cách đáy' : 'cách trên') + ' (để app kiểm)', hh.ck, 'vd 338');
+  adv += '<div class="ksgrid">' + f2 + '</div>' + ksJetOpt(hh, i);
+  return '<div class="kshole' + (i === KSH ? ' cur' : '') + '" id="kshole' + i + '" onfocusin="ksHoleCur(' + i + ')" onclick="ksHoleCur(' + i + ')"><div class="khtop"><b>' + ttl + (i + 1) + '</b><span class="ksrefv">Tham chiếu: <b>' + ksRefName(ref) + '</b></span><button type="button" class="warn" onclick="ksHoleDel(' + i + ')">Xoá</button></div>' +
+    '<div class="ksgrid">' + size + '</div><div class="ksnote ksrefhint">Chạm chấm trên hình (góc = chấm tròn, cạnh = chấm thoi) để đổi điểm tham chiếu</div><div class="ksgrid">' + dist + '</div>' +
+    ksDet('h' + i, '⋯ khoét: loại, hướng đo, 2 số mép gần–xa, tia nước', adv, false) + '</div>';
 }
+function ksHoleCur(i) {
+  if (KSH === i) return; KSH = i; var all = document.querySelectorAll('#ksEd .kshole'); for (var q = 0; q < all.length; q++) all[q].classList.toggle('cur', all[q].id === 'kshole' + i); ksLive();
+}
+function ksPickRef(code) {
+  ksRead(); var h = KSE && KSE.holes[KSH]; if (!h) { toast('Bấm "+ Khoét chữ nhật" hoặc "+ Lỗ tròn" trước'); return; }
+  h.ref = code; if (code.length === 2) { h.side = code.charAt(1) === 'L' ? 'T' : 'P'; h.vs = code.charAt(0) === 'T' ? 'T' : 'D'; }
+  ksHoleSync(h, ksNum(KSE.h), ksNum(KSE.w)); ksRenderEd(); ksLive();
+  var f = $('kha1_' + KSH), g = $('khb1_' + KSH); if (f && f.value === '') f.focus(); else if (g && g.value === '') g.focus();
+  toast('Tham chiếu: ' + ksRefName(code));
+}
+function ksFxToggle(on) { ksRead(); ksFxSet(on); ksRenderEd(); ksLive(); }
 function ksSetUnit(u) { ksRead(); KSS.unit = u === 'cm' ? 'cm' : 'mm'; ksRenderEd(); ksLive(); }
 function ksRowLive() { ksRowRead(); ksSave(); }
 function ksRowAdd() { ksRead(); KSR.w.push(''); ksRenderEd(); var f = $('krw' + (KSR.w.length - 1)); if (f) f.focus(); ksSave(); }
@@ -6957,8 +7037,8 @@ function ksRowMake() {
   var hh = KSR.h; KSR = { h: hh, w: ['', '', '', ''] }; ksStart(); KSE.nhom = ksNextNhom(nh); KSE.ten = 'A'; KSE.h = hh;
   ksRenderEd(); ksRenderList(); ksLive(); ksSave(); window.scrollTo({ top: 0 });
 }
-function ksHoleKind(i, k) { ksRead(); var h = KSE.holes[i]; h.kind = k; if (ksPresetOf(h)) { h.ws = ''; h.hs = ''; } ksHoleSync(h, ksNum(KSE.h)); ksRenderEd(); ksLive(); }
-function ksHoleVs(i, v) { ksRead(); KSE.holes[i].vs = v; ksHoleSync(KSE.holes[i], ksNum(KSE.h)); ksRenderEd(); ksLive(); }
+function ksHoleKind(i, k) { ksRead(); var h = KSE.holes[i]; h.kind = k; if (ksPresetOf(h)) { h.ws = ''; h.hs = ''; } ksHoleSync(h, ksNum(KSE.h), ksNum(KSE.w)); ksRenderEd(); ksLive(); }
+function ksHoleVs(i, v) { ksRead(); var h = KSE.holes[i]; h.vs = v; h.ref = (v === 'T' ? 'T' : 'B') + (h.side === 'T' ? 'L' : 'R'); ksHoleSync(h, ksNum(KSE.h), ksNum(KSE.w)); ksRenderEd(); ksLive(); }
 // T94: tuy chon cat tia nuoc cho tung khoet / lo
 function ksJetOpt(hh, i) {
   var c = hh.t === 'C', sw = function (act, js, lab) { return '<button type="button" class="' + (act ? 'act' : '') + '" onclick="' + js + '">' + lab + '</button>'; };
@@ -6968,7 +7048,7 @@ function ksJetOpt(hh, i) {
 }
 function ksHoleOpt(i, k, v) { ksRead(); var h = KSE.holes[i]; if (k === 'lead' && v === 'T') delete h.lead; else if (k === 'tn' && !v) delete h.tn; else h[k] = v; ksRenderEd(); ksLive(); }function ksKey(e) { if (e.key === 'Enter') { e.preventDefault(); ksTiep(e.target); } }
 function ksTiep(from) {
-  var all = Array.prototype.slice.call(document.querySelectorAll('#ksEd input'));
+  var all = Array.prototype.slice.call(document.querySelectorAll('#ksEd input')).filter(function (x) { return x.type !== 'hidden' && x.offsetParent !== null; });
   var i = all.indexOf(from || document.activeElement);
   var nx = all[i + 1]; if (nx) { nx.focus(); try { nx.select(); } catch (e) {} } else { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); ksSavePanel(); }
 }
@@ -6981,16 +7061,20 @@ function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.m
     '.ksmau small{color:#556;font-size:12px;line-height:1.2}' +
     '.ksmau.act{border-color:#1f4e79;box-shadow:0 0 0 2px #1f4e79 inset}' +
     '.ksmau:disabled{opacity:.35;cursor:not-allowed}' +
-    '.ksrb{border:1px solid #c9d6e3;border-radius:12px;padding:8px;margin:8px 0;background:#f2f7fc}.ksrb .ksadd button.pri{background:#1f4e79;color:#fff}.ksnote{display:block;color:#7a8794;font-size:12px;margin-top:2px}.kshole .kssw.sm{flex-wrap:wrap;margin:6px 0}.kshole .kssw.sm button{flex:1 1 40%}'; document.head.appendChild(st); } catch (e) {}
+    '.ksmore{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:10px 0;background:#f7fafd}.ksmore>summary{min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:600;color:#1f4e79;cursor:pointer}.kshole .ksmore{background:#fff;margin:6px 0 0}.kshole.cur{border-color:#ff8a00;box-shadow:0 0 0 2px #ff8a0055}.ksrefv{font-size:14px;color:#1f4e79;margin:0 8px}.ksrefhint{margin:2px 0 6px}.ksclr{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:15px}.ksclr button{margin-left:auto;min-height:44px;font-size:15px;border:1px solid #c9d6e3;border-radius:10px;background:#fff;padding:0 10px}.ksmsw2{display:inline-block;width:28px;height:28px;border-radius:7px;border:1px solid #888;flex:none}.ksbtn{min-height:44px;font-size:16px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;padding:0 12px}.kscal .row2{display:flex;gap:8px;align-items:center;margin:8px 0}.kscal .sq{height:54px;border-radius:10px;border:1px solid #888}.kscal input[type=range]{flex:1;min-height:32px}.kscal input[type=text],.kscal select{font-size:16px;min-height:44px;padding:0 8px;border:1px solid #bbb;border-radius:8px}.ksdock{background:#fff}.ksrb{border:1px solid #c9d6e3;border-radius:12px;padding:8px;margin:8px 0;background:#f2f7fc}.ksrb .ksadd button.pri{background:#1f4e79;color:#fff}.ksnote{display:block;color:#7a8794;font-size:12px;margin-top:2px}.kshole .kssw.sm{flex-wrap:wrap;margin:6px 0}.kshole .kssw.sm button{flex:1 1 40%}'; document.head.appendChild(st); } catch (e) {}
 })();
 function ksSetKs(v) { ksRead(); KSE.ks = v; ksRenderEd(); ksLive(); }
-function ksHoleAdd(t, kind) { ksRead(); KSE.holes.push(ksNewHole(t, kind)); ksRenderEd(); ksLive(); var f = $(t === 'C' ? 'khd_' + (KSE.holes.length - 1) : 'kha1_' + (KSE.holes.length - 1)); if (f) f.focus(); }
-function ksHoleDel(i) { ksRead(); KSE.holes.splice(i, 1); ksRenderEd(); ksLive(); }
-function ksHoleSide(i, s) { ksRead(); KSE.holes[i].side = s; ksRenderEd(); ksLive(); }
+function ksHoleAdd(t, kind) {
+  ksRead(); var nh = ksNewHole(t, kind), last = KSE.holes[KSE.holes.length - 1]; nh.ref = last ? ksRefOf(last) : 'BL';
+  if (nh.ref.length === 2) { nh.side = nh.ref.charAt(1) === 'L' ? 'T' : 'P'; nh.vs = nh.ref.charAt(0) === 'T' ? 'T' : 'D'; }
+  KSE.holes.push(nh); KSH = KSE.holes.length - 1; ksRenderEd(); ksLive(); var n = KSH, f = $(t === 'C' ? 'khd_' + n : kind === 'D' ? 'khws_' + n : 'kha1_' + n); if (f) f.focus();
+}
+function ksHoleDel(i) { ksRead(); KSE.holes.splice(i, 1); KSH = KSE.holes.length - 1; ksRenderEd(); ksLive(); }
+function ksHoleSide(i, s) { ksRead(); var h = KSE.holes[i]; h.side = s; h.ref = (h.vs === 'T' ? 'T' : 'B') + (s === 'T' ? 'L' : 'R'); ksRenderEd(); ksLive(); }
 function ksLive() {
   ksRead(); if (!KSE) return;
   var v = ksValidate(KSE), pv = $('kspv'), vw = Math.min(window.innerWidth - 40, 760), vh = Math.max(150, Math.min(260, (window.innerHeight || 700) * 0.28));
-  if (pv) { var svg = ksPreviewSvg(KSE, vw, vh); pv.innerHTML = svg || '<div class="ksempty">Nhập rộng × cao để thấy hình</div>'; }
+  if (pv) { var hc = KSE.holes[KSH], svg = ksPreviewSvg(KSE, vw, vh, { checker: true, refs: hc ? { cur: ksRefOf(hc) } : null }); pv.innerHTML = svg || '<div class="ksempty">Nhập rộng × cao để thấy hình</div>'; }
   var w = $('kswarn'); if (w) w.innerHTML = Object.keys(v.err).filter(function (k) { return /^h\d/.test(k) || k === 'sl'; }).map(function (k) { return '<div class="kse">⚠ ' + esc(v.err[k]) + '</div>'; }).join('') + v.warn.map(function (m) { return '<div class="ksy">⚠ ' + esc(m) + '</div>'; }).join('') + (v.info || []).map(function (m) { return '<div class="ksi">ℹ ' + esc(m) + ' (khoét theo số khách)</div>'; }).join('');
   ['ksw', 'ksh', 'ksten'].forEach(function (id) { var e = $(id), k = id === 'ksw' ? 'w' : id === 'ksh' ? 'h' : 'ten'; if (e) e.classList.toggle('bad', !!(v.err[k] && e.value.trim() !== '' )); });
   ksSyncDef(); ksSave();
@@ -7003,7 +7087,7 @@ function ksSavePanel(dup) {
   if (dup) ksStart(p); else ksStart();
   ksRenderEd(); ksRenderList(); ksLive(); ksSave(); window.scrollTo({ top: 0 });
 }
-function ksEdit(i) { KSE = JSON.parse(JSON.stringify(KSS.panels[i])); KSE.holes.forEach(ksHoleNorm); KSI = i; ksRenderEd(); ksLive(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function ksEdit(i) { KSE = JSON.parse(JSON.stringify(KSS.panels[i])); KSE.holes.forEach(ksHoleNorm); KSI = i; KSH = KSE.holes.length - 1; ksRenderEd(); ksLive(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function ksCancel() { ksStart(); ksRenderEd(); ksLive(); }
 function ksDup(i) { var p = KSS.panels[i], c = JSON.parse(JSON.stringify(p)); c.ten = ksNextName(p.ten); KSS.panels.splice(i + 1, 0, c); ksRenderList(); ksSave(); toast('Đã nhân đôi thành ' + c.ten); }
 function ksDel(i) { if (!confirm('Xoá tấm ' + KSS.panels[i].ten + '?')) return; KSS.panels.splice(i, 1); if (KSI === i) ksStart(); else if (KSI > i) KSI--; ksRenderEd(); ksRenderList(); ksLive(); ksSave(); }
@@ -7023,6 +7107,36 @@ function ksRenderList() {
   KSS.panels.forEach(function (p) { delete p._i; });
   $('ksCnt').textContent = KSS.panels.length + ' tấm'; el.innerHTML = h;
 }
+// ---------- T99: Hieu chinh mau (an trong ... Them) ----------
+var KSCM = '';
+function ksCalOpen(ma) {
+  ksRead(); KSCM = ma && ksBaseColor(ma) ? ma : KS_COLORS[0].ma; var c = ksBaseColor(KSCM), k = KS_CAL[KSCM] || {}, hx = ksHexOk(k.hex) ? k.hex : c.hex;
+  $('isbox').innerHTML = '<div class="kscal"><h3>Hiệu chỉnh màu</h3><small>Màu trong app lấy xấp xỉ từ ẢNH CHỤP bảng màu nên có thể lệch do ánh sáng; chỉ mang tính tham khảo. Đặt tấm mẫu thật cạnh màn hình, chỉnh cho gần giống, lưu lại. Muốn chốt chung cho mọi người: Xuất file JSON màu gửi quản lý.</small>' +
+    '<div class="row2"><select id="kcm" onchange="ksCalOpen(this.value)" style="flex:1">' + KS_COLORS.map(function (x) { return '<option value="' + esc(x.ma) + '"' + (x.ma === KSCM ? ' selected' : '') + '>' + esc(x.ma) + ' ' + esc(x.ten) + (KS_CAL[x.ma] ? ' *' : '') + '</option>'; }).join('') + '</select></div>' +
+    '<div class="row2"><div style="flex:1"><small>Gốc (bảng)</small><div class="sq" style="background:' + c.hex + '"></div></div><div style="flex:1"><small>Đang dùng</small><div class="sq" id="kcnew" style="background:' + ksHex(KSCM) + '"></div></div></div>' +
+    '<div class="row2"><label for="kchex">Mã hex</label><input type="text" id="kchex" value="' + esc(hx) + '" maxlength="7" autocomplete="off" oninput="ksCalInput(0)"><input type="color" id="kcpick" value="' + esc(hx) + '" oninput="ksCalInput(1)" style="min-height:44px;width:60px"></div>' +
+    '<div class="row2"><label style="width:96px">Sáng <output id="kcbro">' + (+k.br || 0) + '</output></label><input type="range" id="kcbr" min="-50" max="50" value="' + (+k.br || 0) + '" oninput="ksCalInput(0)"></div>' +
+    '<div class="row2"><label style="width:96px">Tương phản <output id="kccto">' + (+k.ct || 0) + '</output></label><input type="range" id="kcct" min="-50" max="50" value="' + (+k.ct || 0) + '" oninput="ksCalInput(0)"></div>' +
+    '<div class="row"><button class="bt" onclick="ksCalReset()">Đặt lại mã này</button><button class="bt" onclick="ksCalExportBtn()">Xuất JSON màu</button></div>' +
+    '<div class="row"><button class="bt" onclick="$(\'kcfile\').click()">Nhập JSON màu</button><button class="bt pri" onclick="ksCalClose()">Xong</button></div><input type="file" id="kcfile" accept=".json,application/json" style="display:none" onchange="ksCalFile(this)"></div>';
+  $('isheet').classList.add('on');
+}
+function ksCalInput(fromPick) {
+  var c = ksBaseColor(KSCM); if (!c) return; var hx = (fromPick ? $('kcpick').value : $('kchex').value).trim(); if (hx && hx.charAt(0) !== '#') hx = '#' + hx;
+  if (fromPick) $('kchex').value = hx; else if (ksHexOk(hx)) $('kcpick').value = hx;
+  var br = +$('kcbr').value, ct = +$('kcct').value; $('kcbro').textContent = br; $('kccto').textContent = ct;
+  var useHex = ksHexOk(hx) && hx.toLowerCase() !== c.hex.toLowerCase();
+  if (!useHex && !br && !ct) delete KS_CAL[KSCM]; else KS_CAL[KSCM] = { hex: useHex ? hx : undefined, br: br, ct: ct };
+  ksCalSave(); $('kcnew').style.background = ksHex(KSCM); ksLive();
+}
+function ksCalReset() { delete KS_CAL[KSCM]; ksCalSave(); ksCalOpen(KSCM); ksLive(); }
+function ksCalExportBtn() { if (!Object.keys(KS_CAL).length) { toast('Chưa chỉnh màu nào để xuất'); return; } ksDeliver(new Blob([ksCalExport()], { type: 'application/json' }), 'mau-kinh-son.json', 'application/json'); }
+function ksCalFile(inp) {
+  var f = inp.files && inp.files[0]; if (!f) return; var rd = new FileReader();
+  rd.onload = function () { var n = ksCalImport(rd.result); toast(n < 0 ? 'File JSON không đọc được' : n === 0 ? 'File không có màu nào hợp lệ' : 'Đã nhập ' + n + ' màu'); inp.value = ''; if (n > 0) { ksCalOpen(KSCM); ksLive(); } };
+  rd.readAsText(f, 'utf-8');
+}
+function ksCalClose() { closeImgSheet(); ksRenderEd(); ksRenderList(); ksLive(); }
 // ---------- xuat ----------
 function ksBase() { return (typeof fnBase === 'function' ? fnBase(S.info) : 'BanVe') + '_KinhSon'; }
 function ksReady(msg) {
