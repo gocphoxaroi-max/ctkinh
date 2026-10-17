@@ -430,6 +430,7 @@ body.ks #edCard,body.ks #listCard,body.ks .bbar:not(.ksb){display:none}
   <button onclick="document.getElementById('ksListCard').scrollIntoView({behavior:'smooth'})" title="Danh sách">☰<small id="ksCnt">0 tấm</small></button>
   <button onclick="ksTiep()" title="Ô kế tiếp">▸<small>Tiếp</small></button>
   <button class="pri" onclick="ksSavePanel()" title="Lưu tấm đang nhập">✓<small>Lưu tấm</small></button>
+  <button onclick="ksSavePanel(true)" title="Lưu tấm này và mở ngay tấm giống (tên +1)">⎘<small>Tấm kế</small></button>
   <button class="ksgo big" onclick="ksReview()" title="Kiểm tra đơn rồi xuất PDF / ảnh để gửi">➤ <span>Gửi / Xuất đơn</span></button>
 </nav>
 <div class="viewer" id="viewer" hidden>
@@ -7430,9 +7431,9 @@ function ksJetExport(panels, prefix) {
 // chi them lop phu: khi chon "Kinh son" thi an the nhap + danh sach lan can, hien ksApp; cac nut Xuat / Mo CSV / Cong trinh moi
 // chuyen sang ban kinh son. Phu thuoc: kinhson.js (logic) + ham san co cua app (S, $, toast, esc, pdfBuild, svgToPng, fnBase, readInfo, isNarrow).
 // ============================================================================
-var KSKEY = 'ctkinh_ks_v1', KSS = { on: false, panels: [], recent: [], unit: 'mm', def: null, picked: false, dim: 'main' }, KSE = null, KSI = -1, KSXFILE = null, KSR = { h: '', w: ['', '', '', ''] };
+var KSKEY = 'ctkinh_ks_v1', KSS = { on: false, panels: [], recent: [], unit: 'mm', def: null, picked: false, dim: 'main', row: false }, KSE = null, KSI = -1, KSXFILE = null, KSR = { h: '', w: ['', '', '', ''] };
 function ksSave() { try { localStorage.setItem(KSKEY, JSON.stringify({ on: KSS.on, panels: KSS.panels, draft: KSE, idx: KSI, unit: KSS.unit, def: KSS.def, picked: KSS.picked, row: KSR, dim: KSS.dim, rowm: KSS.row })); } catch (e) {} }
-function ksLoad() { try { var o = JSON.parse(localStorage.getItem(KSKEY) || 'null'); if (o) { KSS.on = !!o.on; KSS.panels = o.panels || []; KSS.unit = o.unit === 'cm' ? 'cm' : 'mm'; KSS.def = o.def || null; KSS.dim = o.dim === 'full' || o.dim === 'off' ? o.dim : 'main'; KSS.picked = !!o.picked || !!o.def || !!(o.panels && o.panels.length); if (o.row && o.row.w) KSR = o.row; if (o.rowm === false) KSS.row = false; if (o.draft) { KSE = o.draft; KSI = o.idx == null ? -1 : o.idx; (KSE.holes || []).forEach(ksHoleNorm); } } } catch (e) {} }
+function ksLoad() { try { var o = JSON.parse(localStorage.getItem(KSKEY) || 'null'); if (o) { KSS.on = !!o.on; KSS.panels = o.panels || []; KSS.unit = o.unit === 'cm' ? 'cm' : 'mm'; KSS.def = o.def || null; KSS.dim = o.dim === 'full' || o.dim === 'off' ? o.dim : 'main'; KSS.picked = !!o.picked || !!o.def || !!(o.panels && o.panels.length); if (o.row && o.row.w) KSR = o.row; if (o.rowm === true) KSS.row = true; if (o.rowm === false) KSS.row = false; if (o.draft) { KSE = o.draft; KSI = o.idx == null ? -1 : o.idx; (KSE.holes || []).forEach(ksHoleNorm); } } } catch (e) {} }
 function ksSetOn(on) {
   KSS.on = !!on; document.body.classList.toggle('ks', KSS.on);
   $('spLc').classList.toggle('act', !KSS.on); $('spKs').classList.toggle('act', KSS.on);
@@ -7508,6 +7509,7 @@ function ksField(id, label, val, ph, mode, ghost, hand) {
 }
 var KSH = -1, KSO = {};      // KSH = khoet dang chon (de to diem tham chieu tren hinh); KSO = trang thai mo/dong cac muc "..."
 function ksDet(id, title, inner, openDef) { var op = KSO[id] == null ? !!openDef : KSO[id]; return '<details class="ksmore" id="ksdet_' + id + '"' + (op ? ' open' : '') + ' ontoggle="KSO[\'' + id + '\']=this.open"><summary>' + title + '</summary>' + inner + '</details>'; }
+function ksColToggle() { ksRead(); KSO.col = !KSO.col; ksRenderEd(); ksLive(); }
 function ksOpenMore() { KSO.more = true; var d = $('ksdet_more'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }
 function ksRenderEd() {
   if (!KSE) return; var p = KSE, mas = KS_CFG.colors, days = KS_CFG.days.slice(), u = ksUnit(), fm = function (v) { return ksFromMm(v, u); };
@@ -7526,47 +7528,48 @@ function ksRenderEd() {
       '<div class="ksadd"><button type="button" onclick="ksRowAdd()">+ thêm tấm</button><button type="button" class="pri" onclick="ksRowMake()">✓ Tạo bộ</button></div></div>';
   }
   var cm = ksColor(p.ma);
-  var more = '<div class="ksrb"><div class="kshh">Đầu đơn / bếp</div>' + ksField('ksnhom', 'Bộ (hàng)', p.nhom, 'vd N1', 'text') +
-    '<div class="ksf"><label>Đơn vị số đo</label><div class="kssw"><button type="button" class="' + (u === 'mm' ? 'act' : '') + '" onclick="ksSetUnit(\'mm\')">mm</button><button type="button" class="' + (u === 'cm' ? 'act' : '') + '" onclick="ksSetUnit(\'cm\')">cm</button></div><small class="ksnote">' + (u === 'cm' ? 'Gõ cm (dấu phẩy được: 28,5 → 285 mm). Muốn một số theo mm gõ thêm mm: 50mm.' : 'Gõ mm. Số khách ghi cm: gõ thêm cm, vd 28,5cm.') + '</small></div></div>' +
-    '<div class="kshh">' + (isNew ? 'Mã màu' : 'Mã màu tấm này') + ' <small>(ô mờ "hết hàng" không chọn được)</small></div><input type="hidden" id="ksma" value="' + esc(p.ma) + '"><div class="ksmgrid">' + sw + '</div>' +
-    '<small class="ksnote kscolnote">' + esc(KS_COLOR_NOTE) + '</small>' +
-    '<div class="ksgrid"><div class="ksf"><label>Phun kim sa</label><div class="kssw"><button type="button" class="' + (p.ks ? '' : 'act') + '" onclick="ksSetKs(0)">Không</button><button type="button" class="' + (p.ks ? 'act' : '') + '" onclick="ksSetKs(1)">Có</button></div></div>' +
-    '<div class="ksf"><label for="ksday">Độ dày (mm)</label><select id="ksday" onchange="ksLive()">' + days.map(function (d) { return '<option' + (d === ksNum(p.day) ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
+  var more = '<div class="ksrb"><div class="kshh">Đầu đơn / bếp</div>' + ksField('ksnhom', 'Bộ (hàng)', p.nhom, 'vd N1', 'text') + '</div>' +
+    '<input type="hidden" id="ksma" value="' + esc(p.ma) + '">' +
+    '<div class="ksgrid"><div class="ksf"><label for="ksday">Độ dày (mm)</label><select id="ksday" onchange="ksLive()">' + days.map(function (d) { return '<option' + (d === ksNum(p.day) ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></div>' +
     ksField('kssl', 'Số lượng', p.sl, '1', 'numeric') + '</div>' +
     '<div class="ksgrid"><div class="ksf"><label>Ánh kim trên hình (kim sa)</label><div class="kssw"><button type="button" class="' + (KS_FX.on !== false ? 'act' : '') + '" onclick="ksFxToggle(1)">Bật</button><button type="button" class="' + (KS_FX.on === false ? 'act' : '') + '" onclick="ksFxToggle(0)">Tắt</button></div></div>' +
-    '<div class="ksf"><label>Màu hiển thị</label><button type="button" class="ksbtn" onclick="ksCalOpen(KSE.ma)">Hiệu chỉnh màu…</button></div></div>' +
-    '';
+    '<div class="ksf"><label>Màu hiển thị</label><button type="button" class="ksbtn" onclick="ksCalOpen(KSE.ma)">Hiệu chỉnh màu…</button></div></div>';
   // T105: HINH LON CO DINH PHIA TREN (dock) + chip: [tam] [1][2]... [+ Gia cong]; ben duoi chi hien 1 BUOC: 'tam' (ten, dang, kich thuoc) | 'hole' (1 gia cong) | 'add' (chon loai gia cong)
   if (KSV === 'hole' && !p.holes[KSH]) KSV = 'tam';
-  var chips = '<button type="button" class="kschip0' + (KSV === 'tam' ? ' act' : '') + '" data-ksact="view" data-v="tam"><b>' + esc(p.ten || 'Tấm') + '</b><small>' + (ksNum(p.w) > 0 && ksNum(p.h) > 0 ? esc(ksF(ksNum(p.w)) + '×' + ksF(ksNum(p.h))) : 'kích thước') + '</small></button>' +
-    p.holes.map(function (hh, i) { var ok = ksHoleOk(hh); return '<button type="button" class="kschipn' + (KSV === 'hole' && i === KSH ? ' act' : '') + (ok ? '' : ' bad') + '" data-ksact="hole" data-i="' + i + '"><b>' + (i + 1) + '</b><small>' + esc(ksChipTxt(hh)) + '</small></button>'; }).join('') +
+  var chips = '' +
+    p.holes.map(function (hh, i) { var ok = ksHoleOk(hh); return '<button type="button" class="kschipn' + (KSV === 'hole' && i === KSH ? ' act' : '') + (ok ? '' : ' bad') + '" data-ksact="' + (KSV === 'hole' && i === KSH ? 'view' : 'hole') + '" data-v="tam" data-i="' + i + '"><b>' + (i + 1) + '</b><small>' + esc(ksChipTxt(hh)) + '</small></button>'; }).join('') +
     '<button type="button" class="kschipa' + (KSV === 'add' ? ' act' : '') + '" data-ksact="view" data-v="add">＋ Gia công</button>';
   var hint = KSV === 'hole' ? 'Chạm <b>chấm tròn</b> (góc) / <b>chấm thoi</b> (cạnh) để chọn chỗ đo' : p.holes.length ? 'Chạm <b>số</b> để sửa gia công · <b>giữ & kéo</b> số đo để dời' : (ksNum(p.w) > 0 ? '<b>Giữ & kéo</b> số đo để dời cho dễ nhìn' : '');
   var boN = KSI >= 0 ? (p.nhom || '') : (KSS.panels.length ? (KSS.panels[KSS.panels.length - 1].nhom || '') : ''), boP = [];      // T108: hang chip cua BO dang lam (cham = mo tam do, tu luu tam dang sua)
   KSS.panels.forEach(function (q, i) { if ((q.nhom || '') === boN) boP.push(i); });
   var boRow = boP.length ? '<div class="ksbo"><span>Bộ <b>' + esc(boN || '–') + '</b></span>' + boP.map(function (i) { var q = KSS.panels[i], nh = q.holes.filter(ksHoleOk).length; return '<button type="button" data-ksact="go" data-i="' + i + '" class="' + (i === KSI ? 'act' : '') + '"><b>' + esc(q.ten || '?') + '</b><small>' + esc(ksF(ksNum(q.w))) + (nh ? ' · ' + nh + '◻' : '') + '</small></button>'; }).join('') + '<button type="button" data-ksact="newbo" class="ksbonew">＋ Bộ mới</button></div>' : '';
   var hasDp = !!(p.dpos && Object.keys(p.dpos).length);
-  var rowM = isNew && KSS.row !== false && KSV === 'tam';
-  var h = '<div class="ksdock" id="ksdock">' + boRow + (rowM ? '' : '<div class="kschips" id="kschips">' + chips + '</div>') + '<div id="kspv"></div><div class="ksnote kscolnote">' + esc(KS_COLOR_NOTE) + '</div>' +
+  var rowM = isNew && KSS.row === true && KSV === 'tam';
+  var h = '<div class="ksdock" id="ksdock">' + boRow + '<div id="kspv"></div>' +
     '<div class="ksdrow"><span class="kshint">' + hint + '</span>' + (hasDp ? '<button type="button" class="ksdimall" data-ksact="dimreset" title="Đặt lại vị trí các số đo đã kéo">↺ Vị trí dim</button>' : '') + '<button type="button" class="ksdimall' + (KSS.dim === 'full' ? ' act' : '') + '" data-ksdim="' + (KSS.dim === 'full' ? 'main' : 'full') + '">' + (KSS.dim === 'full' ? '✓ Tất cả dim' : 'Hiện tất cả dim') + '</button></div></div>';
-  if (KSV === 'hole') {
-    h += ksHoleCard(p.holes[KSH], KSH, u) + '<div class="kswarn" id="kswarn"></div>';
-  } else if (KSV === 'add') {
-    var big = function (act, k, lab, sub) { return '<button type="button" class="ksbig" data-ksact="' + act + '" data-k="' + k + '"><b>' + lab + '</b><small>' + sub + '</small></button>'; };
-    h += '<div class="kshh">Thêm gia công cho tấm ' + esc(p.ten || '') + ' – chọn loại:</div><div class="ksbigg">' +
-      big('add', 'D', 'Khoét / ổ điện', 'rộng × cao tự nhập') + big('add', 'C', 'Lỗ tròn Ø', 'nhập đường kính') + '</div>' + ksSizeChips(-1) +
-      '<div class="ksadd">' + (p.holes.length ? '<button type="button" data-ksact="cloneLast">= Giống mục ' + p.holes.length + ' (đổi vị trí)</button>' : '') + '<button type="button" class="pri" data-ksact="save">✓ Không thêm nữa – Lưu tấm</button></div>' +
-      '<div class="kswarn" id="kswarn"></div>';
-  } else if (isNew && KSS.row !== false) {      // T108: mac dinh nhap ca BO
+  if (rowM) {      // T108: nhap ca BO (hang) - bam "Nhap ca bo"
     h += '<div class="ksclr"><span class="ksmsw2" style="background:' + cm.hex + '"></span><span><b>' + esc(p.ma) + '</b> ' + esc(cm.ten) + (p.ks ? ' · kim sa' : '') + ' · dày ' + esc(ksF(ksNum(p.day) || 0)) + '</span><button type="button" onclick="ksOpenMore()">Đổi màu / dày ▾</button></div>' +
       ksModeSw(true) + rowBox + '<div class="kswarn" id="kswarn"></div>' + ksDet('more', '⋯ Thêm (mã màu, kim sa, dày, mm/cm, hiệu chỉnh màu)', more, false);
   } else {
-    h += (isNew ? ksModeSw(false) : '') + '<div class="ksclr"><span class="ksmsw2" style="background:' + cm.hex + '"></span><span><b>' + esc(p.ma) + '</b> ' + esc(cm.ten) + (p.ks ? ' · kim sa' : '') + ' · dày ' + esc(ksF(ksNum(p.day) || 0)) + '</span><button type="button" onclick="ksOpenMore()">Đổi màu / dày ▾</button></div>' +
-      '<div class="ksgrid">' + ksField('ksten', 'Tên tấm', p.ten, 'vd A', 'text') + '</div>' +
-      '<div class="ksf"><label>Dạng tấm</label><div class="kssw">' + [['R', 'Chữ nhật'], ['T', 'Hình thang'], ['Q', 'Méo']].map(function (x) { return '<button type="button" class="' + ((p.sh ? p.sh.t : 'R') === x[0] ? 'act' : '') + '" onclick="ksSetShape(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div></div>' + ksShapeFields(p, u, fm) +
+    // T115: bo cuc moi - hinh | Dai x Cao | Kim sa (cong tac) | ma mau 1 hang | Chi tiet gia cong | nut chinh o day
+    var shp = p.sh ? p.sh.t : 'R', uo = u === 'mm' ? 'cm' : 'mm';
+    var nameF = '<div class="ksf ksn"><label for="ksten">Tấm</label><input id="ksten" value="' + esc(p.ten) + '" placeholder="A" inputmode="text" autocomplete="off" enterkeyhint="next" oninput="ksLive()" onkeydown="ksKey(event)"></div>';
+    var unitB = '<button type="button" class="ksunit" data-ksact="unit" data-v="' + uo + '" title="Đổi đơn vị số đo">' + u + '</button>';
+    var sizeRow = shp === 'R' ? '<div class="kssize">' + nameF + ksField('ksw', 'Dài', fm(p.w), u === 'cm' ? '166,2' : '1662') + '<span class="ksx">×</span>' + ksField('ksh', 'Cao', fm(p.h), u === 'cm' ? '59' : '590') + unitB + '</div>'
+      : '<div class="kssize">' + nameF + unitB + '</div>' + ksShapeFields(p, u, fm);
+    var shapeChips = '<div class="kssw sm ksshp">' + [['R', 'Chữ nhật'], ['T', 'Hình thang'], ['Q', 'Méo']].map(function (x) { return '<button type="button" class="' + (shp === x[0] ? 'act' : '') + '" data-ksact="shape" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    var ksSw = '<div class="ksswrow"><span>Kim sa</span><button type="button" role="switch" aria-checked="' + (p.ks ? 'true' : 'false') + '" class="ksswt' + (p.ks ? ' on' : '') + '" data-ksact="kimsa" data-v="' + (p.ks ? 0 : 1) + '" aria-label="Kim sa"><i></i></button><small>' + (p.ks ? 'Bật' : 'Tắt') + '</small></div>';
+    var clrRow = '<div class="ksclr"><span class="ksmsw2" style="background:' + cm.hex + '"></span><span><b>' + esc(p.ma) + '</b> ' + esc(cm.ten) + ' · dày ' + esc(ksF(ksNum(p.day) || 0)) + '</span><button type="button" data-ksact="coltog">' + (KSO.col ? 'Đóng ▴' : 'Đổi ▾') + '</button></div>' + (KSO.col ? '<div class="ksmgrid">' + sw + '</div><small class="ksnote kscolnote">' + esc(KS_COLOR_NOTE) + '</small>' : '');
+    var gc = '<div class="kshh">Chi tiết gia công</div><div class="kschips" id="kschips">' + chips + '</div>';
+    if (KSV === 'hole') gc += ksHoleCard(p.holes[KSH], KSH, u);
+    else if (KSV === 'add') {
+      var big = function (act, k, lab, sub) { return '<button type="button" class="ksbig" data-ksact="' + act + '" data-k="' + k + '"><b>' + lab + '</b><small>' + sub + '</small></button>'; };
+      gc += '<div class="ksbigg">' + big('add', 'D', 'Khoét / ổ điện', 'rộng × cao tự nhập') + big('add', 'C', 'Lỗ tròn Ø', 'nhập đường kính') + '</div>' + ksSizeChips(-1) +
+        (p.holes.length ? '<div class="ksadd"><button type="button" data-ksact="cloneLast">= Giống mục ' + p.holes.length + ' (đổi vị trí)</button></div>' : '');
+    }
+    h += (isNew ? '<div class="ksmodelnk"><button type="button" data-ksact="rowmode" data-v="1">⇆ Nhập cả bộ (hàng)</button></div>' : '') + sizeRow + shapeChips +
       (ksIsShape(p) ? '<div class="ksnote">Khung bao: ' + esc(ksF(ksNum(p.w))) + ' × ' + esc(ksF(ksNum(p.h))) + ' mm · gốc toạ độ = đỉnh dưới-trái khung bao</div>' : '') +
-      '<div class="ksadd"><button type="button" class="pri" data-ksact="view" data-v="add">＋ Gia công (ổ, khoét, lỗ)</button><button type="button" data-ksact="savedup">⎘ Lưu + tấm giống</button></div>' +
-      '<div class="kswarn" id="kswarn"></div>' + ksDet('more', '⋯ Thêm (mã màu, kim sa, dày, SL, mm/cm, hiệu chỉnh màu)', more, false);
+      ksSw + clrRow + '<div class="kswarn" id="kswarn"></div><div class="ksgc">' + gc + '</div>' + ksDet('more', '⋯ Thêm (bộ, dày, SL, hiệu chỉnh màu)', more, false);
   }
   $('ksEd').innerHTML = h;
 }
@@ -7759,7 +7762,7 @@ function ksTiep(from) {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if (KSV === 'hole') ksHoleDone(); else if (KSV === 'tam' && $('ksten')) ksView('add'); else if ($('krh') && KSI < 0 && KSS.row !== false) ksRowMake(); else ksSavePanel();      // T105: het o -> buoc ke (tam -> chon gia cong -> luu)
 }
-function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.ma) return; ksRead(); KSE.ma = ma; if (KSI < 0) KSS.picked = true; ksRenderEd(); ksLive(); }
+function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.ma) return; ksRead(); KSE.ma = ma; KSO.col = false; if (KSI < 0) KSS.picked = true; ksRenderEd(); ksLive(); }
 // CSS o chon mau (dat o day de khong phai sua form_ui.html)
 (function () {
   try { var st = document.createElement('style'); st.textContent = 'body.ks #i4wrap{display:none}body.ks #ksHead{display:block!important;grid-column:1/-1}#ksHead .ksmgrid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}#ksHead .ksmau{min-height:54px;padding:4px}.ksy{background:#fff7d6;border-radius:8px;padding:6px 8px;font-size:14px}.ksmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:4px 0 8px}' +
@@ -7770,6 +7773,7 @@ function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.m
     '.ksmau:disabled{opacity:.35;cursor:not-allowed}' +
     '.ksmore{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:10px 0;background:#f7fafd}.ksmore>summary{min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:600;color:#1f4e79;cursor:pointer}.kshole .ksmore{background:#fff;margin:6px 0 0}.kshole.cur{border-color:#ff8a00;box-shadow:0 0 0 2px #ff8a0055}.ksrefv{font-size:14px;color:#1f4e79;margin:0 8px}.ksrefhint{margin:2px 0 6px}.ksclr{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:15px}.ksclr button{margin-left:auto;min-height:44px;font-size:15px;border:1px solid #c9d6e3;border-radius:10px;background:#fff;padding:0 10px}.ksmsw2{display:inline-block;width:28px;height:28px;border-radius:7px;border:1px solid #888;flex:none}.ksbtn{min-height:44px;font-size:16px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;padding:0 12px}.kscal .row2{display:flex;gap:8px;align-items:center;margin:8px 0}.kscal .sq{height:54px;border-radius:10px;border:1px solid #888}.kscal input[type=range]{flex:1;min-height:32px}.kscal input[type=text],.kscal select{font-size:16px;min-height:44px;padding:0 8px;border:1px solid #bbb;border-radius:8px}.ksdock{background:#fff}.ksrb{border:1px solid #c9d6e3;border-radius:12px;padding:8px;margin:8px 0;background:#f2f7fc}.ksrb .ksadd button.pri{background:#1f4e79;color:#fff}.ksdimsw{margin:2px 0 4px;align-items:center}.ksdimsw .ksdl{font-size:13px;color:#556;flex:0 0 auto;padding-right:6px}.ksdimsw button{flex:1 1 0!important;min-height:38px}.ksnote{display:block;color:#7a8794;font-size:12px;margin-top:2px}.kscolnote{color:#8a1c1c;font-size:11.5px;line-height:1.25;margin:2px 0}.ksask{display:flex;align-items:center;gap:8px;min-height:44px;font-size:16px}.ksask input{width:22px;height:22px}.kshole .kssw.sm{flex-wrap:wrap;margin:6px 0}.kshole .kssw.sm button{flex:1 1 40%}' +
     '.kschips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}.kschips::-webkit-scrollbar{display:none}.kschips button{flex:none;min-height:46px;min-width:46px;border:2px solid #c9d6e3;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 10px;line-height:1.15;font-size:15px}.kschips button small{font-size:11px;color:#556}.kschips button.act{border-color:#ff8a00;background:#fff4e6}.kschipn b{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#1f4e79;color:#fff;align-items:center;justify-content:center;font-size:14px}.kschipn.act b{background:#ff8a00}.kschipn.bad{border-color:#c0392b;background:#fdecea}.kschipa{font-weight:bold}.ksdrow{display:flex;align-items:center;gap:6px;margin-top:2px}.kshint{flex:1;font-size:13px;color:#556;line-height:1.25}.ksdimall{min-height:44px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:14px;padding:0 10px;flex:none}.ksdimall.act{background:#1f4e79;color:#fff}.ksbigg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}.ksbig{min-height:64px;border:2px solid #1f4e79;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:17px;gap:2px}.ksbig small{font-size:12px;color:#556;font-weight:normal}#ksEd .ksadd button.pri{background:#1f4e79;color:#fff;font-weight:bold}.kshole .khtop button{min-height:44px}#ksApp .edhead{display:none}.ksbo{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;font-size:14px;color:#1f4e79}.ksbo::-webkit-scrollbar{display:none}.ksbo>span{flex:none;white-space:nowrap}.ksbo button{flex:none;min-height:44px;min-width:44px;border:2px solid #c9d6e3;border-radius:12px;background:#f2f7fc;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 8px;line-height:1.1;font-size:15px}.ksbo button small{font-size:11px;color:#556}.ksbo button.act{border-color:#1f4e79;background:#1f4e79;color:#fff}.ksbo button.act small{color:#dfe9f5}.ksbo .ksbonew{font-weight:bold;background:#fff}.ksmode{margin:4px 0 6px}.ksbo1 .ksgrid{grid-template-columns:1fr 1fr}.ksbo1{border-color:#1f4e79;background:#eef5fc}#kspv svg{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.ksrev h3{margin:0 0 8px}.ksrvi{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:6px 0;font-size:15px}.ksrvi small{display:block;color:#7a8794;font-size:12px}.ksrvt{font-weight:bold;color:#1f4e79;margin:8px 0}.ksrvb{border:1px solid #c9d6e3;border-radius:10px;margin:6px 0;overflow:hidden}.ksrvh{background:#e8eef5;padding:6px 10px;font-weight:bold;color:#1f4e79}.ksrvp{padding:6px 10px;border-top:1px solid #eef2f6;font-size:15px}.ksrvp.bad{background:#fdecea}.ksrvp.yel{background:#fffaf0}.ksrvx{display:inline!important;color:#8a5a00!important}.ksrvg{font-size:14px;color:#334;margin:2px 0 0 8px}.ksrvg.nh{color:#99a}.ksrev .kse{color:#922;font-size:14px}.ksrev .ksyw{color:#7a5b00;font-size:14px}.ksrev .ksy .bt{margin:6px 0 0}.ksrvpg{border:1px solid #c9d6e3;border-radius:8px;padding:4px;margin:8px 0}.ksrev .ksgo{font-size:18px;font-weight:bold;padding:15px 10px}@media(max-width:899px){.ksdock{top:0}#ksApp{padding-top:6px}}' +
+    '.kssize{display:flex;gap:6px;align-items:flex-end;margin:6px 0}.kssize .ksf{margin:0;flex:1 1 0;min-width:0}.kssize .ksf.ksn{flex:0 0 58px}.kssize input{width:100%;min-height:46px;text-align:center}.ksx{flex:none;font-size:20px;padding-bottom:10px;color:#556}.ksunit{flex:none;min-width:48px;min-height:46px;border:1.5px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:16px;font-weight:bold}.ksshp{margin:4px 0}.ksshp button{min-height:44px}.ksswrow{display:flex;align-items:center;gap:10px;min-height:48px;font-size:16px;font-weight:bold;color:#1f4e79}.ksswt{width:56px;height:32px;min-height:44px;border-radius:22px;border:0;background:#b9c3ce;position:relative;padding:0;flex:none;background-clip:content-box;box-sizing:content-box;border-top:6px solid transparent;border-bottom:6px solid transparent}.ksswt i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0005;transition:left .15s}.ksswt.on{background:#1f4e79;background-clip:content-box}.ksswt.on i{left:28px}.ksswrow small{font-weight:normal;color:#556}.ksmodelnk{text-align:right}.ksmodelnk button{min-height:44px;border:0;background:none;color:#1f4e79;font-size:14px;text-decoration:underline}.ksgc .kshh{margin:6px 0 2px}.ksgc .kschips{padding-bottom:4px}' +
     '.ksax{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:8px 0;background:#f7fafd}.ksaxh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ksaxh>b{font-size:16px;color:#1f4e79;min-width:52px}.ksaxh .kssw{flex:1;margin:0}.ksnumr{display:grid;grid-template-columns:minmax(92px,1fr) 2fr;gap:6px;align-items:end;margin-top:4px}.ksnumr .ksf{margin:0}.kstyp{flex-wrap:nowrap!important;margin:0!important}.kstyp button{flex:1 1 0!important;min-width:0;padding:0 2px;font-size:14px}.ksres{font-size:13px;color:#2a6b3a;margin:4px 0 0;min-height:16px}.ksconf{border-radius:10px;padding:6px 8px;margin:6px 0;font-size:14px;line-height:1.3}.ksconf.yel{background:#fff6d6;border:1px solid #e0b800}.ksconf.red{background:#fdecea;border:1px solid #c0392b;color:#7a1c14}.ksconf .kssw{margin:6px 0 0}.kssz-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.kssz-row small{color:#556;font-size:12px}.kssz{min-height:44px;border:1.5px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:15px;padding:0 10px}.kssz small{color:#7a8794}'; document.head.appendChild(st); } catch (e) {}
 })();
 // T101: khung ten dau don (kinh son): MA MAU + KIM SA chon truoc khi ve (thay o phi mac dinh cua lan can) -> mac dinh cho moi tam moi cua don
@@ -8031,6 +8035,7 @@ async function ksMake(kind) {
     else if (act === 'side') ksHoleSide(ix, t.getAttribute('data-v')); else if (act === 'vs') ksHoleVs(ix, t.getAttribute('data-v'));
     else if (act === 'ty') { ksRead(); var ht = KSE.holes[ix]; if (ht) { ht[t.getAttribute('data-f')] = t.getAttribute('data-v'); ksHoleSyncP(ht, KSE); ksRenderEd(); ksLive(); } }
     else if (act === 'trust') ksTrust(ix, t.getAttribute('data-ax'), t.getAttribute('data-w'));
+    else if (act === 'unit') ksSetUnit(t.getAttribute('data-v')); else if (act === 'shape') ksSetShape(t.getAttribute('data-v')); else if (act === 'kimsa') ksSetKs(parseInt(t.getAttribute('data-v'), 10)); else if (act === 'coltog') ksColToggle();
     else if (act === 'go') ksGoPanel(ix); else if (act === 'newbo') ksNewBo(); else if (act === 'dimreset') ksDimReset(); else if (act === 'savedup') ksSavePanel(true);
     else if (act === 'rowmode') { ksRead(); KSS.row = t.getAttribute('data-v') === '1'; ksRenderEd(); ksLive(); }
     else if (act === 'revsave') { closeImgSheet(); if (ksSavePanel()) ksReview(); }
@@ -8058,7 +8063,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017093021';
+var CTK_BUILD = '20261017095143';
 (function () {
   function chk() {
     try {
