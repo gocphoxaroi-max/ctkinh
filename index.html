@@ -2263,7 +2263,8 @@ function chainTotals(dims, cens, xtot) {
   };
   const same = (a, b) => Math.abs(a.u[0] * b.u[1] - a.u[1] * b.u[0]) < 1e-3, ang = r => Math.atan2(r.u[1], r.u[0]);
   // T129 (anh Dampt 18/10): 2 dim CUNG PHUONG, CUNG 2 DAU DO (vd chuoi day 1 doan = dim tong) -> chi giu dim NGOAI (tong), bo dim trong;
-  //   dim giu duoc keo vao hang cua dim bi bo (hang gan canh tam). Khac dau do (chi trung gia tri) -> giu ca hai. (lisp: CTK-DimDedupe)
+  //   T130 (anh Dampt 18/10): dim giu lai O NGUYEN VI TRI DIM TONG (tang ngoai) - KHONG keo vao hang dim nho (keo vao lam chu de canh kinh).
+  //   Khac dau do (chi trung gia tri) -> giu ca hai. (lisp: CTK-DimDedupe)
   {
     const rs = dims.map(rec), eq = (u, w) => V2.dist(u, w) <= 0.5, drop = new Set();
     for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
@@ -2271,8 +2272,7 @@ function chainTotals(dims, cens, xtot) {
       if (Math.abs(A.u[0] * B.u[1] - A.u[1] * B.u[0]) >= 1e-3 || !eq(A.pLo, B.pLo) || !eq(A.pHi, B.pHi)) continue;
       const sa = A.c - A.m, sb = B.c - B.m; if (sa * sb <= 0) continue;          // khac phia -> giu
       const inn = Math.abs(sa) <= Math.abs(sb) ? A : B, out = inn === A ? B : A;
-      out.d.off += (inn.c - out.c) * (out.d.n[0] * -out.u[1] + out.d.n[1] * out.u[0]); if (out.d.off < 1) out.d.off = 1;               // keo dim ngoai vao hang dim trong (off tinh theo n cua dim)
-      drop.add(inn.d);
+      drop.add(inn.d);               // T130: out giu nguyen off (vi tri dim tong)
     }
     if (drop.size) for (let k = dims.length - 1; k >= 0; k--) if (drop.has(dims[k])) dims.splice(k, 1);
   }
@@ -4550,7 +4550,12 @@ function pvPlaceOther(d, k, fs, poly, texts, lines, items, f, W, Hh) {
 // Xep dim theo pixel voi ti le k (px/mm). Toa do px: X = x*k, Y = -y*k (chua cong goc).
 // T97 (anh Dampt 16/10: CAD la chuan): mac dinh xep GIONG BAN CAD (pvLayoutCAD). So anh: window.PV_XEP = 't84' (T83b) / 'cu' (truoc T83b); PV_XEP_CU = true van dung.
 let PV_OBS = null;      // T127b: vat can co dinh cua nhan ten tam (mm he hinh): lo + net truc + cung bo
-const PV_MIN_FONT = 9;      // T126: san co chu dim (px he layout; T124 la 6,5) - PDF ~6,5pt; dim nho giu >= 80% co chuan
+const PV_MIN_FONT = 9;      // T126 (T130: KHONG con dung de thu nho chu - giu ten cho tuong thich)
+// T130 (DAC TA DIM do tu DXF mau anh Dampt, xem _Team/bao-cao/T130.md): MOT co chu cho MOI dim trong 1 ban ve (khong thu nho tung dim);
+//   chu tam = trung diem doan do, cach duong dim ~0,9 x cao chu (DIMGAP 12 + 15 = 27/30), cung chuoi = cung duong dim -> so thang hang;
+//   duong dim cach canh kinh >= PV_G0 mm-CAD (= 1,2 x cao chu 30); dim hep: chu van o giua (tran qua gion), mui ten dao ra ngoai (CAD DIMTIX=1).
+const PV_G0 = 36;
+let PV_FMIN = PV_MIN_FONT;      // T130: san co chu chung (renderPV dat theo opt.fmin: anh/PDF phong 2,4 -> nho hon)
 function pvLayout(dims, k, fs, poly) { const m = typeof window !== 'undefined' ? (window.PV_XEP || (window.PV_XEP_CU ? 'cu' : '')) : '';
   return m === 'cu' ? pvLayoutCu(dims, k, fs, poly) : m === 't84' ? pvLayoutT84(dims, k, fs, poly) : pvLayoutCAD(dims, k, fs, poly); }
 // T97: xep dim GIONG BAN CAD (lisp la chuan) - moi dim dat dung do lech lisp (d.off, mm), dung phia lisp, khong doi tang / long.
@@ -4561,8 +4566,8 @@ function pvLayoutCAD(dims, k, fs, poly) {
   const items = [], texts = [], lines = [];
   const tw = (s, f) => String(s).length * f * 0.62 + 5;      // T126: chu dam (dim nho) rong ~0,62 em + halo
   const ang = t => { let a = Math.atan2(t[1], t[0]) * 180 / Math.PI; if (a > 90.01) a -= 180; if (a <= -89.99) a += 180; return a; };
-  const fz = d => (d.st === '020-ok' || d.st === '015-ok') ? fs + 1 : d.st === '010-ok' ? Math.max(11, fs - 1) : fs;
-  const Ht = fs * 0.72, sc = Math.max(k, Ht / 30), G0 = 35;      // sc: px / mm CAD ngoai vien (chu 012 = 30 mm); G0: dim sat vien toi thieu (mm)
+  let fD = fs; const fz = () => fD;      // T130: MOT co chu fD cho moi dim cua ban ve (truoc: 020-ok fs+1, 010-ok fs-1, dim hep thu nho rieng)
+  const Ht = fs * 0.72, sc = Math.max(k, Ht / 30), G0 = PV_G0;      // sc: px / mm CAD ngoai vien (chu 012 = 30 mm); G0: dim sat vien toi thieu (mm) = 1,2 x cao chu
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
   const isLin = d => !!(d.a && d.b) && d.kind !== 'nhan' && d.kind !== 'vuong' && d.kind !== 'dk' && d.kind !== 'goc';
   const pre = [], lin = [], lab = [];
@@ -4588,28 +4593,41 @@ function pvLayoutCAD(dims, k, fs, poly) {
     const ab = x => { const u = x.A[0] * tx0 + x.A[1] * ty0, v = x.B[0] * tx0 + x.B[1] * ty0; return [Math.min(u, v), Math.max(u, v)]; };
     const lanes = [];      // ngan truoc -> lan 0 (trong), dai hon -> lan ngoai (khong dao long)
     arr.slice().sort((p, q) => (ab(p)[1] - ab(p)[0]) - (ab(q)[1] - ab(q)[0])).forEach(x => { const r = ab(x); let ln = lanes.findIndex(La => La.every(o => o[1] <= r[0] + 1.5 || r[1] <= o[0] + 1.5)); if (ln < 0) { ln = lanes.length; lanes.push([]); } lanes[ln].push(r); x.ck = key + '#' + ln; }); });
-  L.forEach(x => { const d = x.d, f0 = fz(d), nc = String(d.text).length; (chs[x.ck] = chs[x.ck] || []).push(x);
-    x.fmin = Math.min(f0, Math.max(PV_MIN_FONT, 0.8 * f0)); x.fo = Math.min(f0, Math.max(x.fmin, (1.5 * x.len - 5) / (nc * 0.62))); });
+  L.forEach(x => { (chs[x.ck] = chs[x.ck] || []).push(x); });
+  Object.values(chs).forEach(arr => { const Pm = Math.max(...arr.map(x => x.P)), nn = arr.reduce((a, b) => b.len > a.len ? b : a).d.n; arr.forEach(x => { x.P = Pm; x.nn = nn; }); });      // T130: cung chuoi = DUNG 1 duong chuan (lech 0 px, truoc lech toi 0,5 px)
+  // T130: co chu CHUNG cua ban ve fD = to nhat (<= fs) ma 2 so CANH NHAU cung chuoi khong cham nhau (nhu CAD: chu 30 mm, doan 30 / 145 khong de);
+  //   cap nao can chu < san PV_FMIN (man hinh 9 px, anh/PDF nho hon vi phong 2,4) thi bo qua (khong cuu duoc - bam Phong to), KHONG thu nho tung dim
   Object.values(chs).forEach(arr => { if (arr.length < 2) return;
-    const t0 = [arr[0].B[0] - arr[0].A[0], arr[0].B[1] - arr[0].A[1]], tl = Math.hypot(t0[0], t0[1]), md = x => ((x.A[0] + x.B[0]) / 2 * t0[0] + (x.A[1] + x.B[1]) / 2 * t0[1]) / tl;
-    arr.sort((p, q) => md(p) - md(q));
-    for (let it = 0, ch = true; ch && it < 80; it++) { ch = false;
-      for (let i = 0; i + 1 < arr.length; i++) { const a = arr[i], b = arr[i + 1];
-        if (Math.abs(md(b) - md(a)) < (String(a.d.text).length * a.fo + String(b.d.text).length * b.fo) * 0.31 + 6) {      // chu dam rong ~0,62 em + halo: chua khe >= 6px
-          const m = Math.min(a.fo, b.fo) - 0.5, na = Math.max(a.fmin, m), nb = Math.max(b.fmin, m);
-          if (na < a.fo - 1e-6 || nb < b.fo - 1e-6) { a.fo = Math.min(a.fo, na); b.fo = Math.min(b.fo, nb); ch = true; }
-          else if (a.fo > 6.5 || b.fo > 6.5) { const h = Math.max(6.5, m); a.fo = Math.min(a.fo, h); b.fo = Math.min(b.fo, h); ch = true; } } } } });      // het cach duoi san -> ha tiep toi 6,5 (khong de chu cham nhau)
-  const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], n = [d.n[0], -d.n[1]];
-    const f0 = fz(d), nc = String(d.text).length;
-    // T124: chu LUON trong doan do - khong lot (doan < chu + 2 mui ten) thi THU NHO chu: W <= 0,92 x doan, khong duoi san PV_MIN_FONT
-    // T126: chu TO HON T124 - cho phep chu rong toi 1,5 x doan (tran <= 25% moi ben, tam van o trung diem); san = max(PV_MIN_FONT, 80% co chuan); cung chuoi: x.fo da chinh deu (xem tien xu ly)
-    const f = x.fo != null ? x.fo : f0;
-    const W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, d.n) * k;
+    const t0 = [arr[0].B[0] - arr[0].A[0], arr[0].B[1] - arr[0].A[1]], tl = Math.hypot(t0[0], t0[1]) || 1, md = x => ((x.A[0] + x.B[0]) / 2 * t0[0] + (x.A[1] + x.B[1]) / 2 * t0[1]) / tl;
+    const so = arr.slice().sort((p, q) => md(p) - md(q));
+    for (let i = 0; i + 1 < so.length; i++) { const a = so[i], b = so[i + 1], fi = (Math.abs(md(b) - md(a)) - 4) / ((String(a.d.text).length + String(b.d.text).length) * 0.29);      // so dam Arial ~0,56 em + vien trang
+      if (fi >= PV_FMIN && fi < fD) fD = fi; } });
+  // T130 (c): chu KHONG de canh kinh; duong dim nam ngoai tam phai cach canh >= 1,2 x cao chu -> phat nang, evalE tu nhich tang ra ngoai
+  const ppx = poly.map(p => [p[0] * k, -p[1] * k]), EG = ppx.map((p, i) => [p, ppx[(i + 1) % ppx.length]]);
+  const segBox = (s, bx, span) => { const loc = P => { const dx = P[0] - bx.c[0], dy = P[1] - bx.c[1]; return [dx * bx.t[0] + dy * bx.t[1], -dx * bx.t[1] + dy * bx.t[0]]; };
+    const p = loc(s[0]), q = loc(s[1]), dd = [q[0] - p[0], q[1] - p[1]]; let t0 = 0, t1 = 1;
+    for (const [pp, qq] of [[-dd[0], p[0] + bx.hw], [dd[0], bx.hw - p[0]], [-dd[1], p[1] + bx.hh], [dd[1], bx.hh - p[1]]]) {
+      if (Math.abs(pp) < 1e-12) { if (qq < 0) return false; continue; } const r = qq / pp;
+      if (pp < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } }
+    if (t0 > t1) return false; if (span == null) return true;
+    const x0 = p[0] + dd[0] * t0, x1 = p[0] + dd[0] * t1; return Math.max(x0, x1) > -span && Math.min(x0, x1) < span; };      // span: chi tinh phan cat nam GIUA 2 gion (|x| < span)
+  const xSeg = (p, q, r, s) => { const de = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0]); if (Math.abs(de) < 1e-9) return false;
+    const u = ((r[0] - p[0]) * (s[1] - r[1]) - (r[1] - p[1]) * (s[0] - r[0])) / de, v = ((r[0] - p[0]) * (q[1] - p[1]) - (r[1] - p[1]) * (q[0] - p[0])) / de; return u > 0.02 && u < 0.98 && v > 0.02 && v < 0.98; };
+  const dSeg = (P, s) => { const ax = s[1][0] - s[0][0], ay = s[1][1] - s[0][1], l2 = ax * ax + ay * ay || 1, u = Math.max(0, Math.min(1, ((P[0] - s[0][0]) * ax + (P[1] - s[0][1]) * ay) / l2)); return Math.hypot(P[0] - s[0][0] - u * ax, P[1] - s[0][1] - u * ay); };
+  const inPx = P => { let c = false; for (const [a, b] of EG) if ((a[1] > P[1]) !== (b[1] > P[1]) && P[0] < a[0] + (P[1] - a[1]) * (b[0] - a[0]) / (b[1] - a[1])) c = !c; return c; };
+  //   dim hep (chu rong hon doan): phan chu TRAN RA NGOAI 2 gion cham canh = dung CAD mau (30/40/43, DIMTIX=1: chu giua, tran qua gion) -> chi phat phan giua 2 gion
+  const edgePen = (tb, m, len, wide) => { let p = EG.some(s => segBox(s, tb, wide ? len / 2 - 1 : null)) ? 1 : 0; const dm = Math.min(...EG.map(s => dSeg(m, s)));
+    if (dm > 0.3 && dm < 1.2 * Ht && !inPx(m)) p++;      // dm <= 0,3px (kiem tra: <= 1px man hinh): duong dim nam TREN canh (CAD off 0, dim chen cho) - hop le
+    return p; };
+  // T130: BO thu nho chu tung dim (T124/T126) - anh Dampt 18/10: co chu khong deu, so khong thang hang. Moi dim = fs; chu cung chuoi chat nhau -> bam Phong to.
+  const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], dn = x.nn || d.n, n = [dn[0], -dn[1]];      // T130: chuoi dung chung 1 phap tuyen (dim cung chuoi song song tuyet doi)
+    const f0 = fz(d), f = f0;
+    const W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, dn) * k;      // T130: tam chu cach duong dim 0,5f+2 ~ 0,9 x cao chu (CAD: DIMGAP 12 + nua chu 15 = 27/30) - giong nhau moi dim
     const at = o => { const D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o], m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2]; return { D1, D2, m }; };
     return { t, n, f, f0, W, Hh, ho, o0, at, short: len < W + 16, tout: false }; };
   const placeL = () => {
     texts.length = 0; lines.length = 0; items.length = 0;
-    const res = L.map(x => { const g = geo(x), q = g.at(g.o0); return { ck: x.ck, tb: pvBox([q.m[0] + g.n[0] * g.ho, q.m[1] + g.n[1] * g.ho], g.t, g.W / 2, g.Hh), lb: pvBox(q.m, g.t, x.len / 2, 1.5) }; });
+    const res = L.map(x => { const g = geo(x), q = g.at(g.o0); return { ck: x.ck, A: x.A, B: x.B, D1: q.D1, D2: q.D2, tb: pvBox([q.m[0] + g.n[0] * g.ho, q.m[1] + g.n[1] * g.ho], g.t, g.W / 2, g.Hh), lb: pvBox(q.m, g.t, x.len / 2, 1.5) }; });
     const hitX = (arr, b, ck) => arr.filter(z => z.ck !== ck && pvHit(z, b)).length;      // T126: bo qua hop cung chuoi (chu cung chuoi da chinh co deu, khong tinh de)
     // cham diem 1 dim tai tang e (e=0 vi tri CAD)
     const evalE = (x, ix, e) => {
@@ -4620,34 +4638,46 @@ function pvLayoutCAD(dims, k, fs, poly) {
       const tc = [m[0] + n[0] * ho, m[1] + n[1] * ho], tb = pvBox(tc, t, W / 2, Hh);
       const lt = hitX(texts, lb, ck) + (e ? hit(rT, lb) : 0), tt = hitX(texts, tb, ck) + hit(rT, tb), tl = hitX(lines, tb, ck) + (e ? hit(rL, tb) : 0);
       lb.ck = ck; tb.ck = ck;
-      return { sc: tt * 100 + lt * 20 + tl * 3 + e * 12, o, D1, D2, lb, tb, tc, g };
+      let cr = 0; if (e) for (const it of items.concat(res.slice(ix + 1))) if (it.D1 && it.ck !== ck) {      // + dim CHUA dat (vi tri CAD)
+        const sa = [[D1, D2], [A, D1], [B, D2]], sb = [[it.D1, it.D2], [it.A, it.D1], [it.B, it.D2]];      // T130: tang nhich (e != 0) khong duoc cat dim da dat (do-tham-my: cat nhau)
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (!(i && j) && xSeg(sa[i][0], sa[i][1], sb[j][0], sb[j][1])) cr++; }
+      return { sc: tt * 100 + edgePen(tb, m, len, W > len) * 2000 + cr * 60 + lt * 20 + tl * 3 + Math.abs(e) * 12 + (e < 0 ? 6 : 0), o, D1, D2, lb, tb, tc, g };      // T130: + phat chu de / sat canh kinh
     };
     const chE = {};       // T126: tang chung cua tung chuoi (chon 1 lan theo TONG diem ca chuoi)
+    const ES = [0, 1, -1, 2, -2, 3, 4, -3, 5, 6, -4, 7, 8, -5, 9, 10, -6, 11, 12, -7, -8, 13, 14, -9, -10, 15, 16], ESo = ES.filter(e => e >= 0);      // T130: tang thu (am = vao phia trong: CHI dim trong tam (lo) sat canh kinh)
+    const ESx = x => x.lv > 0.5 ? ESo : ES;
     Object.keys(chs).forEach(ck => { const arr = chs[ck]; if (arr.length < 2) return;
-      for (let e = 0; e < 6; e++) { let tot = 0; arr.forEach(x => { tot += evalE(x, x.id, e).sc; }); chE[ck] = e; if (tot < 12 * (e + 1) * arr.length) break; } });
+      let bt = Infinity; for (const e of ESx(arr[0])) { let tot = 0; arr.forEach(x => { tot += evalE(x, x.id, e).sc; }); if (tot < bt) { bt = tot; chE[ck] = e; } if (bt < 12 * (Math.abs(e) + 1) * arr.length) break; } });      // T130: chon tang TOT NHAT (truoc: tang cuoi cung thu)
     L.forEach((x, ix) => {
       const d = x.d, A = x.A, B = x.B, g = geo(x), t = g.t, n = g.n;
       let best = null;
       if (chE[x.ck] != null) best = evalE(x, ix, chE[x.ck]);
-      else for (let e = 0; e < 6; e++) { const c = evalE(x, ix, e); if (!best || c.sc < best.sc) best = c; if (best.sc < 12 * (e + 1)) break; }      // dim le: nhich tang nhu T122
+      else for (const e of ESx(x)) { const c = evalE(x, ix, e); if (!best || c.sc < best.sc) best = c; if (best.sc < 12 * (Math.abs(e) + 1)) break; }      // dim le: nhich tang nhu T122
       best.tb.x = x; texts.push(best.tb); lines.push(best.lb);
       items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short: g.short, f: g.f, f0: g.f0, tout: false, ld: null, len: x.len, ck: x.ck });
     });
   };
-  // T126: con chu de chu (khac chuoi / khac tang) -> giam co CA HAI deu nhau (toi san), roi xep lai; het cach giam moi nhich tang (da co trong evalE)
-  for (let pass = 0; pass < 40; pass++) {
-    placeL();
-    let moved = false;
-    for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
-      const a = texts[i].x, b = texts[j].x; if (!a || !b || !pvHit(texts[i], texts[j])) continue;
-      const m = Math.min(a.fo, b.fo) - 1, na = Math.max(a.fmin, m), nb = Math.max(b.fmin, m);
-      if (na < a.fo - 1e-6 || nb < b.fo - 1e-6) { a.fo = Math.min(a.fo, na); b.fo = Math.min(b.fo, nb); moved = true; }
-      else if ((a.fo > 6.5 || b.fo > 6.5)) { const h = Math.max(6.5, Math.min(a.fo, b.fo) - 1); a.fo = Math.min(a.fo, h); b.fo = Math.min(b.fo, h); moved = true; }      // bat dac di (van chong o san): ha tiep toi 6,5 (T124) de KHONG chong chu
-    }
-    if (!moved) break;
-  }
+  placeL();      // T130: 1 lan - chu de chu chi NHICH TANG (ca chuoi), KHONG giam co chu (bo vong giam co cua T126)
+  // T130: dim CUC HEP (doan 2-15 mm: o co chung fD so van cham so ben canh cung chuoi) -> chu ra NGOAI sat gion, phia xa so ben canh,
+  //   CUNG duong chuan (thang hang), duong dim keo dai duoi chu - dung nhu file anh ve tay (DIMTIX=0: 15/22/30 mm chu ra ngoai sat gion).
+  //   Chi lam khi cho moi trong (khong de chu khac / canh kinh); khong thi giu giua.
+  { const byCk = {}; items.forEach(it => { if (it.ck && it.D1) (byCk[it.ck] = byCk[it.ck] || []).push(it); });
+    Object.values(byCk).forEach(arr => { if (arr.length < 2) return;
+      const t0 = arr[0].t, md = it => (it.D1[0] + it.D2[0]) / 2 * t0[0] + (it.D1[1] + it.D2[1]) / 2 * t0[1], tm = it => it.tc[0] * t0[0] + it.tc[1] * t0[1];
+      arr.sort((p, q) => md(p) - md(q));
+      for (let pass = 0; pass < 3; pass++) for (let i = 0; i + 1 < arr.length; i++) { const a = arr[i], b = arr[i + 1];
+        if (Math.abs(tm(b) - tm(a)) >= (String(a.d.text).length + String(b.d.text).length) * 0.29 * fD + 4) continue;      // cung cong thuc chon fD: 2 so khong cham -> giu giua
+        const sh = a.len <= b.len ? a : b, lg = sh === a ? b : a, dsh = sh === a ? -1 : 1;
+        const cand = [[sh, dsh], [lg, -dsh], [sh, -dsh], [lg, dsh]];      // dim ngan hon ra ngoai truoc (phia xa dim kia), roi dim dai, roi phia con lai
+        for (const [s, dir] of cand) { if (s.tout) continue;
+          const sg = (s.t[0] * t0[0] + s.t[1] * t0[1]) >= 0 ? dir : -dir, m = [(s.D1[0] + s.D2[0]) / 2, (s.D1[1] + s.D2[1]) / 2], W = tw(s.d.text, s.f), off = s.len / 2 + W / 2 + 4, ho = s.f * 0.5 + 2;
+          const tc = [m[0] + s.t[0] * off * sg + s.n[0] * ho, m[1] + s.t[1] * off * sg + s.n[1] * ho], tb = pvBox(tc, s.t, W / 2, (s.f + 2) / 2);
+          if (texts.some(z => z !== s.tb && pvHit(z, tb)) || EG.some(e => segBox(e, tb))) continue;
+          const ti = texts.indexOf(s.tb); tb.x = s.tb.x; if (ti >= 0) texts[ti] = tb;
+          Object.assign(s, { tb, tc, tout: true, short: true, ld2: [m, [m[0] + s.t[0] * (off + W / 2) * sg, m[1] + s.t[1] * (off + W / 2) * sg]] }); break; } } }); }
   pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
-  lab.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
+  lab.forEach(d => { const f = fs;      // T130: nhan ten tam (khong phai dim) giu co fs
+    pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   let bx = [Infinity, -Infinity, Infinity, -Infinity];
   const grow = (x, y) => { bx[0] = Math.min(bx[0], x); bx[1] = Math.max(bx[1], x); bx[2] = Math.min(bx[2], y); bx[3] = Math.max(bx[3], y); };
   texts.concat(lines).forEach(b => {
@@ -4655,7 +4685,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(s => grow(b.c[0] + s[0] * e[0] + s[1] * g[0], b.c[1] + s[0] * e[1] + s[1] * g[1]));
   });
   items.forEach(it => { if (it.C) { grow(it.C[0] - it.r, it.C[1] - it.r); grow(it.C[0] + it.r, it.C[1] + it.r); } if (it.ld) it.ld.forEach(p => grow(p[0], p[1])); });
-  return { items, box: bx };
+  return { items, box: bx, f: fD };
 }
 // T83b (T84): - long: dim ngan trong, dai ngoai (moi canh, moi phia); chuoi doan + lo chung 1 tang; dim tong ngoai cung
 //   - khoang tang: tang 1 cach canh 2 x co chu, moi tang sau +2,5 x co chu, dim 020-ok +80/30 x co chu (co chu = 0,72 fs px ~ chu 30 mm CAD)
@@ -4915,6 +4945,7 @@ function renderPV(mode, v, W, H, opt) {
   // tim ti le k (px/mm) LON NHAT de hinh + toan bo dim lot khung (chu dim giu co pixel) - chia doi
   const pt = opt.padTop == null ? 30 : opt.padTop;     // chua cho nhan kich thuoc / nut Dim / phong to o tren
   const AW = W - 2 * pad, AH = H - pad - pt, k0 = Math.max(1e-6, Math.min(AW / w, AH / h));
+  PV_FMIN = opt.fmin || PV_MIN_FONT;      // T130: san co chu chung (anh/PDF: opt.fmin)
   PV_OBS = { holes: g.holes.map((p, i) => [p, (sh.holes[i] && sh.holes[i].d) || (parseFloat(v.D) || 18)]), segs: [] };
   g.lines.concat(g.ref || []).forEach(l => PV_OBS.segs.push([l[0], l[1]]));
   (sh.fillets || []).forEach(f => { const m = [(f.t1[0] + f.t2[0]) / 2 - f.c[0], (f.t1[1] + f.t2[1]) / 2 - f.c[1]], ml = Math.hypot(m[0], m[1]) || 1, q = [f.c[0] + m[0] / ml * f.r, f.c[1] + m[1] / ml * f.r]; PV_OBS.segs.push([f.t1, q], [q, f.t2]); });
@@ -5040,8 +5071,8 @@ function renderPV(mode, v, W, H, opt) {
     const L1 = it.short ? [it.D1[0] - t[0] * ext, it.D1[1] - t[1] * ext] : it.D1, L2 = it.short ? [it.D2[0] + t[0] * ext, it.D2[1] + t[1] * ext] : it.D2;
     const col = (/^\+/.test(dd.text) || dd.red) ? '#c0392b' : dc;     // T08c: dd.red = dim "KT" lisp to do (CTK5-MarkKT)
     const sup = extSup.get(it) || [], ep = (sup.includes(0) ? '' : 'M' + Q(e1) + ' L' + Q(f1)) + (sup.includes(1) ? '' : ' M' + Q(e2) + ' L' + Q(f2));
-    s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : '1') + '" data-f0="' + (it.f0 || it.f) + '"' + (thin ? ' data-thin="1"' : '') + ' data-ck="' + (it.ck || '') + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
-      '<path d="M' + Q(L1) + ' L' + Q(L2) + '"' + (thin ? ' stroke-width="0.75" stroke-opacity="0.7"' : '') + '/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') +      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
+    s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : it.ld2 ? 'ng' : '1') + '" data-f0="' + (it.f0 || it.f) + '"' + (thin ? ' data-thin="1"' : '') + ' data-ck="' + (it.ck || '') + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
+      '<path d="M' + Q(L1) + ' L' + Q(L2) + '"' + (thin ? ' stroke-width="0.75" stroke-opacity="0.7"' : '') + '/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') + (it.ld2 ? '<path d="M' + it.ld2.map(Q).join(' L') + '" stroke-width="0.75" stroke-opacity="0.7"/>' : '') +      /* T130: dim cuc hep chu ra ngoai - duong dim keo dai duoi chu */      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc, thin) + arrow(it.D2, [-t[0], -t[1]], dc, thin) : arrow(it.D1, [-t[0], -t[1]], dc, thin) + arrow(it.D2, t, dc, thin)) +
       tx(it.tc, it.ang, it.f, qs ? dc : col, dd.text, qs === 'q' && !dd.qon ? false : thin || dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
   }
@@ -5051,7 +5082,7 @@ function renderPV(mode, v, W, H, opt) {
     const M = [m[0] * k, -m[1] * k], dp = [du[0], -du[1]], L = Math.max(26, Math.min(f.r * k, 46));
     const T = [M[0] - dp[0] * L, M[1] - dp[1] * L], txt = 'R' + (+f.r.toFixed(2));
     const tc = [T[0] - dp[0] * (txt.length * 3.4 + 4), T[1] - dp[1] * 9];
-    s += '<g class="dm" stroke="' + FILC + '" stroke-width="0.9" fill="none" data-field="BoGoc"><path d="M' + Q(T) + ' L' + Q(M) + '"/>' + arrow(M, dp, FILC) + tx(tc, 0, fs, FILC, txt) + '</g>';
+    s += '<g class="dm" stroke="' + FILC + '" stroke-width="0.9" fill="none" data-field="BoGoc"><path d="M' + Q(T) + ' L' + Q(M) + '"/>' + arrow(M, dp, FILC) + tx(tc, 0, E.l.f || fs, FILC, txt) + '</g>';      // T130: cung co chu chung ban ve
   });
   // T22: che do "Do goc" - cham o moi dinh (cam = da chon, xam = lisp da tu ve goc o dinh nay)
   const dots = [];
@@ -5718,7 +5749,7 @@ function buildImgSvgs(items, info, group) {
       '<text x="' + (x + w) + '" y="' + y + '" text-anchor="end" ' + F + ' font-size="' + (fz - 6) + '" fill="#000">Mode ' + it.mode + (parseFloat(v.D) > 0 ? ' · ⌀' + parseFloat(v.D) : '') + '</text>'; };
   const open = (W, H) => '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>';
   const inner = (it, x, y, cw, ch) => {
-    const R = renderPV(it.mode, it.v, Math.round(cw / s), Math.round(ch / s), { full: true, dims: true, fs: ANH_FS, padTop: 4 });
+    const R = renderPV(it.mode, it.v, Math.round(cw / s), Math.round(ch / s), { full: true, dims: true, fs: ANH_FS, padTop: 4, fmin: 4 });      // T130: anh phong 2,4 -> san 4 px he bo cuc ~ 9,6 px anh
     return '<svg x="' + x + '" y="' + y + '" width="' + cw + '" height="' + ch + '" viewBox="0 0 ' + Math.round(cw / s) + ' ' + Math.round(ch / s) + '">' + R.svg + '</svg>'; };
   if (group === 'pdf') {
     items.forEach((it, i) => {
@@ -5837,7 +5868,7 @@ function khTam(it, x, y, w, Ht, lite) {
     } catch (e) {}
     return o;
   }
-  const R = renderPV(it.mode, it.v, Math.round(w / s), Math.round(Ht / s), { full: true, dims: true, fs: ANH_FS, padTop: 4 });
+  const R = renderPV(it.mode, it.v, Math.round(w / s), Math.round(Ht / s), { full: true, dims: true, fs: ANH_FS, padTop: 4, fmin: 4 });      // T130: anh phong 2,4 -> san 4 px he bo cuc ~ 9,6 px anh
   return o + '<svg x="' + x + '" y="' + (y + CH) + '" width="' + w + '" height="' + Ht + '" viewBox="0 0 ' + Math.round(w / s) + ' ' + Math.round(Ht / s) + '">' + R.svg + '</svg>';
 }
 // khoi chu thong tin (khung ten): Ngay / Dai ly / Khach / Loai kinh / Trang x/n / Tong tam-lo / Ve bang CTKinh
@@ -8538,7 +8569,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017160845';
+var CTK_BUILD = '20261017170207';
 (function () {
   function chk() {
     try {
