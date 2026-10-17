@@ -1,0 +1,16 @@
+﻿Ngày vẽ,Today
+Tên Đại Lý,T126
+Tên KH,"MAU THU DIM NHO: S4A 30/40/43/145 | N1 20/25/30/60 | N2 45x4 | N3 lo gan nhau 38/42 | Cao 22/35 | TG nho. Xem chuoi dim nho: cung tang, chu to hon, mui ten manh"
+Loại Kính,10XK
+
+#MODE 1
+TenTam,AList,H,C,D,HoleGroups,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,TG_CanhTren,TG_Phia,TG_Buoc,TG_LoThem,Huong,SoLuong,CanhXien
+S4A,445-920-940-185,627,429,24,30/145-40/145-43/145,,,,875-200,105/145,810,,,,,,1,
+N1-20-25-30-60,900-900,800,150,18,20/25/30/60,,,,,,,,,,,,1,
+N2-45x4,1200,700,100,18,45/45/45/45,,,,,,,,,,,,1,
+N3-LO-GAN,1000-1000,800,150,16,38/42/40-38/42/45,,,,,,,,,,,,1,
+TG-NHO,120-120,500,0,20,25/30/35,,,,,,,700,P,100,,,1,
+
+#MODE 2
+TenTam,W,CutP1X,CutP1Y,AList,H1,C1,H2,C2,D,HoleYList,CutP3,X,Y,Huong,SoLuong
+N4-CAO-22-35,1000,0,0,250-250-250-250,600,100,600,100,20,22-35-30-60,,,,,1
