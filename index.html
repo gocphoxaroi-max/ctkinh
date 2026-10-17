@@ -6292,6 +6292,8 @@ var KS_CFG = {      // <-- anh Dampt / quan ly chinh o DAY (1 cho duy nhat)
   socket: { w: 100, h: 60 },    // o dien NGANG mac dinh
   socketV: { w: 60, h: 110 },   // T95: o dien DUNG mac dinh
   tanTol: 0.5,                  // T98: sai so tiep xuc mep (mm): tron/khoet cach mep <= so nay = tiep xuc -> mo tai diem tiep xuc
+  devWarn: 2,                   // T114: so THUA lech nhau >= nay (mm) = vang
+  devRed: 10,                   // T114: >= nay (mm) = do + chan xuat tia nuoc tam do
   chkTol: 3,                    // T95: canh bao vang khi so khach ghi them (cach tren/cach day) lech so tinh ra hon (mm)
   minEdge: 30,                  // canh bao vang: khoet / lo gan mep hon (mm)  - NGUONG TAM, hoi anh Dampt
   minGap: 30,                   // canh bao vang: 2 khoet gan nhau hon (mm)    - NGUONG TAM
@@ -6432,7 +6434,7 @@ function ksHoleSyncP(h, p) {      // dung chung: tam chu nhat -> ksHoleSync cu, 
   return ksHoleSync(h, ksNum(p.h), ksNum(p.w));
 }
 function ksNewHole(t, kind) {      // T95: kind cho khoet chu nhat: N = o ngang, V = o dung, D = tu nhap. Truong tho a1/a2 (ngang), b1/b2 (doc), ws/hs (kich thuoc tu nhap), vs (D = do tu day, T = do tu tren), ck (so khach ghi them de kiem)
-  var base = { side: 'P', dx: '', dy: '', a1: '', a2: '', b1: '', b2: '', ws: '', hs: '', vs: 'D', ck: '' };
+  var base = { side: 'P', dx: '', dy: '', a1: '', a2: '', b1: '', b2: '', ws: '', hs: '', vs: 'D', ck: '', a1t: 'G', a2t: 'X', b1t: 'G', b2t: 'X' };      // T114: a1t/a2t/b1t/b2t = loai tung so: G = mep gan, X = mep xa, C = tam
   var h;
   if (t === 'C') { h = { t: 'C', d: '' }; }
   else { kind = kind === 'V' || kind === 'D' ? kind : 'N'; var pr = kind === 'V' ? KS_CFG.socketV : kind === 'N' ? KS_CFG.socket : { w: '', h: '' }; h = { t: 'R', kind: kind, w: pr.w, h: pr.h }; }
@@ -6441,6 +6443,7 @@ function ksNewHole(t, kind) {      // T95: kind cho khoet chu nhat: N = o ngang,
 function ksPresetOf(h) { return h.kind === 'N' ? KS_CFG.socket : h.kind === 'V' ? KS_CFG.socketV : null; }
 // khoet cu (CSV cu / tam da luu truoc T95) -> them truong tho
 function ksHoleNorm(h) {
+  if (h.a1t === undefined) { h.a1t = 'G'; h.a2t = 'X'; h.b1t = 'G'; h.b2t = 'X'; }
   if (h.a1 !== undefined) return h;
   h.vs = 'D'; h.ck = ''; h.a1 = h.dx; h.b1 = h.dy; h.a2 = ''; h.b2 = ''; h.ws = ''; h.hs = '';
   if (h.t !== 'C') {
@@ -6449,6 +6452,32 @@ function ksHoleNorm(h) {
     if (h.kind === 'D') { h.ws = h.w; h.hs = h.h; }
   }
   return h;
+}
+// T114: giai 1 truc tu 1-2 so thợ nhap (moi so co loai: G mep gan / X mep xa / C tam) + co (neu co). Do tu goc truc (canh trai / phai / day / tren).
+// -> {lo, hi (mep gan / mep xa, tinh tu goc truc), dev (mm so thua lech), kind ('size' = 2 so khac cỡ nhap rieng; 'same' = 2 so cung loai khac nhau), cen (true neu co so tam)}
+function ksAxisSolve(v1, t1, v2, t2, s) {
+  var a = [], r = { lo: NaN, hi: NaN, dev: 0, kind: '', cen: false }, i, o, g, x, c;
+  if (!isNaN(v1)) a.push([v1, t1 || 'G']); if (!isNaN(v2)) a.push([v2, t2 || 'X']);
+  if (a.length === 2 && a[0][1] === a[1][1]) { r.kind = 'same'; r.dev = Math.abs(a[0][0] - a[1][0]); if (r.dev < 0.005) { r.dev = 0; r.kind = ''; } a.length = 1; }
+  for (i = 0; i < a.length; i++) if (a[i][1] === 'C') r.cen = true;
+  if (a.length === 2) {
+    for (i = 0; i < 2; i++) { o = a[i]; if (o[1] === 'G') g = o[0]; else if (o[1] === 'X') x = o[0]; else c = o[0]; }
+    if (g !== undefined && x !== undefined) { r.lo = Math.min(g, x); r.hi = Math.max(g, x); }
+    else if (g !== undefined) { r.lo = g; r.hi = 2 * c - g; } else { r.hi = x; r.lo = 2 * c - x; }
+    if (!isNaN(s) && s > 0) { var d = Math.abs((r.hi - r.lo) - s); if (d > 0.005) { r.dev = d; r.kind = 'size'; } }
+    return r;
+  }
+  if (a.length === 1) {
+    o = a[0];
+    if (isNaN(s) || !(s > 0)) { if (o[1] === 'G') r.lo = o[0]; else if (o[1] === 'X') r.hi = o[0]; return r; }
+    if (o[1] === 'G') { r.lo = o[0]; r.hi = o[0] + s; } else if (o[1] === 'X') { r.hi = o[0]; r.lo = o[0] - s; } else { r.lo = o[0] - s / 2; r.hi = o[0] + s / 2; }
+  }
+  return r;
+}
+// T114: khoet chu nhat luon la "tu nhap" (khong con co dinh o ngang / o dung): khoet cu dang N / V -> D, giu nguyen kich thuoc
+function ksHoleFree(h) {
+  if (h.t !== 'R' || h.kind === 'D') return h; ksHoleNorm(h); var pr = ksPresetOf(h);
+  h.ws = ksNum(h.w) > 0 ? h.w : (pr ? ksF(pr.w) : ''); h.hs = ksNum(h.h) > 0 ? h.h : (pr ? ksF(pr.h) : ''); h.kind = 'D'; return h;
 }
 // so tho (mep gan / mep xa nhu khach ghi) -> w,h,dx,dy chuan (dx tu canh side, dy tu DAY). Khong doi thu tu 2 so: lay nho = mep gan
 function ksHoleSync(h, H, W) {
@@ -6460,10 +6489,13 @@ function ksHoleSync(h, H, W) {
     else { h.vs = h.ref === 'T' ? 'T' : 'D'; h.a2 = ''; if (W !== undefined) h.a1 = isNaN(W) || isNaN(sw) ? '' : S((W - sw) / 2); if (!h.side) h.side = 'P'; }
   }
   var a1 = n(h.a1), b1 = n(h.b1), top = h.vs === 'T', y;
-  if (h.t === 'C') { h.dx = S(a1); h.dy = S(top ? (isNaN(b1) || isNaN(H) ? NaN : H - b1) : b1); return h; }
-  var pr = ksPresetOf(h), a2 = n(h.a2), b2 = n(h.b2), w, hh, x, y0;
-  if (!isNaN(a1) && !isNaN(a2)) { w = Math.abs(a2 - a1); x = Math.min(a1, a2); } else { w = pr ? pr.w : n(h.ws); x = a1; }
-  if (!isNaN(b1) && !isNaN(b2)) { hh = Math.abs(b2 - b1); y0 = Math.min(b1, b2); } else { hh = pr ? pr.h : n(h.hs); y0 = b1; }
+  if (h.t === 'C') { h.dvx = 0; h.dvy = 0; h.cfx = ''; h.cfy = ''; h.mx = ''; h.my = ''; h.dx = S(a1); h.dy = S(top ? (isNaN(b1) || isNaN(H) ? NaN : H - b1) : b1); return h; }
+  var pr = ksPresetOf(h), a2 = n(h.a2), b2 = n(h.b2), w, hh, x, y0, szx = h.kind === 'D' ? n(h.ws) : NaN, szy = h.kind === 'D' ? n(h.hs) : NaN;
+  if (pr && !(!isNaN(a1) && !isNaN(a2))) szx = pr.w; if (pr && !(!isNaN(b1) && !isNaN(b2))) szy = pr.h;      // o chuan cu: co mac dinh chi khi nhap 1 so
+  var rx = ksAxisSolve(a1, h.a1t, a2, h.a2t, szx), ry = ksAxisSolve(b1, h.b1t, b2, h.b2t, szy);      // T114: moi truc giai rieng; so thua lech -> dvx / dvy (mm)
+  h.dvx = rx.dev; h.dvy = ry.dev; h.cfx = rx.kind; h.cfy = ry.kind; h.mx = rx.cen ? 'C' : ''; h.my = ry.cen ? 'C' : '';
+  if (!isNaN(rx.lo) && !isNaN(rx.hi)) { w = rx.hi - rx.lo; x = rx.lo; } else { w = pr ? pr.w : n(h.ws); x = isNaN(rx.lo) ? a1 : rx.lo; }
+  if (!isNaN(ry.lo) && !isNaN(ry.hi)) { hh = ry.hi - ry.lo; y0 = ry.lo; } else { hh = pr ? pr.h : n(h.hs); y0 = isNaN(ry.lo) ? b1 : ry.lo; }
   y = top ? (isNaN(y0) || isNaN(H) || isNaN(hh) ? NaN : H - y0 - hh) : y0;
   h.w = S(w); h.h = S(hh); h.dx = S(x); h.dy = S(y); return h;
 }
@@ -6538,7 +6570,7 @@ function ksHoleClearP(g, P) {
 }
 // kiem tra 1 tam -> { err:{k:msg}, warn:[..], info:[..] }   (do = loi that: khong xuat; vang = canh bao)
 function ksValidate(p) {
-  var err = {}, warn = [], info = [], W = ksNum(p.w), H = ksNum(p.h), i, j, shp = !!(p.sh && p.sh.t !== 'R');
+  var err = {}, warn = [], info = [], red = [], W = ksNum(p.w), H = ksNum(p.h), i, j, shp = !!(p.sh && p.sh.t !== 'R');
   if (shp) { var se = ksShapeErr(p); if (se) { err.w = se; W = NaN; } }      // T100: tam hinh thang / meo
   else { if (!(W > 0)) err.w = 'Nhập chiều rộng (mm)'; if (!(H > 0)) err.h = 'Nhập chiều cao (mm)'; }
   if (!String(p.ten || '').trim()) err.ten = 'Nhập tên tấm';
@@ -6551,6 +6583,11 @@ function ksValidate(p) {
     var h = p.holes[i], nm = (h.t === 'C' ? 'Lỗ tròn ' : 'Khoét ') + (i + 1);
     if (!ksHoleOk(h)) { err['h' + i] = nm + ': nhập đủ số'; gs.push(null); continue; }
     var g = ksHoleGeo(p, h), b = ksBox(g); gs.push(g);
+    if (h.t !== 'C') [['ngang', h.dvx, h.cfx], ['dọc', h.dvy, h.cfy]].forEach(function (z) {      // T114: so THUA lech nhau: >= 2 mm vang, >= 10 mm do (chan tia nuoc cho tam nay)
+      var dv = +z[1] || 0; if (dv < KS_CFG.devWarn) return;
+      var m = nm + ': số đo ' + z[0] + ' thừa và lệch nhau ' + ksF(dv) + ' mm' + (z[2] === 'size' ? ' (2 số mép ≠ cỡ đã nhập)' : ' (2 số cùng loại khác nhau)') + ' – chọn tin số nào';
+      if (dv >= KS_CFG.devRed) red.push(m); else warn.push(m);
+    });
     if (h.a1 !== undefined) {      // T95: kiem cho so khach ghi them + co o dien chuan
       var pr = ksPresetOf(h);
       if (pr && (ksNum(h.w) !== pr.w || ksNum(h.h) !== pr.h)) info.push(nm + ': ' + (h.kind === 'V' ? 'ổ đứng' : 'ổ ngang') + ' thường ' + pr.w + '×' + pr.h + ', đang là ' + ksF(ksNum(h.w)) + '×' + ksF(ksNum(h.h)));
@@ -6571,7 +6608,7 @@ function ksValidate(p) {
     if (gp < 0) err['h' + j] = 'Khoét ' + (j + 1) + ' chồng lên khoét ' + (i + 1);
     else if (gp < KS_CFG.minGap) warn.push('Khoét ' + (i + 1) + ' và ' + (j + 1) + ' cách nhau ' + ksF(gp) + ' mm (nên ≥ ' + KS_CFG.minGap + ')');
   }
-  return { err: err, warn: warn, info: info };
+  return { err: err, warn: warn, info: info, red: red, jetBlock: red };
 }
 // ---- CSV: Nhom,Ten,Rong,Cao,MaMau,KimSa,DayMM,SL,Khoet     Khoet = cac the cach nhau dau cach: R100x60@P225/D290  C20@T100/D200
 function ksHoleTok(h) {
@@ -6705,6 +6742,7 @@ function ksDxf(panels, o) {
 }
 // ---- Ve SVG 1 tam (xem truoc + khung ban ve): k = px / mm; chu CO DINH (T84: khong thu nho chu), tang dim 2x co chu
 var KS_TS = 15;
+var KS_LEADC = ['#6f76d6', '#2e9e8f', '#c07d2b'];      // T114: mau duong dan chu dim nho (xoay vong)
 var KS_DIMC = '#3b3f96', KS_NAMEC = '#1515e0';      // T106: mau dim xanh tim + ten tam xanh nhu 2 PDF mau (120926-HaThanh-KhaiXL-STX01-A/B)
 function ksTotTs(ts) { return Math.round(ts * 1.27); }      // chu dim tong (rong / cao tam) to hon chu dim khoet (mau: ~2,7 mm / ~1,2 mm tren A4)
 function ksMarginPx(p, ts, T) {      // le quanh tam (px): trai / phai / tren / duoi
@@ -6712,7 +6750,11 @@ function ksMarginPx(p, ts, T) {      // le quanh tam (px): trai / phai / tren / 
   return ksIsShape(p) ? { l: ts * 2.2 + T * 2.45, r: ts * 3.4, t: ts * 3.2, b: ts * 1.8 + T * 1.9 } : { l: T * 2.45, r: ts * 3.2, t: ts * 1.6, b: T * 1.9 };
 }
 function ksDraw(p, k, opt) {
-  opt = opt || {}; var ts = opt.ts || KS_TS, T = opt.tsTot || ksTotTs(ts), W = ksNum(p.w), H = ksNum(p.h);      // T106: ts = chu dim gia cong, T = chu dim TONG (to, dam) - theo 2 PDF mau anh Dampt
+  opt = opt || {};
+  if (!opt._zones && !opt._pre) {      // T114: luot 1 chi gom VUNG DO cua moi dim; luot 2 dat chu khong de len vung do cua dim khac
+    var mixO = function (a, b) { var r = {}, z; for (z in a) r[z] = a[z]; for (z in b) r[z] = b[z]; return r; }, cz = [];
+    ksDraw(p, k, mixO(opt, { _pre: true, _collect: cz, dimLog: null })); opt = mixO(opt, { _zones: cz });
+  } var ts = opt.ts || KS_TS, T = opt.tsTot || ksTotTs(ts), W = ksNum(p.w), H = ksNum(p.h);      // T106: ts = chu dim gia cong, T = chu dim TONG (to, dam) - theo 2 PDF mau anh Dampt
   if (!(W > 0 && H > 0)) return { svg: '', w: 0, h: 0 };
   var shp = ksIsShape(p), mg = ksMarginPx(p, ts, T); if (opt.tight && !shp) { mg.r = ts * 0.8; if (opt.noH) mg.l = ts * 0.4; }      // T108: xem truoc ca bo: tam sau khong ve lai dim cao chung
   var ml = mg.l, mb = mg.b, mt = mg.t, mr = mg.r, pw = W * k, ph = H * k, w = ml + pw + mr, h = mt + ph + mb;
@@ -6736,7 +6778,7 @@ function ksDraw(p, k, opt) {
   // T108: DIM KIEU CAD NHU MAU (Kinhson.dxf: DIMBLK mac dinh = mui ten DAC tam giac, DIMASZ/DIMTXT ~0,6-0,8, DIMEXO ~0,5 chu, DIMEXE ~0,5 chu, DIMTAD=1 chu NAM TREN duong dim, DIMGAP ~0,4 chu)
   // chu dat GIUA 2 mui ten neu du cho; khong du -> mui ten lat ra ngoai (neu hep) + chu ra NGOAI nhung THANG HANG voi duong dim (duong dim keo dai duoi chu).
   // key = ten dim (W, H, h0x, h0w...) -> p.dpos[key] = [lech vuong goc, lech doc duong] (mm, anh Dampt keo tha tren xem truoc) - dung lai trong anh / PDF.
-  var dpos = p.dpos || {}, F1 = function (v) { return v.toFixed(1); };
+  var dpos = p.dpos || {}, F1 = function (v) { return v.toFixed(1); }, dimSeq = 0, leadN = 0;
   var arrowP = function (x, y, ux, uy, a) { var bx = x - ux * a, by = y - uy * a, hw = a / 6; return '<polygon points="' + F1(x) + ',' + F1(y) + ' ' + F1(bx - uy * hw) + ',' + F1(by + ux * hw) + ' ' + F1(bx + uy * hw) + ',' + F1(by - ux * hw) + '" fill="' + dimc + '"/>'; };
   var dimL = function (A, B, label, q) {
     q = q || {}; var big = !!q.big, f = big ? T : ts, ax = A[0], ay = A[1], bx = B[0], by = B[1], L = Math.hypot(bx - ax, by - ay); if (L < 0.5) return '';
@@ -6747,21 +6789,57 @@ function ksDraw(p, k, opt) {
     s += ext(q.p1, ax, ay) + ext(q.p2, bx, by);
     var ang = Math.atan2(uy, ux) * 180 / Math.PI; if (ang >= 90) ang -= 180; if (ang < -90) ang += 180; var ar = ang * Math.PI / 180, upx = Math.sin(ar), upy = -Math.cos(ar), rot = Math.abs(ang) < 0.01 ? 0 : Math.round(ang * 100) / 100;
     var wT = String(label).length * f * (big ? 0.6 : 0.56), hT = f * 0.95, gap = f * 0.35, inA = L >= asz * 2 + 2, fit = L >= wT + asz + f * 0.3;      // chu nam TREN duong dim nen chi can ~ rong chu + 1 mui ten
-    var box = function (cx, cy) { var c = Math.abs(Math.cos(ar)), sn = Math.abs(Math.sin(ar)), mx = cx + upx * hT / 2, my = cy + upy * hT / 2, bw = wT * c + hT * sn, bh = wT * sn + hT * c; return [mx - bw / 2, my - bh / 2, bw, bh]; };
-    var at = function (t) { var sg = ux * Math.cos(ar) + uy * Math.sin(ar) >= 0 ? 1 : -1; return [ax + ux * t + upx * gap * 1, ay + uy * t + upy * gap * 1, sg]; };      // t = vi tri tam chu doc theo duong dim (tinh tu A)
-    var cands = [], side = q.od < 0 ? -1 : 1, outT = function (sd) { var d0 = (inA ? asz * 0.4 : asz * 1.6) + wT / 2 + f * 0.25; return sd > 0 ? L + d0 : -d0; };
-    if (off) cands.push(L / 2 + ot);
-    else { if (fit) cands.push(L / 2); cands.push(outT(side), outT(-side)); if (!fit) cands.push(L / 2); }      // het cach: chu van o giua (tren duong dim, de len mui ten mot chut) - van thang hang
+    var seq = ++dimSeq, tdx = Math.cos(ar), tdy = Math.sin(ar), lh = hT + gap * 0.8;
+    if (opt._collect) opt._collect.push({ id: seq, A: [ax, ay], u: [ux, uy], up: [upx, upy], L: L, h: gap + hT + 2 });      // T114: vung do cua dim (luot 1) - luot 2 khong cho chu dim khac nam len
+    // T114: chu dim luon THANG HANG voi duong dim. Vua cho -> o GIUA. Khong vua -> chu ra NGOAI (hoac nang len tang tren) va co DUONG DAN manh noi tu chu toi GIUA doan do.
+    var polyAt = function (t, lift) {
+      var px = ax + ux * t + upx * (gap + lift * lh), py = ay + uy * t + upy * (gap + lift * lh), cx = px + upx * hT / 2, cy = py + upy * hT / 2, hw = wT / 2, hh = hT / 2;
+      return { px: px, py: py, cx: cx, cy: cy, poly: [[cx - tdx * hw - upx * hh, cy - tdy * hw - upy * hh], [cx + tdx * hw - upx * hh, cy + tdy * hw - upy * hh], [cx + tdx * hw + upx * hh, cy + tdy * hw + upy * hh], [cx - tdx * hw + upx * hh, cy - tdy * hw + upy * hh]] };
+    };
+    var bbOf = function (P) { var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; P.forEach(function (v) { x0 = Math.min(x0, v[0]); y0 = Math.min(y0, v[1]); x1 = Math.max(x1, v[0]); y1 = Math.max(y1, v[1]); }); return [x0, y0, x1 - x0, y1 - y0]; };
+    var satHit = function (P, Q) {      // 2 da giac loi chong nhau (> 1 px)
+      var sets = [P, Q], si, i, j, k2;
+      for (si = 0; si < 2; si++) { var pg = sets[si]; for (i = 0; i < pg.length; i++) { var e1 = pg[i], e2 = pg[(i + 1) % pg.length], nx0 = e2[1] - e1[1], ny0 = -(e2[0] - e1[0]), nl = Math.hypot(nx0, ny0) || 1; nx0 /= nl; ny0 /= nl;
+        var mn1 = 1e9, mx1 = -1e9, mn2 = 1e9, mx2 = -1e9; for (j = 0; j < P.length; j++) { var d1 = P[j][0] * nx0 + P[j][1] * ny0; mn1 = Math.min(mn1, d1); mx1 = Math.max(mx1, d1); } for (k2 = 0; k2 < Q.length; k2++) { var d2 = Q[k2][0] * nx0 + Q[k2][1] * ny0; mn2 = Math.min(mn2, d2); mx2 = Math.max(mx2, d2); }
+        if (Math.min(mx1, mx2) - Math.max(mn1, mn2) < 1.0) return false; } }
+      return true;
+    };
+    var zoneHit = function (poly) {
+      var zs = opt._zones || []; for (var zi = 0; zi < zs.length; zi++) { var z = zs[zi]; if (z.id === seq) continue;
+        var zp = [[z.A[0] - z.up[0] * 2, z.A[1] - z.up[1] * 2], [z.A[0] + z.u[0] * z.L - z.up[0] * 2, z.A[1] + z.u[1] * z.L - z.up[1] * 2], [z.A[0] + z.u[0] * z.L + z.up[0] * z.h, z.A[1] + z.u[1] * z.L + z.up[1] * z.h], [z.A[0] + z.up[0] * z.h, z.A[1] + z.up[1] * z.h]];
+        if (satHit(poly, zp)) return true; } return false;
+    };
+    var side = q.od < 0 ? -1 : 1, outT = function (sd, far) { var d0 = (inA ? asz * 0.4 : asz * 1.6) + wT / 2 + f * 0.25 + (far ? far * (wT + f * 0.5) : 0); return sd > 0 ? L + d0 : -d0; };
     var inPan = function (bb) { return big || (bb[0] >= ml - 1 && bb[1] >= mt - 1 && bb[0] + bb[2] <= ml + pw + 1 && bb[1] + bb[3] <= mt + ph + 1); };      // dim gia cong: chu khong chui ra ngoai tam (cat dim tong)
-    var tc = null, bxx = null, c, pp, bb, pass;
-    for (pass = 0; pass < 2 && tc == null; pass++) for (c = 0; c < cands.length; c++) { pp = at(cands[c]); bb = box(pp[0], pp[1]); if (off || (!hitTb(bb[0], bb[1], bb[2], bb[3]) && (pass || inPan(bb) || cands[c] === L / 2))) { tc = cands[c]; bxx = bb; break; } }
-    var shift = 0; if (tc == null) { tc = cands[0]; for (var tr = 0; tr < 6; tr++) { pp = at(tc); bxx = box(pp[0] + upx * shift, pp[1] + upy * shift); if (!hitTb(bxx[0], bxx[1], bxx[2], bxx[3])) break; shift += f; } }      // het cho: dich ra xa duong dim (nhu T102)
-    var tp = at(tc), tx = tp[0] + upx * shift, ty = tp[1] + upy * shift; tb.push(bxx);
-    var t0 = Math.min(0, tc - wT / 2 - f * 0.15), t1 = Math.max(L, tc + wT / 2 + f * 0.15);      // duong dim keo dai duoi chu khi chu nam ngoai 2 mui ten
+    var pick = null, lift = 0, tc, PL;
+    if (off) { tc = L / 2 + ot; PL = polyAt(tc, 0); pick = { t: tc, lift: 0, PL: PL, bb: bbOf(PL.poly) }; }
+    else {
+      var seqs = [], ll = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5];
+      ll.forEach(function (lf) { var ts0 = lf === 0 ? [].concat(fit ? [L / 2] : [], [outT(side), outT(-side), outT(side, 1), outT(-side, 1), outT(side, 2), outT(-side, 2)]) : [L / 2, outT(side), outT(-side), outT(side, 1), outT(-side, 1)]; ts0.forEach(function (t) { seqs.push([t, lf]); }); });
+      if (!fit) seqs.push([L / 2, 0]);      // het cach: chu o giua (de len mui ten mot chut) - van thang hang
+      for (var pass = 0; pass < 3 && !pick; pass++) for (var ci = 0; ci < seqs.length; ci++) {
+        var cd = seqs[ci], P0 = polyAt(cd[0], cd[1]), bb0 = bbOf(P0.poly);
+        if (hitTb(bb0[0], bb0[1], bb0[2], bb0[3])) continue; if (pass < 2 && zoneHit(P0.poly)) continue;
+        if (pass === 0 && !(inPan(bb0) || (cd[0] === L / 2 && cd[1] === 0))) continue;
+        pick = { t: cd[0], lift: cd[1], PL: P0, bb: bb0 }; break;
+      }
+      if (!pick) { var lf2 = 6; for (; lf2 < 14; lf2++) { var P1 = polyAt(L / 2, lf2), b1 = bbOf(P1.poly); if (!hitTb(b1[0], b1[1], b1[2], b1[3]) && !zoneHit(P1.poly)) { pick = { t: L / 2, lift: lf2, PL: P1, bb: b1 }; break; } } if (!pick) { var P2 = polyAt(L / 2, 6); pick = { t: L / 2, lift: 6, PL: P2, bb: bbOf(P2.poly) }; } }
+    }
+    tc = pick.t; lift = pick.lift; PL = pick.PL; var bxx = pick.bb, tx = PL.px, ty = PL.py; tb.push(bxx);
+    var lead = tc < -0.01 || tc > L + 0.01 || lift !== 0;      // chu nam ngoai doan do (hoac nang len tang) -> bat buoc co duong dan toi GIUA doan do
+    var t0 = 0, t1 = L;
+    if (lift === 0) { t0 = Math.min(0, tc - wT / 2 - f * 0.15); t1 = Math.max(L, tc + wT / 2 + f * 0.15); }      // duong dim keo dai duoi chu khi chu nam ngoai 2 mui ten
     if (!inA) { t0 = Math.min(t0, -asz * 2); t1 = Math.max(t1, L + asz * 2); }
     s += '<line x1="' + F1(ax + ux * t0) + '" y1="' + F1(ay + uy * t0) + '" x2="' + F1(ax + ux * t1) + '" y2="' + F1(ay + uy * t1) + '" stroke="' + dimc + '" stroke-width="' + lw + '"/>';
     s += inA ? arrowP(ax, ay, -ux, -uy, asz) + arrowP(bx, by, ux, uy, asz) : arrowP(ax, ay, ux, uy, asz) + arrowP(bx, by, -ux, -uy, asz);
+    if (lead) {      // duong dan manh (mau nhe, doi mau theo thu tu de 2 dim nho sat nhau khong lan): tu mep chu (phia doan do) toi GIUA doan do + cham tron
+      var lc = KS_LEADC[(leadN++) % KS_LEADC.length], Qx = ax + ux * L / 2, Qy = ay + uy * L / 2, Sx, Sy, dirS = (ux * tdx + uy * tdy >= 0 ? 1 : -1), sgn = tc > L / 2 ? -1 : 1, vS = lift > 0 ? -1 : lift < 0 ? 1 : 0;
+      if (tc >= -0.01 && tc <= L + 0.01) { Sx = PL.cx + upx * hT / 2 * vS; Sy = PL.cy + upy * hT / 2 * vS; }      // chu nang len tang: noi tu day (hoac dinh) chu xuong giua doan do
+      else { Sx = PL.cx + tdx * sgn * dirS * wT / 2; Sy = PL.cy + tdy * sgn * dirS * wT / 2; }      // chu o ngoai: noi tu dau chu gan doan do
+      s += '<line x1="' + F1(Sx) + '" y1="' + F1(Sy) + '" x2="' + F1(Qx) + '" y2="' + F1(Qy) + '" stroke="' + lc + '" stroke-width="0.8"/><circle cx="' + F1(Qx) + '" cy="' + F1(Qy) + '" r="' + F1(Math.max(1.3, f * 0.13)) + '" fill="' + lc + '"/>';
+    }
     s += '<text x="' + F1(tx) + '" y="' + F1(ty) + '" font-size="' + f + '" fill="' + dimc + '" text-anchor="middle" font-family="Arial,sans-serif"' + (big ? ' font-weight="bold"' : '') + (rot ? ' transform="rotate(' + rot + ' ' + F1(tx) + ' ' + F1(ty) + ')"' : '') + '>' + label + '</text>';
+    if (opt.dimLog) opt.dimLog.push({ key: q.key || '', label: String(label), A: [ax, ay], u: [ux, uy], up: [upx, upy], L: L, hT: hT, gap: gap, wT: wT, C: [PL.cx, PL.cy], tc: tc, lift: lift, lead: lead, poly: PL.poly });      // T114: nhat ky dim (kiem tra tu dong)
     if (opt.pick && q.key) s = '<g data-dk="' + q.key + '" data-ux="' + ux.toFixed(4) + '" data-uy="' + uy.toFixed(4) + '" style="cursor:move">' + s + '<line x1="' + F1(ax + ux * t0) + '" y1="' + F1(ay + uy * t0) + '" x2="' + F1(ax + ux * t1) + '" y2="' + F1(ay + uy * t1) + '" stroke="#000" stroke-opacity="0.01" stroke-width="18"/><rect x="' + F1(bxx[0] - 4) + '" y="' + F1(bxx[1] - 4) + '" width="' + F1(bxx[2] + 8) + '" height="' + F1(bxx[3] + 8) + '" fill="#fff" fill-opacity="0.01"/></g>';
     return s;
   };
@@ -6772,18 +6850,21 @@ function ksDraw(p, k, opt) {
   // T104: bo dim khoet chu nhat THEO MAU GOC Kinhson.dxf: tang 1 = [mep -> khoet gan] + [rong khoet] (tren khoet), tang 2 = [mep -> khoet xa];
   // doc: tang 1 = [day -> khoet] + [cao khoet] (ben phia xa mep), tang 2 = [day -> dinh khoet]. Tat ca nam TRONG tam (het cho thi lat sang phia con lai). m = so mm.
   // T105: lite = chi tang 1 (4 so: khoang tham chieu ngang + rong khoet, khoang tham chieu doc + cao khoet) -> xem truoc; full = them tang 2 + khoang con lai (xuat, tam 1 khoet)
-  var holeSet = function (g, V, full, lite, hk) {      // hk = tien to ten dim (keo tha), vd 'h0'
+  var holeSet = function (g, V, full, lite, hk, hh0) {      // hk = tien to ten dim (keo tha), vd 'h0'
     var x1 = X(g.x1), x2 = X(g.x2), yT = Y(g.y2), yB = Y(g.y1), rx = X(V.x), ry = Y(V.y), sx = V.sx > 0 ? 1 : -1, sy = V.sy > 0 ? 1 : -1, e1 = ts * 1.5, e2 = ts * 2.9, out = [];
     var near = sx > 0 ? x1 : x2, far = sx > 0 ? x2 : x1, mn = sx > 0 ? g.x1 - V.x : V.x - g.x2, mf = sx > 0 ? g.x2 - V.x : V.x - g.x1;
-    var need = lite ? e1 + ts * .4 : e2 + ts * .4, up = (yT - mt) >= need || (yT - mt) >= (mt + ph - yB), hy = up ? yT : yB, d1 = up ? -e1 : e1, d2 = up ? -e2 : e2, ex = hy;
-    if (Math.abs(mn) > 0.01) out.push(dimH(Math.min(rx, near), Math.max(rx, near), hy + d1, ksF(mn), ex, ex, -sx, 0, hk + 'x'));
+    var cxC = !!(hh0 && hh0.mx === 'C'), cyC = !!(hh0 && hh0.my === 'C'), xcm = (g.x1 + g.x2) / 2, ycm = (g.y1 + g.y2) / 2;      // T114: so do nhap la TAM -> dim toi tam (gioi ve duong tam)
+    var need = lite && !cxC && !cyC ? e1 + ts * .4 : e2 + ts * .4, up = (yT - mt) >= need || (yT - mt) >= (mt + ph - yB), hy = up ? yT : yB, d1 = up ? -e1 : e1, d2 = up ? -e2 : e2, ex = hy;
+    if (cxC) { var Xc = X(xcm), mC = Math.abs(xcm - V.x); out.push('<line x1="' + F1(Xc) + '" y1="' + F1(yT - ts * 0.5) + '" x2="' + F1(Xc) + '" y2="' + F1(yB + ts * 0.5) + '" stroke="' + dimc + '" stroke-width="0.7" stroke-dasharray="7 2 1.5 2"/>'); if (mC > 0.01) out.push(dimH(Math.min(rx, Xc), Math.max(rx, Xc), hy + d2, ksF(mC), ex, ex, -sx, 0, hk + 'x')); }
+    else if (Math.abs(mn) > 0.01) out.push(dimH(Math.min(rx, near), Math.max(rx, near), hy + d1, ksF(mn), ex, ex, -sx, 0, hk + 'x'));
     out.push(dimH(x1, x2, hy + d1, ksF(g.x2 - g.x1), ex, ex, sx, 0, hk + 'w'));
-    if (!lite) out.push(dimH(Math.min(rx, far), Math.max(rx, far), hy + d2, ksF(mf), ex, ex, -sx, 0, hk + 'xf'));
+    if (!lite && !cxC) out.push(dimH(Math.min(rx, far), Math.max(rx, far), hy + d2, ksF(mf), ex, ex, -sx, 0, hk + 'xf'));
     var rI = sx > 0 ? (ml + pw) - x2 : x1 - ml, rO = sx > 0 ? x1 - ml : (ml + pw) - x2, ls = rI >= need || rI >= rO ? sx : -sx, hx = ls > 0 ? x2 : x1, v1 = hx + ls * e1, v2 = hx + ls * e2;
     var nr = sy > 0 ? g.y1 - V.y : V.y - g.y2, fr = sy > 0 ? g.y2 - V.y : V.y - g.y1;
-    if (Math.abs(nr) > 0.01) { var ny = sy > 0 ? yB : yT; out.push(dimV(Math.min(ry, ny), Math.max(ry, ny), v1, ksF(nr), hx, hx, sy > 0 ? -1 : 1, 0, hk + 'y')); }
+    if (cyC) { var Yc = Y(ycm), mCy = Math.abs(ycm - V.y); out.push('<line x1="' + F1(x1 - ts * 0.5) + '" y1="' + F1(Yc) + '" x2="' + F1(x2 + ts * 0.5) + '" y2="' + F1(Yc) + '" stroke="' + dimc + '" stroke-width="0.7" stroke-dasharray="7 2 1.5 2"/>'); if (mCy > 0.01) out.push(dimV(Math.min(ry, Yc), Math.max(ry, Yc), v2, ksF(mCy), hx, hx, sy > 0 ? -1 : 1, 0, hk + 'y')); }
+    else if (Math.abs(nr) > 0.01) { var ny = sy > 0 ? yB : yT; out.push(dimV(Math.min(ry, ny), Math.max(ry, ny), v1, ksF(nr), hx, hx, sy > 0 ? -1 : 1, 0, hk + 'y')); }
     out.push(dimV(yT, yB, v1, ksF(g.y2 - g.y1), hx, hx, sy > 0 ? 1 : -1, 0, hk + 'h'));
-    var fy = sy > 0 ? yT : yB; if (!lite) out.push(dimV(Math.min(ry, fy), Math.max(ry, fy), v2, ksF(fr), hx, hx, sy > 0 ? 1 : -1, 0, hk + 'yf'));
+    var fy = sy > 0 ? yT : yB; if (!lite && !cyC) out.push(dimV(Math.min(ry, fy), Math.max(ry, fy), v2, ksF(fr), hx, hx, sy > 0 ? 1 : -1, 0, hk + 'yf'));
     if (full && !lite && opt.extra === true) {      // T106: mac dinh TAT (2 PDF mau khong co khoang con lai); muc Du cu: them khoang con lai toi mep doi dien (ngang) va toi mep tren / duoi (doc), neu du cho va khong cat khoet khac
       var cyy = (yT + yB) / 2, cxx = (x1 + x2) / 2, ox = sx > 0 ? ml + pw : ml, oy = sy > 0 ? mt : mt + ph, fy2 = sy > 0 ? yT : yB;
       var hitSeg = function (xa, ya, xb, yb) { for (var q = 0; q < okH.length; q++) { var bb = ksBox(okH[q]), bx1 = X(bb.x1), bx2 = X(bb.x2), by1 = Y(bb.y2), by2 = Y(bb.y1); if (Math.abs(bx1 - x1) < 1 && Math.abs(bx2 - x2) < 1 && Math.abs(by1 - yT) < 1) continue; if (bx1 < Math.max(xa, xb) + 1 && bx2 > Math.min(xa, xb) - 1 && by1 < Math.max(ya, yb) + 1 && by2 > Math.min(ya, yb) - 1) return true; } return false; };
@@ -6807,7 +6888,7 @@ function ksDraw(p, k, opt) {
     return 'M' + f(x1 + r) + ' ' + f(y1) + ' L' + f(x2 - r) + ' ' + f(y1) + A + f(x2) + ' ' + f(y1 + r) + ' L' + f(x2) + ' ' + f(y2 - r) + A + f(x2 - r) + ' ' + f(y2) + ' L' + f(x1 + r) + ' ' + f(y2) + A + f(x1) + ' ' + f(y2 - r) + ' L' + f(x1) + ' ' + f(y1 + r) + A + f(x1 + r) + ' ' + f(y1) + ' Z';
   };
   if (opt.plain) cm = { hex: '#ffffff' };      // T106: ban ve xuat (PDF / anh) nen trang nhu mau - ma mau ghi o tieu de
-  var fx = !!p.ks && KS_FX.on !== false && !opt.plain, defs = '<mask id="' + uid + '" maskUnits="userSpaceOnUse" x="0" y="0" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '">' + (shp ? '<polygon points="' + polyPx + '" fill="#fff"/>' : '<rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="#fff"/>') + okH.map(function (g) { return holeShape(g, '#000'); }).join('') + '</mask>';
+  var fx = !!p.ks && KS_FX.on !== false && !opt.plain && !opt._pre, defs = '<mask id="' + uid + '" maskUnits="userSpaceOnUse" x="0" y="0" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '">' + (shp ? '<polygon points="' + polyPx + '" fill="#fff"/>' : '<rect x="' + ml + '" y="' + mt + '" width="' + pw.toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="#fff"/>') + okH.map(function (g) { return holeShape(g, '#000'); }).join('') + '</mask>';
   if (fx) defs += '<linearGradient id="' + uid + 'g" gradientUnits="userSpaceOnUse" x1="' + ml + '" y1="' + mt + '" x2="' + (ml + pw).toFixed(1) + '" y2="' + (mt + ph).toFixed(1) + '"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#ffe9a0" stop-opacity=".22"/><stop offset=".78" stop-color="#000" stop-opacity=".10"/><stop offset="1" stop-color="#fff" stop-opacity=".22"/></linearGradient>';
   if (shp) defs += '<clipPath id="' + uid + 'c"><polygon points="' + polyPx + '"/></clipPath>';
   o.push('<defs>' + defs + '</defs>');
@@ -6861,7 +6942,7 @@ function ksDraw(p, k, opt) {
       if (Math.abs(g.cx - V.x) > 0.01) hd.push(dimH(Math.min(rx0, cx), Math.max(rx0, cx), cy, ksF(Math.abs(g.cx - V.x)), null, null, 0, 0, 'h' + i + 'x'));
       if (Math.abs(g.cy - V.y) > 0.01) hd.push(dimV(Math.min(ry0, cy), Math.max(ry0, cy), cx, ksF(Math.abs(g.cy - V.y)), null, null, 0, 0, 'h' + i + 'y'));
       hd.push(txt(cx + rr + 3, cy - rr - 2, 'φ' + ksF(ksNum(h.d)), 'start'));
-    } else hd.push(holeSet(g, V, lvl === 'full', lite, 'h' + i));
+    } else hd.push(holeSet(g, V, lvl === 'full', lite, 'h' + i, h));
   });
   o.push(hd.join(''));
   if (shp) {      // T100: dim 4 canh (thang hang theo canh, ke ca canh xien) + cao / rong bbox neu chua co canh dung / ngang tuong ung + duong cheo AC (meo)
@@ -7327,7 +7408,9 @@ function ksJetExport(panels, prefix) {
   var items = [], skipped = [], warns = [];
   panels.forEach(function (p) {
     var label = (p.nhom ? p.nhom + ' ' : '') + p.ten;
-    if (Object.keys(ksValidate(p).err).length) { skipped.push(label + ': thiếu số / sai'); return; }
+    var vj = ksValidate(p);
+    if (Object.keys(vj.err).length) { skipped.push(label + ': thiếu số / sai'); return; }
+    if (vj.jetBlock.length) { skipped.push(label + ': số đo lệch ≥ ' + KS_CFG.devRed + ' mm – chọn tin số nào rồi xuất lại (' + vj.jetBlock[0] + ')'); return; }      // T114
     var j = ksJetPanel(p);
     if (j.errs.length) { skipped.push(label + ': ' + j.errs.join('; ')); return; }
     if (!j.polys.length) return;      // khong khoet tia nuoc -> khong co file
@@ -7374,7 +7457,7 @@ function ksRead() {      // doc o nhap -> KSE (doi ra mm theo don vi dang chon)
     KSE.ma = $('ksma').value; KSE.day = $('ksday').value; KSE.sl = $('kssl').value.trim() || '1';
   }
   KSE.holes.forEach(function (h, i) {
-    ksHoleNorm(h);
+    ksHoleNorm(h); ksHoleFree(h);
     var g = function (n) { var e = $('kh' + n + '_' + i); return e ? ksToMm(e.value, u) : (h[n] == null ? '' : h[n]); };
     if (h.t === 'C') h.d = g('d');
     ['a1', 'a2', 'b1', 'b2', 'ws', 'hs', 'ck'].forEach(function (n) { h[n] = g(n); });
@@ -7471,8 +7554,7 @@ function ksRenderEd() {
   } else if (KSV === 'add') {
     var big = function (act, k, lab, sub) { return '<button type="button" class="ksbig" data-ksact="' + act + '" data-k="' + k + '"><b>' + lab + '</b><small>' + sub + '</small></button>'; };
     h += '<div class="kshh">Thêm gia công cho tấm ' + esc(p.ten || '') + ' – chọn loại:</div><div class="ksbigg">' +
-      big('add', 'N', 'Ổ ngang', KS_CFG.socket.w + '×' + KS_CFG.socket.h) + big('add', 'V', 'Ổ đứng', KS_CFG.socketV.w + '×' + KS_CFG.socketV.h) +
-      big('add', 'D', 'Khoét chữ nhật', 'tự nhập kích thước') + big('add', 'C', 'Lỗ tròn Ø', 'nhập đường kính') + '</div>' +
+      big('add', 'D', 'Khoét / ổ điện', 'rộng × cao tự nhập') + big('add', 'C', 'Lỗ tròn Ø', 'nhập đường kính') + '</div>' + ksSizeChips(-1) +
       '<div class="ksadd">' + (p.holes.length ? '<button type="button" data-ksact="cloneLast">= Giống mục ' + p.holes.length + ' (đổi vị trí)</button>' : '') + '<button type="button" class="pri" data-ksact="save">✓ Không thêm nữa – Lưu tấm</button></div>' +
       '<div class="kswarn" id="kswarn"></div>';
   } else if (isNew && KSS.row !== false) {      // T108: mac dinh nhap ca BO
@@ -7574,28 +7656,59 @@ function ksPvH() {
   if (!isNarrow()) return Math.max(220, Math.min(420, ih * 0.42));
   return kb ? Math.max(120, vv * 0.34) : Math.max(220, ih * 0.55 - 110);
 }
+function ksSizeChips(i) {      // T114: chip "co da dung trong don" (cham = dung lai); i < 0: them khoet moi voi co do
+  var cnt = {}, ord = [], add = function (h) { if (h.t !== 'R') return; var w = ksNum(h.w), hh = ksNum(h.h); if (!(w > 0 && hh > 0)) return; var k = ksF(w) + 'x' + ksF(hh); if (!cnt[k]) { cnt[k] = 0; ord.push([k, ksF(w), ksF(hh)]); } cnt[k]++; };
+  KSS.panels.forEach(function (p, n) { if (n !== KSI) p.holes.forEach(add); }); if (KSE) KSE.holes.forEach(add);
+  ord.sort(function (a, b) { return cnt[b[0]] - cnt[a[0]]; }); ord = ord.slice(0, 6); if (!ord.length) return '';
+  return '<div class="kssz-row"><small>Cỡ đã dùng trong đơn:</small>' + ord.map(function (o) { return '<button type="button" class="kssz" data-ksact="' + (i < 0 ? 'addsz' : 'sz') + '" data-i="' + i + '" data-w="' + o[1] + '" data-h="' + o[2] + '">' + o[1] + '×' + o[2] + (cnt[o[0]] > 1 ? '<small> ×' + cnt[o[0]] + '</small>' : '') + '</button>'; }).join('') + '</div>';
+}
+function ksAxisRes(hh, ax) {      // T114: dong "quy ra" - app doc lai so thợ nhap thanh mep gan / mep xa tu goc truc
+  if (!ksHoleOk(hh) || !KSE) return ''; var u = ksUnit(), F = function (v) { return ksFromMm(ksF(v), u); }, H = ksNum(KSE.h), x = ax === 'x';
+  var lo, sz, org = x ? (hh.side === 'T' ? 'trái' : 'phải') : (hh.vs === 'T' ? 'trên' : 'đáy');
+  if (hh.t === 'C') { lo = x ? ksNum(hh.dx) : (hh.vs === 'T' ? H - ksNum(hh.dy) : ksNum(hh.dy)); return '→ tâm cách ' + org + ' ' + F(lo) + ' ' + u; }
+  sz = x ? ksNum(hh.w) : ksNum(hh.h); lo = x ? ksNum(hh.dx) : (hh.vs === 'T' ? H - ksNum(hh.dy) - sz : ksNum(hh.dy));
+  return '→ từ ' + org + ': mép gần ' + F(lo) + ' · mép xa ' + F(lo + sz) + ' · cỡ ' + F(sz) + ' ' + u;
+}
+function ksConfHtml(i, hh, ax) {      // T114: khung "Lech X mm - tin so nao?" (>= 2 mm vang, >= 10 mm do)
+  var x = ax === 'x', dv = +(x ? hh.dvx : hh.dvy) || 0, kd = x ? hh.cfx : hh.cfy; if (hh.t === 'C' || dv < KS_CFG.devWarn) return '';
+  var u = ksUnit(), F = function (v) { return ksFromMm(v, u); }, red = dv >= KS_CFG.devRed, f1 = x ? 'a1' : 'b1', f2 = x ? 'a2' : 'b2', sz = x ? 'ws' : 'hs', bt = function (w, lab) { return '<button type="button" data-ksact="trust" data-i="' + i + '" data-ax="' + ax + '" data-w="' + w + '">' + lab + '</button>'; };
+  var msg = kd === 'size' ? '2 số cho cỡ <b>' + F(ksF(x ? ksNum(hh.w) : ksNum(hh.h))) + '</b> nhưng bạn nhập cỡ <b>' + F(x ? hh.ws : hh.hs) + '</b>' : '2 số cùng loại mà khác nhau (<b>' + F(hh[f1]) + '</b> và <b>' + F(hh[f2]) + '</b>)';
+  return '<div class="ksconf ' + (red ? 'red' : 'yel') + '"><b>' + (red ? '⛔' : '⚠') + ' Số ' + (x ? 'ngang' : 'dọc') + ' lệch ' + esc(ksF(dv)) + ' mm</b> – ' + msg + (red ? '. <b>Chưa xuất được file tia nước</b> cho tới khi chọn.' : '.') + ' Tin số nào?<div class="kssw sm">' +
+    (kd === 'size' ? bt('pair', 'Tin 2 số mép (cỡ ' + F(ksF(x ? ksNum(hh.w) : ksNum(hh.h))) + ')') + bt('one', 'Tin số 1 + cỡ ' + F(x ? hh.ws : hh.hs)) : bt('first', 'Tin số 1 (' + F(hh[f1]) + ')') + bt('second', 'Tin số 2 (' + F(hh[f2]) + ')')) + '</div></div>';
+}
+function ksTrust(i, ax, w) {
+  ksRead(); var h = KSE.holes[i]; if (!h) return; var x = ax === 'x', f1 = x ? 'a1' : 'b1', f2 = x ? 'a2' : 'b2', t1 = f1 + 't', t2 = f2 + 't', sz = x ? 'ws' : 'hs';
+  if (w === 'pair') h[sz] = ''; else if (w === 'one') { h[f2] = ''; } else if (w === 'first') { h[f2] = ''; } else if (w === 'second') { h[f1] = h[f2]; h[t1] = h[t2]; h[f2] = ''; h[t2] = 'X'; }
+  ksHoleSyncP(h, KSE); ksRenderEd(); ksLive(); toast('Đã chọn – app dùng số bạn tin');
+}
 function ksHoleCard(hh, i, u) {
-  ksHoleNorm(hh);
+  ksHoleNorm(hh); ksHoleFree(hh);
   var c = hh.t === 'C', fm = function (v) { return ksFromMm(v, u); }, e = function (n, lab, v, ph) { return ksField('kh' + n + '_' + i, lab, fm(v), ph); }, top = hh.vs === 'T', sd = hh.side === 'T' ? 'trái' : 'phải';
-  var ref = ksRefOf(hh), pre = !!ksPresetOf(hh), shp = ksIsShape(KSE);
-  var ttl = c ? 'Lỗ tròn Ø ' : hh.kind === 'V' ? 'Ổ đứng ' : hh.kind === 'N' ? 'Ổ ngang ' : 'Khoét ';
-  var kindBtn = c ? '' : '<div class="kssw sm">' + [['N', 'Ổ ngang'], ['V', 'Ổ đứng'], ['D', 'Tự nhập kích thước']].map(function (x) { return '<button type="button" class="' + (hh.kind === x[0] ? 'act' : '') + '" onclick="ksHoleKind(' + i + ',\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
-  var size = c ? e('d', 'Đường kính Ø', hh.d, 'vd 50') : pre ? '<div class="ksnote">Kích thước ổ ' + esc(ksF(ksNum(hh.w))) + '×' + esc(ksF(ksNum(hh.h))) + ' (đổi trong ⋯ khoét)</div>' : e('ws', 'Dài khoét', hh.ws, 'vd 1460') + e('hs', 'Rộng khoét', hh.hs, 'vd 60');
+  var ref = ksRefOf(hh), shp = ksIsShape(KSE), edgeRef = /^[LRBT]$/.test(ref) || (shp && /^E[0-3]$/.test(ref));
+  var ttl = c ? 'Lỗ tròn Ø ' : 'Khoét ';
+  var size = c ? e('d', 'Đường kính Ø', hh.d, 'vd 50') : '<div class="ksgrid">' + e('ws', 'Rộng (ngang)', hh.ws, 'vd 100') + e('hs', 'Cao (dọc)', hh.hs, 'vd 60') + '</div>' + ksSizeChips(i);
   var dist = '', ctr = c ? 'tới tâm' : 'tới mép gần';
+  var seg = function (act, items) { return '<div class="kssw sm">' + items.map(function (x) { return '<button type="button" class="' + (x[2] ? 'act' : '') + '" data-ksact="' + act + '" data-i="' + i + '" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  var tyseg = function (f) { var cur = hh[f] || (/2t$/.test(f) ? 'X' : 'G'); return '<div class="kssw sm kstyp">' + [['G', 'Mép gần'], ['C', 'Tâm'], ['X', 'Mép xa']].map(function (x) { return '<button type="button" class="' + (cur === x[0] ? 'act' : '') + '" data-ksact="ty" data-i="' + i + '" data-f="' + f + '" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
   if (shp && /^E[0-3]$/.test(ref)) dist = e('a1', 'Cách ' + ksRefName(ref) + ' (vuông góc, ' + ctr + ')', hh.a1, 'vd 130') + '<div class="ksnote">Đo thẳng góc tới đường thẳng của cạnh (kể cả cạnh xiên); khoét căn giữa dọc theo cạnh. Nhập 0 = chạm cạnh.</div>';
   else if (shp && /^V[0-3]$/.test(ref)) dist = e('a1', 'Ngang từ ' + ksRefName(ref) + ' (' + ctr + ')', hh.a1, 'vd 130') + e('b1', 'Dọc từ ' + ksRefName(ref) + ' (' + ctr + ')', hh.b1, 'vd 280') + '<div class="ksnote">Đo vào phía trong tấm theo chiều ngang / dọc.</div>';
-  else if (ref === 'L' || ref === 'R') dist = e('a1', 'Cách cạnh ' + sd + ' (' + ctr + ')', hh.a1, 'vd 130') + '<div class="ksnote">Căn giữa theo chiều rộng tấm' + (hh.b1 !== '' ? ' (cách đáy ' + esc(ksF(ksNum(hh.b1))) + ')' : '') + '</div>';
-  else if (ref === 'B' || ref === 'T') dist = e('b1', 'Cách ' + (ref === 'T' ? 'cạnh trên' : 'đáy') + ' (' + ctr + ')', hh.b1, 'vd 280') + '<div class="ksnote">Căn giữa theo chiều dài tấm' + (hh.a1 !== '' ? ' (cách mép ' + esc(ksF(ksNum(hh.a1))) + ')' : '') + '</div>';
-  else dist = e('a1', 'Cách cạnh ' + sd + ' (' + ctr + ')', hh.a1, 'vd 130') + e('b1', 'Cách ' + (top ? 'cạnh trên' : 'đáy') + ' (' + ctr + ')', hh.b1, 'vd 280');
-  var adv = kindBtn + (shp ? '' : '<div class="kssw sm"><button type="button" class="' + (hh.side === 'P' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'P\')">Từ cạnh phải</button><button type="button" class="' + (hh.side === 'T' ? 'act' : '') + '" onclick="ksHoleSide(' + i + ',\'T\')">Từ cạnh trái</button>' +
-    '<button type="button" class="' + (top ? '' : 'act') + '" onclick="ksHoleVs(' + i + ',\'D\')">Đo từ đáy</button><button type="button" class="' + (top ? 'act' : '') + '" onclick="ksHoleVs(' + i + ',\'T\')">Đo từ trên</button></div>');
+  else if (ref === 'L' || ref === 'R') dist = e('a1', 'Cách cạnh ' + sd + ' (' + ctr + ')', hh.a1, 'vd 130') + '<div class="ksnote">Căn giữa theo chiều rộng tấm' + (hh.b1 !== '' ? ' (cách đáy ' + esc(ksF(ksNum(hh.b1))) + ')' : '') + '. Muốn nhập cả 2 trục: chạm 1 góc tròn trên hình.</div>';
+  else if (ref === 'B' || ref === 'T') dist = e('b1', 'Cách ' + (ref === 'T' ? 'cạnh trên' : 'đáy') + ' (' + ctr + ')', hh.b1, 'vd 280') + '<div class="ksnote">Căn giữa theo chiều dài tấm' + (hh.a1 !== '' ? ' (cách mép ' + esc(ksF(ksNum(hh.a1))) + ')' : '') + '. Muốn nhập cả 2 trục: chạm 1 góc tròn trên hình.</div>';
+  else {      // T114: MOC DO hien thang - moi truc: chon canh goc + 1 hoac 2 so (moi so chon Mep gan / Tam / Mep xa)
+    var axis = function (ax) {
+      var x = ax === 'x', f1 = x ? 'a1' : 'b1', f2 = x ? 'a2' : 'b2', swi = x ? seg('side', [['T', 'Từ trái', hh.side === 'T'], ['P', 'Từ phải', hh.side !== 'T']]) : seg('vs', [['D', 'Từ đáy', !top], ['T', 'Từ trên', top]]);
+      var n1 = e(f1, c ? (x ? 'Ngang: tới tâm' : 'Dọc: tới tâm') : 'Số 1', hh[f1], x ? 'vd 130' : 'vd 280');
+      var rows = c ? n1 : '<div class="ksnumr">' + n1 + tyseg(f1 + 't') + '</div><div class="ksnumr">' + e(f2, 'Số 2 (nếu có)', hh[f2], x ? 'vd 230' : 'vd 340') + tyseg(f2 + 't') + '</div>';
+      return '<div class="ksax"><div class="ksaxh"><b>' + (x ? 'Ngang' : 'Dọc') + '</b>' + swi + '</div>' + rows + '<div class="ksres" id="ksres_' + ax + '">' + ksAxisRes(hh, ax) + '</div><div id="ksconf_' + ax + '">' + ksConfHtml(i, hh, ax) + '</div></div>';
+    };
+    dist = axis('x') + axis('y');
+  }
   var f2 = '';
-  if (!c && !(shp && /^E[0-3]$/.test(ref))) f2 += e('a2', 'Ngang: số 2 (mép xa, nếu khách ghi 2 số)', hh.a2, 'vd 230') + e('b2', 'Dọc: số 2 (mép xa, nếu có)', hh.b2, 'vd 340');
-  if (!shp) f2 += e('ck', 'Khách ghi thêm ' + (top ? 'cách đáy' : 'cách trên') + ' (để app kiểm)', hh.ck, 'vd 338');
-  adv += '<div class="ksgrid">' + f2 + '</div>' + ksJetOpt(hh, i);
+  if (!shp && !c) f2 += e('ck', 'Khách ghi thêm ' + (top ? 'cách đáy' : 'cách trên') + ' (để app kiểm)', hh.ck, 'vd 338');
+  var adv = '<div class="ksgrid">' + f2 + '</div>' + ksJetOpt(hh, i);
   return '<div class="kshole' + (i === KSH ? ' cur' : '') + '" id="kshole' + i + '" onfocusin="ksHoleCur(' + i + ')" onclick="ksHoleCur(' + i + ')"><div class="khtop"><b>' + ttl + (i + 1) + '</b><span class="ksrefv">Tham chiếu: <b>' + ksRefName(ref) + '</b></span><button type="button" data-ksact="clone" data-i="' + i + '">Nhân bản</button><button type="button" class="warn" data-ksact="del" data-i="' + i + '">Xoá</button></div>' +
-    '<div class="ksgrid">' + size + '</div><div class="ksgrid">' + dist + '</div>' +
-    ksDet('h' + i, '⋯ khoét: loại, hướng đo, 2 số mép gần–xa, tia nước', adv, false) + '<div class="ksadd"><button type="button" class="pri" data-ksact="done">✓ Xong mục ' + (i + 1) + '</button></div></div>';
+    '<div class="ksgrid">' + size + '</div>' + (edgeRef ? '<div class="ksgrid">' + dist + '</div>' : dist) +
+    ksDet('h' + i, '⋯ thêm: số khách ghi để kiểm, tia nước', adv, false) + '<div class="ksadd"><button type="button" class="pri" data-ksact="done">✓ Xong mục ' + (i + 1) + '</button></div></div>';
 }
 function ksHoleCur(i) {
   if (KSH === i && KSV === 'hole') return; ksSelHole(i);
@@ -7656,7 +7769,8 @@ function ksPickMa(ma) { if (!KSE) return; if (ksColor(ma).hetTon && ma !== KSE.m
     '.ksmau.act{border-color:#1f4e79;box-shadow:0 0 0 2px #1f4e79 inset}' +
     '.ksmau:disabled{opacity:.35;cursor:not-allowed}' +
     '.ksmore{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:10px 0;background:#f7fafd}.ksmore>summary{min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:600;color:#1f4e79;cursor:pointer}.kshole .ksmore{background:#fff;margin:6px 0 0}.kshole.cur{border-color:#ff8a00;box-shadow:0 0 0 2px #ff8a0055}.ksrefv{font-size:14px;color:#1f4e79;margin:0 8px}.ksrefhint{margin:2px 0 6px}.ksclr{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:15px}.ksclr button{margin-left:auto;min-height:44px;font-size:15px;border:1px solid #c9d6e3;border-radius:10px;background:#fff;padding:0 10px}.ksmsw2{display:inline-block;width:28px;height:28px;border-radius:7px;border:1px solid #888;flex:none}.ksbtn{min-height:44px;font-size:16px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;padding:0 12px}.kscal .row2{display:flex;gap:8px;align-items:center;margin:8px 0}.kscal .sq{height:54px;border-radius:10px;border:1px solid #888}.kscal input[type=range]{flex:1;min-height:32px}.kscal input[type=text],.kscal select{font-size:16px;min-height:44px;padding:0 8px;border:1px solid #bbb;border-radius:8px}.ksdock{background:#fff}.ksrb{border:1px solid #c9d6e3;border-radius:12px;padding:8px;margin:8px 0;background:#f2f7fc}.ksrb .ksadd button.pri{background:#1f4e79;color:#fff}.ksdimsw{margin:2px 0 4px;align-items:center}.ksdimsw .ksdl{font-size:13px;color:#556;flex:0 0 auto;padding-right:6px}.ksdimsw button{flex:1 1 0!important;min-height:38px}.ksnote{display:block;color:#7a8794;font-size:12px;margin-top:2px}.kscolnote{color:#8a1c1c;font-size:11.5px;line-height:1.25;margin:2px 0}.ksask{display:flex;align-items:center;gap:8px;min-height:44px;font-size:16px}.ksask input{width:22px;height:22px}.kshole .kssw.sm{flex-wrap:wrap;margin:6px 0}.kshole .kssw.sm button{flex:1 1 40%}' +
-    '.kschips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}.kschips::-webkit-scrollbar{display:none}.kschips button{flex:none;min-height:46px;min-width:46px;border:2px solid #c9d6e3;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 10px;line-height:1.15;font-size:15px}.kschips button small{font-size:11px;color:#556}.kschips button.act{border-color:#ff8a00;background:#fff4e6}.kschipn b{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#1f4e79;color:#fff;align-items:center;justify-content:center;font-size:14px}.kschipn.act b{background:#ff8a00}.kschipn.bad{border-color:#c0392b;background:#fdecea}.kschipa{font-weight:bold}.ksdrow{display:flex;align-items:center;gap:6px;margin-top:2px}.kshint{flex:1;font-size:13px;color:#556;line-height:1.25}.ksdimall{min-height:44px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:14px;padding:0 10px;flex:none}.ksdimall.act{background:#1f4e79;color:#fff}.ksbigg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}.ksbig{min-height:64px;border:2px solid #1f4e79;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:17px;gap:2px}.ksbig small{font-size:12px;color:#556;font-weight:normal}#ksEd .ksadd button.pri{background:#1f4e79;color:#fff;font-weight:bold}.kshole .khtop button{min-height:44px}#ksApp .edhead{display:none}.ksbo{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;font-size:14px;color:#1f4e79}.ksbo::-webkit-scrollbar{display:none}.ksbo>span{flex:none;white-space:nowrap}.ksbo button{flex:none;min-height:44px;min-width:44px;border:2px solid #c9d6e3;border-radius:12px;background:#f2f7fc;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 8px;line-height:1.1;font-size:15px}.ksbo button small{font-size:11px;color:#556}.ksbo button.act{border-color:#1f4e79;background:#1f4e79;color:#fff}.ksbo button.act small{color:#dfe9f5}.ksbo .ksbonew{font-weight:bold;background:#fff}.ksmode{margin:4px 0 6px}.ksbo1 .ksgrid{grid-template-columns:1fr 1fr}.ksbo1{border-color:#1f4e79;background:#eef5fc}#kspv svg{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.ksrev h3{margin:0 0 8px}.ksrvi{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:6px 0;font-size:15px}.ksrvi small{display:block;color:#7a8794;font-size:12px}.ksrvt{font-weight:bold;color:#1f4e79;margin:8px 0}.ksrvb{border:1px solid #c9d6e3;border-radius:10px;margin:6px 0;overflow:hidden}.ksrvh{background:#e8eef5;padding:6px 10px;font-weight:bold;color:#1f4e79}.ksrvp{padding:6px 10px;border-top:1px solid #eef2f6;font-size:15px}.ksrvp.bad{background:#fdecea}.ksrvp.yel{background:#fffaf0}.ksrvx{display:inline!important;color:#8a5a00!important}.ksrvg{font-size:14px;color:#334;margin:2px 0 0 8px}.ksrvg.nh{color:#99a}.ksrev .kse{color:#922;font-size:14px}.ksrev .ksyw{color:#7a5b00;font-size:14px}.ksrev .ksy .bt{margin:6px 0 0}.ksrvpg{border:1px solid #c9d6e3;border-radius:8px;padding:4px;margin:8px 0}.ksrev .ksgo{font-size:18px;font-weight:bold;padding:15px 10px}@media(max-width:899px){.ksdock{top:0}#ksApp{padding-top:6px}}'; document.head.appendChild(st); } catch (e) {}
+    '.kschips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}.kschips::-webkit-scrollbar{display:none}.kschips button{flex:none;min-height:46px;min-width:46px;border:2px solid #c9d6e3;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 10px;line-height:1.15;font-size:15px}.kschips button small{font-size:11px;color:#556}.kschips button.act{border-color:#ff8a00;background:#fff4e6}.kschipn b{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#1f4e79;color:#fff;align-items:center;justify-content:center;font-size:14px}.kschipn.act b{background:#ff8a00}.kschipn.bad{border-color:#c0392b;background:#fdecea}.kschipa{font-weight:bold}.ksdrow{display:flex;align-items:center;gap:6px;margin-top:2px}.kshint{flex:1;font-size:13px;color:#556;line-height:1.25}.ksdimall{min-height:44px;border:1px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:14px;padding:0 10px;flex:none}.ksdimall.act{background:#1f4e79;color:#fff}.ksbigg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}.ksbig{min-height:64px;border:2px solid #1f4e79;border-radius:12px;background:#fff;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:17px;gap:2px}.ksbig small{font-size:12px;color:#556;font-weight:normal}#ksEd .ksadd button.pri{background:#1f4e79;color:#fff;font-weight:bold}.kshole .khtop button{min-height:44px}#ksApp .edhead{display:none}.ksbo{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;font-size:14px;color:#1f4e79}.ksbo::-webkit-scrollbar{display:none}.ksbo>span{flex:none;white-space:nowrap}.ksbo button{flex:none;min-height:44px;min-width:44px;border:2px solid #c9d6e3;border-radius:12px;background:#f2f7fc;color:#1f4e79;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 8px;line-height:1.1;font-size:15px}.ksbo button small{font-size:11px;color:#556}.ksbo button.act{border-color:#1f4e79;background:#1f4e79;color:#fff}.ksbo button.act small{color:#dfe9f5}.ksbo .ksbonew{font-weight:bold;background:#fff}.ksmode{margin:4px 0 6px}.ksbo1 .ksgrid{grid-template-columns:1fr 1fr}.ksbo1{border-color:#1f4e79;background:#eef5fc}#kspv svg{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.ksrev h3{margin:0 0 8px}.ksrvi{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:6px 0;font-size:15px}.ksrvi small{display:block;color:#7a8794;font-size:12px}.ksrvt{font-weight:bold;color:#1f4e79;margin:8px 0}.ksrvb{border:1px solid #c9d6e3;border-radius:10px;margin:6px 0;overflow:hidden}.ksrvh{background:#e8eef5;padding:6px 10px;font-weight:bold;color:#1f4e79}.ksrvp{padding:6px 10px;border-top:1px solid #eef2f6;font-size:15px}.ksrvp.bad{background:#fdecea}.ksrvp.yel{background:#fffaf0}.ksrvx{display:inline!important;color:#8a5a00!important}.ksrvg{font-size:14px;color:#334;margin:2px 0 0 8px}.ksrvg.nh{color:#99a}.ksrev .kse{color:#922;font-size:14px}.ksrev .ksyw{color:#7a5b00;font-size:14px}.ksrev .ksy .bt{margin:6px 0 0}.ksrvpg{border:1px solid #c9d6e3;border-radius:8px;padding:4px;margin:8px 0}.ksrev .ksgo{font-size:18px;font-weight:bold;padding:15px 10px}@media(max-width:899px){.ksdock{top:0}#ksApp{padding-top:6px}}' +
+    '.ksax{border:1px solid #c9d6e3;border-radius:12px;padding:6px 8px;margin:8px 0;background:#f7fafd}.ksaxh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ksaxh>b{font-size:16px;color:#1f4e79;min-width:52px}.ksaxh .kssw{flex:1;margin:0}.ksnumr{display:grid;grid-template-columns:minmax(92px,1fr) 2fr;gap:6px;align-items:end;margin-top:4px}.ksnumr .ksf{margin:0}.kstyp{flex-wrap:nowrap!important;margin:0!important}.kstyp button{flex:1 1 0!important;min-width:0;padding:0 2px;font-size:14px}.ksres{font-size:13px;color:#2a6b3a;margin:4px 0 0;min-height:16px}.ksconf{border-radius:10px;padding:6px 8px;margin:6px 0;font-size:14px;line-height:1.3}.ksconf.yel{background:#fff6d6;border:1px solid #e0b800}.ksconf.red{background:#fdecea;border:1px solid #c0392b;color:#7a1c14}.ksconf .kssw{margin:6px 0 0}.kssz-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.kssz-row small{color:#556;font-size:12px}.kssz{min-height:44px;border:1.5px solid #1f4e79;border-radius:10px;background:#fff;color:#1f4e79;font-size:15px;padding:0 10px}.kssz small{color:#7a8794}'; document.head.appendChild(st); } catch (e) {}
 })();
 // T101: khung ten dau don (kinh son): MA MAU + KIM SA chon truoc khi ve (thay o phi mac dinh cua lan can) -> mac dinh cho moi tam moi cua don
 var KSHSIG = '';
@@ -7684,6 +7798,7 @@ function ksSetKs(v) { ksRead(); KSE.ks = v; if (KSI < 0) KSS.picked = true; ksRe
 function ksHoleAdd(t, kind) {
   ksRead(); var nh = ksNewHole(t, kind), last = KSE.holes[KSE.holes.length - 1]; nh.ref = last ? ksRefOf(last) : (ksIsShape(KSE) ? 'V0' : 'BL');
   if (/^[BT][LR]$/.test(nh.ref)) { nh.side = nh.ref.charAt(1) === 'L' ? 'T' : 'P'; nh.vs = nh.ref.charAt(0) === 'T' ? 'T' : 'D'; }
+  if (last && last.t !== 'C' && nh.t !== 'C') { ksHoleNorm(last); ['a1t', 'a2t', 'b1t', 'b2t'].forEach(function (n) { nh[n] = last[n]; }); }      // T114: khoet sau nho kieu moc (gan / xa / tam) cua khoet truoc
   KSE.holes.push(nh); KSH = KSE.holes.length - 1; KSV = 'hole'; ksRenderEd(); ksLive(); ksDockTop(); var n = KSH, f = $(t === 'C' ? 'khd_' + n : kind === 'D' ? 'khws_' + n : 'kha1_' + n); if (f) f.focus();
 }
 function ksHoleClone(i) {      // T102: nhan ban khoet / lo: giu loai, kich thuoc, tham chieu; xoa so vi tri de nhap lai
@@ -7714,6 +7829,7 @@ function ksLive() {
   var v = ksValidate(KSE); ksPv();
   var w = $('kswarn'); if (w) w.innerHTML = Object.keys(v.err).filter(function (k) { return /^h\d/.test(k) || k === 'sl'; }).map(function (k) { return '<div class="kse">⚠ ' + esc(v.err[k]) + '</div>'; }).join('') + v.warn.map(function (m) { return '<div class="ksy">⚠ ' + esc(m) + '</div>'; }).join('') + (v.info || []).map(function (m) { return '<div class="ksi">ℹ ' + esc(m) + ' (khoét theo số khách)</div>'; }).join('');
   ['ksw', 'ksh', 'ksten'].forEach(function (id) { var e = $(id), k = id === 'ksw' ? 'w' : id === 'ksh' ? 'h' : 'ten'; if (e) e.classList.toggle('bad', !!(v.err[k] && e.value.trim() !== '' )); });
+  if (KSV === 'hole' && KSE.holes[KSH]) ['x', 'y'].forEach(function (ax) { var hz = KSE.holes[KSH], r1 = $('ksres_' + ax), r2 = $('ksconf_' + ax); if (r1) r1.innerHTML = esc(ksAxisRes(hz, ax)); if (r2) r2.innerHTML = ksConfHtml(KSH, hz, ax); });
   ksSyncDef(); ksRenderHead(); ksSave();
 }
 function ksSavePanel(dup) {
@@ -7909,7 +8025,12 @@ async function ksMake(kind) {
     var act = t.getAttribute('data-ksact'), ix = parseInt(t.getAttribute('data-i'), 10); e.stopPropagation();
     if (act === 'clone') ksHoleClone(ix); else if (act === 'cloneLast') { ksRead(); ksHoleClone(KSE.holes.length - 1); }
     else if (act === 'view') ksView(t.getAttribute('data-v')); else if (act === 'hole') ksSelHole(ix); else if (act === 'done') ksHoleDone(); else if (act === 'save') ksSavePanel(); else if (act === 'del') ksHoleDel(ix);
-    else if (act === 'add') { var kk = t.getAttribute('data-k'); if (kk === 'C') ksHoleAdd('C'); else ksHoleAdd('R', kk); }
+    else if (act === 'add') { var kk = t.getAttribute('data-k'); if (kk === 'C') ksHoleAdd('C'); else ksHoleAdd('R', 'D'); }
+    else if (act === 'addsz') { ksHoleAdd('R', 'D'); var nh2 = KSE.holes[KSH]; nh2.ws = t.getAttribute('data-w'); nh2.hs = t.getAttribute('data-h'); ksRenderEd(); ksLive(); var f2 = $('kha1_' + KSH); if (f2) f2.focus(); }
+    else if (act === 'sz') { ksRead(); var hz = KSE.holes[ix]; if (hz) { hz.ws = t.getAttribute('data-w'); hz.hs = t.getAttribute('data-h'); ksHoleSyncP(hz, KSE); ksRenderEd(); ksLive(); } }
+    else if (act === 'side') ksHoleSide(ix, t.getAttribute('data-v')); else if (act === 'vs') ksHoleVs(ix, t.getAttribute('data-v'));
+    else if (act === 'ty') { ksRead(); var ht = KSE.holes[ix]; if (ht) { ht[t.getAttribute('data-f')] = t.getAttribute('data-v'); ksHoleSyncP(ht, KSE); ksRenderEd(); ksLive(); } }
+    else if (act === 'trust') ksTrust(ix, t.getAttribute('data-ax'), t.getAttribute('data-w'));
     else if (act === 'go') ksGoPanel(ix); else if (act === 'newbo') ksNewBo(); else if (act === 'dimreset') ksDimReset(); else if (act === 'savedup') ksSavePanel(true);
     else if (act === 'rowmode') { ksRead(); KSS.row = t.getAttribute('data-v') === '1'; ksRenderEd(); ksLive(); }
     else if (act === 'revsave') { closeImgSheet(); if (ksSavePanel()) ksReview(); }
@@ -7937,7 +8058,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017085625';
+var CTK_BUILD = '20261017093021';
 (function () {
   function chk() {
     try {
