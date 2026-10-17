@@ -4438,6 +4438,7 @@ function pvPlaceOther(d, k, fs, poly, texts, lines, items, f, W, Hh) {
 }
 // Xep dim theo pixel voi ti le k (px/mm). Toa do px: X = x*k, Y = -y*k (chua cong goc).
 // T97 (anh Dampt 16/10: CAD la chuan): mac dinh xep GIONG BAN CAD (pvLayoutCAD). So anh: window.PV_XEP = 't84' (T83b) / 'cu' (truoc T83b); PV_XEP_CU = true van dung.
+const PV_MIN_FONT = 6.5;      // T124: san co chu dim (px he layout) khi thu nho cho vua giua 2 mui ten (PDF vector ~5pt)
 function pvLayout(dims, k, fs, poly) { const m = typeof window !== 'undefined' ? (window.PV_XEP || (window.PV_XEP_CU ? 'cu' : '')) : '';
   return m === 'cu' ? pvLayoutCu(dims, k, fs, poly) : m === 't84' ? pvLayoutT84(dims, k, fs, poly) : pvLayoutCAD(dims, k, fs, poly); }
 // T97: xep dim GIONG BAN CAD (lisp la chuan) - moi dim dat dung do lech lisp (d.off, mm), dung phia lisp, khong doi tang / long.
@@ -4468,9 +4469,12 @@ function pvLayoutCAD(dims, k, fs, poly) {
   //   Chu de chu -> NHICH TANG (doi ca duong dim ra ngoai, chu van giua), KHONG truot chu doc truc. Tang moi khong duoc de len vi tri CAD cua dim CHUA dat (res).
   //   Chi khi moi tang deu de -> chu ra ngoai THANG HANG truc dim, sau mui ten, duong dim keo dai lam duong dan (nhu GstarCAD / T114) - dem trong kiem-tra-chu-dim.
   const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], n = [d.n[0], -d.n[1]];
-    const f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, d.n) * k;
+    const f0 = fz(d), nc = String(d.text).length;
+    // T124: chu LUON trong doan do - khong lot (doan < chu + 2 mui ten) thi THU NHO chu: W <= 0,92 x doan, khong duoi san PV_MIN_FONT
+    let f = f0; if (len < tw(d.text, f0) + 16) f = Math.min(f0, Math.max(Math.min(f0, PV_MIN_FONT), (0.92 * len - 4) / (nc * 0.56)));
+    const W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, d.n) * k;
     const at = o => { const D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o], m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2]; return { D1, D2, m }; };
-    return { t, n, f, W, Hh, ho, o0, at, short: len < W + 16, tout: len < W - 2 }; };
+    return { t, n, f, f0, W, Hh, ho, o0, at, short: len < W + 16, tout: false }; };
   const res = L.map(x => { const g = geo(x), q = g.at(g.o0); return { tb: pvBox([q.m[0] + g.n[0] * g.ho, q.m[1] + g.n[1] * g.ho], g.t, g.W / 2, g.Hh), lb: pvBox(q.m, g.t, x.len / 2, 1.5) }; });
   L.forEach((x, ix) => {
     const d = x.d, A = x.A, B = x.B, len = x.len, g = geo(x), t = g.t, n = g.n, f = g.f, W = g.W, Hh = g.Hh, ho = g.ho, short = g.short, tout = g.tout;
@@ -4480,21 +4484,17 @@ function pvLayoutCAD(dims, k, fs, poly) {
     for (let e = 0; e < 6; e++) {
       const o = g.o0 + e * Ht * 0.8, q = g.at(o), D1 = q.D1, D2 = q.D2, m = q.m, lb = pvBox(m, t, len / 2 + (short ? 9 : 0), 1.5);
       const opts = [{ tc: [m[0] + n[0] * ho, m[1] + n[1] * ho], p: 0 }];
-      if (e === 0) {      // phuong an cuoi (chi o vi tri CAD): chu ra ngoai thang hang truc dim, sau mui ten; duong dim keo dai toi het chu
-        const dB = (short ? 11 : 4) + W / 2;
-        [[D2, 1, 40], [D1, -1, 41]].forEach(([P, s, p]) => { const c = [P[0] + t[0] * dB * s, P[1] + t[1] * dB * s];
-          opts.push({ tc: [c[0] + n[0] * ho, c[1] + n[1] * ho], p, ld: [P, [c[0] + t[0] * (W / 2) * s, c[1] + t[1] * (W / 2) * s]] }); });
-      }
+      // T124: BO phuong an chu ra ngoai + duong dan - so dim thang hang luon o giua 2 mui ten
       const lt = hit(texts, lb) + (e ? hit(rT, lb) : 0);
       for (const op of opts) {
-        const tb = pvBox(op.tc, t, W / 2, Hh), tt = hit(texts, tb) + hit(rT, tb), tl = hit(lines, tb) + (e || op.ld ? hit(rL, tb) : 0);
+        const tb = pvBox(op.tc, t, W / 2, Hh), tt = hit(texts, tb) + hit(rT, tb), tl = hit(lines, tb) + (e ? hit(rL, tb) : 0);
         const sc2 = tt * 100 + lt * 20 + tl * 3 + e * 12 + op.p;      // T122: chu de chu = 100 (te hon duong dan 40, te hon nhich tang)
         if (!best || sc2 < best.sc) best = { sc: sc2, o, D1, D2, lb, tb, tc: op.tc, ld: op.ld || null };
       }
       if (best.sc < 12 * (e + 1)) break;      // vi tri CAD (hoac nhich tang it) da sach -> dung
     }
     texts.push(best.tb); lines.push(best.lb);
-    items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short, f, tout, ld: best.ld });
+    items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short, f, f0: g.f0, tout, ld: null });
   });
   pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   lab.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
@@ -4823,7 +4823,7 @@ function renderPV(mode, v, W, H, opt) {
   const dcol = '#1e7a46', halo = ' stroke="#fff" stroke-width="3" paint-order="stroke" stroke-linejoin="round"';
   // T30: goc chu luon trong (-90,90] theo khung hinh (ang()); khi xoay T24 nguoi dung xoay may ngang nen khung hinh = khung doc -> KHONG lat them
   const tx = (c, a, f, col, txt, bold, ital) => ('<text x="' + Q(c).split(',')[0] + '" y="' + Q(c).split(',')[1] + '" dy="0.35em"' + (a ? ' transform="rotate(' + a.toFixed(1) + ' ' + Q(c).replace(',', ' ') + ')"' : '') +
-    ' text-anchor="middle" font-size="' + f + '" font-family="Arial,sans-serif"' + (bold ? ' font-weight="bold"' : '') + (ital ? ' font-style="italic"' : '') + ' fill="' + col + '"' + halo + '>' + esc(txt) + '</text>');
+    ' text-anchor="middle" font-size="' + (+f).toFixed(2) + '" font-family="Arial,sans-serif"' + (bold || f < 11 ? ' font-weight="bold"' : '') + (ital ? ' font-style="italic"' : '') + ' fill="' + col + '"' + halo + '>' + esc(txt) + '</text>');
   const arrow = (tip, dir, c) => { const b = [tip[0] - dir[0] * 7, tip[1] - dir[1] * 7], pp = [-dir[1] * 2.4, dir[0] * 2.4];
     return '<polygon points="' + Q(tip) + ' ' + Q([b[0] + pp[0], b[1] + pp[1]]) + ' ' + Q([b[0] - pp[0], b[1] - pp[1]]) + '" fill="' + (c || dcol) + '" stroke="none"/>'; };
   // T40: vung cham >= 36 px quanh chu dim co "?" -> mo o nhap dung gia tri do
@@ -4885,7 +4885,7 @@ function renderPV(mode, v, W, H, opt) {
     const L1 = it.short ? [it.D1[0] - t[0] * 9, it.D1[1] - t[1] * 9] : it.D1, L2 = it.short ? [it.D2[0] + t[0] * 9, it.D2[1] + t[1] * 9] : it.D2;
     const col = (/^\+/.test(dd.text) || dd.red) ? '#c0392b' : dc;     // T08c: dd.red = dim "KT" lisp to do (CTK5-MarkKT)
     const sup = extSup.get(it) || [], ep = (sup.includes(0) ? '' : 'M' + Q(e1) + ' L' + Q(f1)) + (sup.includes(1) ? '' : ' M' + Q(e2) + ' L' + Q(f2));
-    s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : '1') + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
+    s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : '1') + '" data-f0="' + (it.f0 || it.f) + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
       '<path d="M' + Q(L1) + ' L' + Q(L2) + '"/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') +      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc) + arrow(it.D2, [-t[0], -t[1]], dc) : arrow(it.D1, [-t[0], -t[1]], dc) + arrow(it.D2, t, dc)) +
       tx(it.tc, it.ang, it.f, qs ? dc : col, dd.text, qs === 'q' && !dd.qon ? false : dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
@@ -8383,7 +8383,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017141826';
+var CTK_BUILD = '20261017145648';
 (function () {
   function chk() {
     try {
