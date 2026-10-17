@@ -4458,38 +4458,44 @@ function pvLayoutCAD(dims, k, fs, poly) {
   const L = lin.map(d => {
     const A = [d.a[0] * k, -d.a[1] * k], B = [d.b[0] * k, -d.b[1] * k], len = Math.hypot(B[0] - A[0], B[1] - A[1]);
     const nm = d.n, Lm = dot(d.a, nm) + (d.off || 0), E = Math.max(...poly.map(p => dot(p, nm)));
-    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0) * sc : Lm * k;      // P: toa do duong dim theo n (px, he mm*k)
+    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0) * sc : (Lm - (d.off || 0)) * k + (d.off || 0) * sc;      // P: toa do duong dim theo n (px, he mm*k)
+    // T122: dim TRONG tam (lo...) - do lech lisp cung gian theo co chu (sc) nhu dim ngoai vien -> khoang tang / chu giu dung ti le CAD, chu 2 tang khong de nhau
     return { d, A, B, len, P, lv: gap };
   }).filter(x => x.len >= 0.5);
   L.sort((p, q) => p.lv - q.lv);      // trong -> ngoai (dim gan vien dat truoc)
-  for (const x of L) {
-    const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], n = [d.n[0], -d.n[1]];
-    const f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2;
-    const short = len < W + 10, tout = len < W - 2;
-    const o0 = x.P - dot(d.a, d.n) * k;      // do lech px tu diem do a
+  // T122 (CAD la chuan): dimstyle lisp DIMTIX=1 + CTK-DimsInside (TextInside) + TextPosition = trung diem -> CHU LUON O GIUA 2 MUI TEN, ke ca doan hep hon chu;
+  //   DIMTAD=1: chu tren duong dim, cach DIMGAP (0,4 x cao chu) -> ho; khong du cho cho chu + 2 mui ten -> mui ten dao ra ngoai (short), chu van giua.
+  //   Chu de chu -> NHICH TANG (doi ca duong dim ra ngoai, chu van giua), KHONG truot chu doc truc. Tang moi khong duoc de len vi tri CAD cua dim CHUA dat (res).
+  //   Chi khi moi tang deu de -> chu ra ngoai THANG HANG truc dim, sau mui ten, duong dim keo dai lam duong dan (nhu GstarCAD / T114) - dem trong kiem-tra-chu-dim.
+  const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], n = [d.n[0], -d.n[1]];
+    const f = fz(d), W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, d.n) * k;
+    const at = o => { const D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o], m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2]; return { D1, D2, m }; };
+    return { t, n, f, W, Hh, ho, o0, at, short: len < W + 16, tout: len < W - 2 }; };
+  const res = L.map(x => { const g = geo(x), q = g.at(g.o0); return { tb: pvBox([q.m[0] + g.n[0] * g.ho, q.m[1] + g.n[1] * g.ho], g.t, g.W / 2, g.Hh), lb: pvBox(q.m, g.t, x.len / 2, 1.5) }; });
+  L.forEach((x, ix) => {
+    const d = x.d, A = x.A, B = x.B, len = x.len, g = geo(x), t = g.t, n = g.n, f = g.f, W = g.W, Hh = g.Hh, ho = g.ho, short = g.short, tout = g.tout;
+    const rT = res.slice(ix + 1).map(r => r.tb), rL = res.slice(ix + 1).map(r => r.lb);
+    const hit = (arr, b) => arr.filter(z => pvHit(z, b)).length;
     let best = null;
-    for (let e = 0; e < 5; e++) {
-      const o = o0 + e * Ht * 0.8, D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o];
-      const m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2], lb = pvBox(m, t, len / 2 + (short ? 9 : 0), 1.5);
-      const opts = [];
-      if (!tout) opts.push({ tc: [m[0] + n[0] * ho, m[1] + n[1] * ho], p: 0 });
-      { const q = tout ? 0 : 6;      // chu lot nhung de chu dim ben canh -> dua ra ngoai 1 dau (nhu GstarCAD) truoc khi nhich duong dim
-        const dB = 10 + W / 2, E = [m[0] + n[0] * (ho + f * 0.9), m[1] + n[1] * (ho + f * 0.9)], E2 = [E[0] + t[0] * (W + 6), E[1] + t[1] * (W + 6)];
-        opts.push({ tc: [D2[0] + t[0] * dB + n[0] * ho, D2[1] + t[1] * dB + n[1] * ho], p: q });
-        opts.push({ tc: [D1[0] - t[0] * dB + n[0] * ho, D1[1] - t[1] * dB + n[1] * ho], p: q + 1 });
-        opts.push({ tc: [E[0] + t[0] * (W / 2 + 3) + n[0] * ho, E[1] + t[1] * (W / 2 + 3) + n[1] * ho], p: q + 4, ld: [m, E, E2] });
+    for (let e = 0; e < 6; e++) {
+      const o = g.o0 + e * Ht * 0.8, q = g.at(o), D1 = q.D1, D2 = q.D2, m = q.m, lb = pvBox(m, t, len / 2 + (short ? 9 : 0), 1.5);
+      const opts = [{ tc: [m[0] + n[0] * ho, m[1] + n[1] * ho], p: 0 }];
+      if (e === 0) {      // phuong an cuoi (chi o vi tri CAD): chu ra ngoai thang hang truc dim, sau mui ten; duong dim keo dai toi het chu
+        const dB = (short ? 11 : 4) + W / 2;
+        [[D2, 1, 40], [D1, -1, 41]].forEach(([P, s, p]) => { const c = [P[0] + t[0] * dB * s, P[1] + t[1] * dB * s];
+          opts.push({ tc: [c[0] + n[0] * ho, c[1] + n[1] * ho], p, ld: [P, [c[0] + t[0] * (W / 2) * s, c[1] + t[1] * (W / 2) * s]] }); });
       }
-      const lt = texts.filter(z => pvHit(z, lb)).length;
+      const lt = hit(texts, lb) + (e ? hit(rT, lb) : 0);
       for (const op of opts) {
-        const tb = pvBox(op.tc, t, W / 2, Hh), tt = texts.filter(z => pvHit(z, tb)).length, tl = lines.filter(z => pvHit(z, tb)).length;
-        const sc2 = (tt + lt) * 20 + tl * 3 + e * 12 + op.p;
+        const tb = pvBox(op.tc, t, W / 2, Hh), tt = hit(texts, tb) + hit(rT, tb), tl = hit(lines, tb) + (e || op.ld ? hit(rL, tb) : 0);
+        const sc2 = tt * 100 + lt * 20 + tl * 3 + e * 12 + op.p;      // T122: chu de chu = 100 (te hon duong dan 40, te hon nhich tang)
         if (!best || sc2 < best.sc) best = { sc: sc2, o, D1, D2, lb, tb, tc: op.tc, ld: op.ld || null };
       }
-      if (best.sc < 12 * (e + 1)) break;      // vi tri CAD (hoac nhich it) da sach -> dung
+      if (best.sc < 12 * (e + 1)) break;      // vi tri CAD (hoac nhich tang it) da sach -> dung
     }
     texts.push(best.tb); lines.push(best.lb);
     items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short, f, tout, ld: best.ld });
-  }
+  });
   pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   lab.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   let bx = [Infinity, -Infinity, Infinity, -Infinity];
@@ -4879,7 +4885,7 @@ function renderPV(mode, v, W, H, opt) {
     const L1 = it.short ? [it.D1[0] - t[0] * 9, it.D1[1] - t[1] * 9] : it.D1, L2 = it.short ? [it.D2[0] + t[0] * 9, it.D2[1] + t[1] * 9] : it.D2;
     const col = (/^\+/.test(dd.text) || dd.red) ? '#c0392b' : dc;     // T08c: dd.red = dim "KT" lisp to do (CTK5-MarkKT)
     const sup = extSup.get(it) || [], ep = (sup.includes(0) ? '' : 'M' + Q(e1) + ' L' + Q(f1)) + (sup.includes(1) ? '' : ' M' + Q(e2) + ' L' + Q(f2));
-    s += '<g' + at + '>' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +
+    s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : '1') + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
       '<path d="M' + Q(L1) + ' L' + Q(L2) + '"/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') +      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc) + arrow(it.D2, [-t[0], -t[1]], dc) : arrow(it.D1, [-t[0], -t[1]], dc) + arrow(it.D2, t, dc)) +
       tx(it.tc, it.ang, it.f, qs ? dc : col, dd.text, qs === 'q' && !dd.qon ? false : dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
@@ -8377,7 +8383,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017133842';
+var CTK_BUILD = '20261017141826';
 (function () {
   function chk() {
     try {
