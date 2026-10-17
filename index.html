@@ -358,7 +358,7 @@ body.ks #edCard,body.ks #listCard,body.ks .bbar:not(.ksb){display:none}
   <button class="pri" onclick="exportCSV()">Xuất CSV</button>
 </header>
 <main>
-  <section class="card" id="prodCard"><div class="prodsw"><button type="button" id="spLc" class="act" onclick="ksSetOn(false)">Lan can</button><button type="button" id="spKs" onclick="ksSetOn(true)">Kính sơn</button></div></section>
+  <section class="card" id="prodCard" style="display:none"><!-- TAM AN kinh son: bo style display:none + KS_ENABLED=true trong kinhson-ui.js de bat lai --><div class="prodsw"><button type="button" id="spLc" class="act" onclick="ksSetOn(false)">Lan can</button><button type="button" id="spKs" onclick="ksSetOn(true)">Kính sơn</button></div></section>
   <details class="card" id="infoCard" open>
     <summary><h2>1. Khung tên</h2><span class="isum" id="infoSum"></span></summary>
     <div class="info">
@@ -7691,10 +7691,13 @@ function ksJetExport(panels, prefix) {
 // chi them lop phu: khi chon "Kinh son" thi an the nhap + danh sach lan can, hien ksApp; cac nut Xuat / Mo CSV / Cong trinh moi
 // chuyen sang ban kinh son. Phu thuoc: kinhson.js (logic) + ham san co cua app (S, $, toast, esc, pdfBuild, svgToPng, fnBase, readInfo, isNarrow).
 // ============================================================================
+// TAM AN module kinh son (anh Dampt 17/10): dat KS_ENABLED = true de bat lai, KHONG xoa code/du lieu.
+var KS_ENABLED = false;
 var KSKEY = 'ctkinh_ks_v1', KSS = { on: false, panels: [], recent: [], unit: 'mm', def: null, picked: false, dim: 'main', row: false }, KSE = null, KSI = -1, KSXFILE = null, KSR = { h: '', w: ['', '', '', ''] };
 function ksSave() { try { localStorage.setItem(KSKEY, JSON.stringify({ on: KSS.on, panels: KSS.panels, draft: KSE, idx: KSI, unit: KSS.unit, def: KSS.def, picked: KSS.picked, row: KSR, dim: KSS.dim, rowm: KSS.row })); } catch (e) {} }
 function ksLoad() { try { var o = JSON.parse(localStorage.getItem(KSKEY) || 'null'); if (o) { KSS.on = !!o.on; KSS.panels = o.panels || []; KSS.unit = o.unit === 'cm' ? 'cm' : 'mm'; KSS.def = o.def || null; KSS.dim = o.dim === 'full' || o.dim === 'off' ? o.dim : 'main'; KSS.picked = !!o.picked || !!o.def || !!(o.panels && o.panels.length); if (o.row && o.row.w) KSR = o.row; if (o.rowm === true) KSS.row = true; if (o.rowm === false) KSS.row = false; if (o.draft) { KSE = o.draft; KSI = o.idx == null ? -1 : o.idx; (KSE.holes || []).forEach(ksHoleNorm); } } } catch (e) {} }
 function ksSetOn(on) {
+  if (!KS_ENABLED) on = false;
   KSS.on = !!on; document.body.classList.toggle('ks', KSS.on);
   $('spLc').classList.toggle('act', !KSS.on); $('spKs').classList.toggle('act', KSS.on);
   var t = document.querySelector('header h1'); if (t) t.textContent = KSS.on ? 'Kính sơn – CTKinh' : 'Nhập liệu CTKinh';
@@ -8374,7 +8377,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017133303';
+var CTK_BUILD = '20261017133842';
 (function () {
   function chk() {
     try {
