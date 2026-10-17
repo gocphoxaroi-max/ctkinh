@@ -2262,6 +2262,20 @@ function chainTotals(dims, cens, xtot) {
       m: Math.min(dot(d.a, nU), dot(d.b, nU)), st: d.st, pLo: s1 <= s2 ? d.a : d.b, pHi: s1 <= s2 ? d.b : d.a, d };
   };
   const same = (a, b) => Math.abs(a.u[0] * b.u[1] - a.u[1] * b.u[0]) < 1e-3, ang = r => Math.atan2(r.u[1], r.u[0]);
+  // T129 (anh Dampt 18/10): 2 dim CUNG PHUONG, CUNG 2 DAU DO (vd chuoi day 1 doan = dim tong) -> chi giu dim NGOAI (tong), bo dim trong;
+  //   dim giu duoc keo vao hang cua dim bi bo (hang gan canh tam). Khac dau do (chi trung gia tri) -> giu ca hai. (lisp: CTK-DimDedupe)
+  {
+    const rs = dims.map(rec), eq = (u, w) => V2.dist(u, w) <= 0.5, drop = new Set();
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+      const A = rs[i], B = rs[j]; if (!A || !B || drop.has(A.d) || drop.has(B.d) || A.d.ref || B.d.ref) continue;
+      if (Math.abs(A.u[0] * B.u[1] - A.u[1] * B.u[0]) >= 1e-3 || !eq(A.pLo, B.pLo) || !eq(A.pHi, B.pHi)) continue;
+      const sa = A.c - A.m, sb = B.c - B.m; if (sa * sb <= 0) continue;          // khac phia -> giu
+      const inn = Math.abs(sa) <= Math.abs(sb) ? A : B, out = inn === A ? B : A;
+      out.d.off += (inn.c - out.c) * (out.d.n[0] * -out.u[1] + out.d.n[1] * out.u[0]); if (out.d.off < 1) out.d.off = 1;               // keo dim ngoai vao hang dim trong (off tinh theo n cua dim)
+      drop.add(inn.d);
+    }
+    if (drop.size) for (let k = dims.length - 1; k >= 0; k--) if (drop.has(dims[k])) dims.splice(k, 1);
+  }
   const recs = dims.map(rec).filter(r => r);
   const atHole = r => (cens || []).some(q => V2.dist(q, r.pLo) < 0.5 || V2.dist(q, r.pHi) < 0.5);
   const bot = recs.filter(r => Math.abs(r.u[1]) <= Math.abs(r.u[0]) + 1e-9 && r.c < r.m - 1 && !atHole(r)).sort((a, b) =>
@@ -8524,7 +8538,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017154749';
+var CTK_BUILD = '20261017160845';
 (function () {
   function chk() {
     try {
