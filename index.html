@@ -4674,7 +4674,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
   const L = lin.map(d => {
     const A = [d.a[0] * k, -d.a[1] * k], B = [d.b[0] * k, -d.b[1] * k], len = Math.hypot(B[0] - A[0], B[1] - A[1]);
     const nm = d.n, Lm = dot(d.a, nm) + (d.off || 0), E = Math.max(...poly.map(p => dot(p, nm)));
-    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0) * sc : (Lm - (d.off || 0)) * k + (d.off || 0) * sc;      // P: toa do duong dim theo n (px, he mm*k)
+    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0 * (pvIsTotal(d) ? PV_TOTAL_SCALE : 1)) * sc : (Lm - (d.off || 0)) * k + (d.off || 0) * sc;      // P: toa do duong dim theo n (px, he mm*k)
     // T122: dim TRONG tam (lo...) - do lech lisp cung gian theo co chu (sc) nhu dim ngoai vien -> khoang tang / chu giu dung ti le CAD, chu 2 tang khong de nhau
     return { d, A, B, len, P, lv: gap };
   }).filter(x => x.len >= 0.5);
@@ -4714,8 +4714,9 @@ function pvLayoutCAD(dims, k, fs, poly) {
   const dSeg = (P, s) => { const ax = s[1][0] - s[0][0], ay = s[1][1] - s[0][1], l2 = ax * ax + ay * ay || 1, u = Math.max(0, Math.min(1, ((P[0] - s[0][0]) * ax + (P[1] - s[0][1]) * ay) / l2)); return Math.hypot(P[0] - s[0][0] - u * ax, P[1] - s[0][1] - u * ay); };
   const inPx = P => { let c = false; for (const [a, b] of EG) if ((a[1] > P[1]) !== (b[1] > P[1]) && P[0] < a[0] + (P[1] - a[1]) * (b[0] - a[0]) / (b[1] - a[1])) c = !c; return c; };
   //   dim hep (chu rong hon doan): phan chu TRAN RA NGOAI 2 gion cham canh = dung CAD mau (30/40/43, DIMTIX=1: chu giua, tran qua gion) -> chi phat phan giua 2 gion
-  const edgePen = (tb, m, len, wide) => { let p = EG.some(s => segBox(s, tb, wide ? len / 2 - 1 : null)) ? 1 : 0; const dm = Math.min(...EG.map(s => dSeg(m, s)));
-    if (dm > 0.3 && dm < 1.2 * Ht && !inPx(m)) p++;      // dm <= 0,3px (kiem tra: <= 1px man hinh): duong dim nam TREN canh (CAD off 0, dim chen cho) - hop le
+  const edgePen = (tb, m, len, wide, hs) => { let p = EG.some(s => segBox(s, tb, wide ? len / 2 - 1 : null)) ? 1 : 0; const dm = Math.min(...EG.map(s => dSeg(m, s)));
+    if (dm > 0.3 && dm < 1.2 * Ht * (hs || 1) && !inPx(m)) p++;      // T144: hs = 1,25 cho dim TONG (chu to hon -> khoang cach canh tinh theo chu CUA NO)
+         // dm <= 0,3px (kiem tra: <= 1px man hinh): duong dim nam TREN canh (CAD off 0, dim chen cho) - hop le
     return p; };
   // T130: BO thu nho chu tung dim (T124/T126) - anh Dampt 18/10: co chu khong deu, so khong thang hang. Moi dim = fs; chu cung chuoi chat nhau -> bam Phong to.
   const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], dn = x.nn || d.n, n = [dn[0], -dn[1]];      // T130: chuoi dung chung 1 phap tuyen (dim cung chuoi song song tuyet doi)
@@ -4739,7 +4740,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
       let cr = 0; if (e) for (const it of items.concat(res.slice(ix + 1))) if (it.D1 && it.ck !== ck) {      // + dim CHUA dat (vi tri CAD)
         const sa = [[D1, D2], [A, D1], [B, D2]], sb = [[it.D1, it.D2], [it.A, it.D1], [it.B, it.D2]];      // T130: tang nhich (e != 0) khong duoc cat dim da dat (do-tham-my: cat nhau)
         for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (!(i && j) && xSeg(sa[i][0], sa[i][1], sb[j][0], sb[j][1])) cr++; }
-      return { sc: tt * 100 + edgePen(tb, m, len, W > len) * 2000 + cr * 60 + lt * 20 + tl * 3 + Math.abs(e) * 12 + (e < 0 ? 6 : 0), o, D1, D2, lb, tb, tc, g };      // T130: + phat chu de / sat canh kinh
+      return { sc: tt * 100 + edgePen(tb, m, len, W > len, pvIsTotal(d) ? PV_TOTAL_SCALE : 1) * 2000 + cr * 60 + lt * 20 + tl * 3 + Math.abs(e) * 12 + (e < 0 ? 6 : 0), o, D1, D2, lb, tb, tc, g };      // T130: + phat chu de / sat canh kinh
     };
     const chE = {};       // T126: tang chung cua tung chuoi (chon 1 lan theo TONG diem ca chuoi)
     const ES = [0, 1, -1, 2, -2, 3, 4, -3, 5, 6, -4, 7, 8, -5, 9, 10, -6, 11, 12, -7, -8, 13, 14, -9, -10, 15, 16], ESo = ES.filter(e => e >= 0);      // T130: tang thu (am = vao phia trong: CHI dim trong tam (lo) sat canh kinh)
@@ -5190,7 +5191,7 @@ function renderPV(mode, v, W, H, opt) {
     s += '<g' + at + ' data-lin="' + (it.ld ? 'ld' : it.ld2 ? 'ng' : '1') + '" data-f0="' + (it.f0 || it.f) + '"' + (thin ? ' data-thin="1"' : '') + ' data-ck="' + (it.ck || '') + '">' + (ep.trim() ? '<path d="' + ep.trim() + '" stroke-opacity="0.55"/>' : '') +      // T122: data-lin = dim thang hang (ld = co duong dan) cho kiem-tra-chu-dim
       '<path d="M' + Q(L1) + ' L' + Q(L2) + '"' + (thin ? ' stroke-width="0.75" stroke-opacity="0.7"' : '') + '/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') + (it.ld2 ? '<path d="M' + it.ld2.map(Q).join(' L') + '" stroke-width="0.75" stroke-opacity="0.7"/>' : '') +      /* T130: dim cuc hep chu ra ngoai - duong dim keo dai duoi chu */      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc, thin) + arrow(it.D2, [-t[0], -t[1]], dc, thin) : arrow(it.D1, [-t[0], -t[1]], dc, thin) + arrow(it.D2, t, dc, thin)) +
-      tx(it.tc, it.ang, it.f, qs ? dc : (pvIsTotal(dd) && col === dc && !dd.qon ? PV_TOTAL_COL : col), dd.text, !qs && pvIsTotal(dd) ? 'T' : qs === 'q' && !dd.qon ? false : thin || dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
+      tx(it.tc, it.ang, it.f, qs ? dc : (pvIsTotal(dd) && col === dc && !dd.qon ? PV_TOTAL_COL : col), dd.text, pvIsTotal(dd) ? 'T' : qs === 'q' && !dd.qon ? false : thin || dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
   }
   // T38: dim ban kinh "R.." o moi cung bo: mui ten cham giua cung, chu phia trong tam
   if (fil) fil.forEach(f => {
@@ -9013,7 +9014,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261018124215';
+var CTK_BUILD = '20261018124753';
 (function () {
   function chk() {
     try {
