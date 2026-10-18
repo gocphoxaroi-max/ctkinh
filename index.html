@@ -4555,6 +4555,7 @@ const PV_MIN_FONT = 9;      // T126 (T130: KHONG con dung de thu nho chu - giu t
 //   chu tam = trung diem doan do, cach duong dim ~0,9 x cao chu (DIMGAP 12 + 15 = 27/30), cung chuoi = cung duong dim -> so thang hang;
 //   duong dim cach canh kinh >= PV_G0 mm-CAD (= 1,2 x cao chu 30); dim hep: chu van o giua (tran qua gion), mui ten dao ra ngoai (CAD DIMTIX=1).
 const PV_G0 = 36;
+let PV_OV = 0;      // T132: so cap chu con de nhau sau khi da giam co chung toi san (hinh qua nho) -> renderPV ghi chu 'bam Phong to'
 let PV_FMIN = PV_MIN_FONT;      // T130: san co chu chung (renderPV dat theo opt.fmin: anh/PDF phong 2,4 -> nho hon)
 function pvLayout(dims, k, fs, poly) { const m = typeof window !== 'undefined' ? (window.PV_XEP || (window.PV_XEP_CU ? 'cu' : '')) : '';
   return m === 'cu' ? pvLayoutCu(dims, k, fs, poly) : m === 't84' ? pvLayoutT84(dims, k, fs, poly) : pvLayoutCAD(dims, k, fs, poly); }
@@ -4657,7 +4658,8 @@ function pvLayoutCAD(dims, k, fs, poly) {
       items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short: g.short, f: g.f, f0: g.f0, tout: false, ld: null, len: x.len, ck: x.ck });
     });
   };
-  placeL();      // T130: 1 lan - chu de chu chi NHICH TANG (ca chuoi), KHONG giam co chu (bo vong giam co cua T126)
+  const placeAll = () => {
+    placeL();
   // T130: dim CUC HEP (doan 2-15 mm: o co chung fD so van cham so ben canh cung chuoi) -> chu ra NGOAI sat gion, phia xa so ben canh,
   //   CUNG duong chuan (thang hang), duong dim keo dai duoi chu - dung nhu file anh ve tay (DIMTIX=0: 15/22/30 mm chu ra ngoai sat gion).
   //   Chi lam khi cho moi trong (khong de chu khac / canh kinh); khong thi giu giua.
@@ -4675,6 +4677,23 @@ function pvLayoutCAD(dims, k, fs, poly) {
           if (texts.some(z => z !== s.tb && pvHit(z, tb)) || EG.some(e => segBox(e, tb))) continue;
           const ti = texts.indexOf(s.tb); tb.x = s.tb.x; if (ti >= 0) texts[ti] = tb;
           Object.assign(s, { tb, tc, tout: true, short: true, ld2: [m, [m[0] + s.t[0] * (off + W / 2) * sg, m[1] + s.t[1] * (off + W / 2) * sg]] }); break; } } }); }
+  };
+  // T132: co chu CHUNG giam deu (KHONG tung dim) khi hinh nho (xem truoc): thu 12 -> ... -> san PV_FMIN, chon co TO NHAT khong con 2 chu de nhau / chu de canh kinh
+  //   (truoc: chi xet cap CANH NHAU cung chuoi -> 185 de 875 o goc, ca chu khac chuoi; phong to chu nho so voi hinh nen khong de). Moi dim van cung 1 co.
+  const infl = b => ({ c: b.c, t: b.t, hw: b.hw + 2.5, hh: b.hh + 1 });      // T132: chua khoang tho 2,5 px (chu dam + vien trang) - hop chu sat nhau van tinh la cham
+  let nTT = 0, nLL = 0;
+  const nOv = () => { let n = 0, ll = 0; const it = items.filter(z => z.tb && z.len);
+    for (let i = 0; i < it.length; i++) { for (let j = i + 1; j < it.length; j++) if (pvHit(infl(it[i].tb), infl(it[j].tb))) n++;
+      const wide = tw(it[i].d.text, it[i].f) > it[i].len; if (EG.some(sg => segBox(sg, it[i].tb, wide ? it[i].len / 2 - 1 : null))) n++;
+      const sb = { c: it[i].tb.c, t: it[i].tb.t, hw: it[i].tb.hw * 0.9 - 1, hh: it[i].tb.hh * 0.85 };      // T132: chu dam that nho hon hop bo cuc -> thu hop ve so voi check do SVG
+      if (it.some((o, j) => j !== i && o.D1 && [[o.D1, o.D2], [o.A, o.D1], [o.B, o.D2]].some(sg => segBox(sg, sb, null)))) ll++; }
+    nTT = n; nLL = ll; return n * 4 + ll; };      // chu de chu / canh kinh nang gap 4 lan cham net manh      // nTT = chu de chu / canh kinh; nLL = chu cham duong dim / gion cua dim khac
+  { const f0 = fD, F = []; for (let f = f0; f >= PV_FMIN - 1e-6; f = f > PV_FMIN + 1 ? f * 0.9 : (f > PV_FMIN ? PV_FMIN : -1)) F.push(f);
+    if (typeof window !== 'undefined' && window.PV_T132_OFF) F.length = 1;      // chi de chup anh 'truoc T132' (khong dung that)
+    let bestF = f0, bestN = Infinity;
+    for (const f of F) { fD = f; placeAll(); const n = nOv(); if (n < bestN) { bestN = n; bestF = f; } if (nTT === 0 && nLL <= 1) break; }      // du tot: khong de chu, toi da 1 cho cham net manh -> giu co chu to nhat
+    if (fD !== bestF) { fD = bestF; placeAll(); }
+    nOv(); PV_OV = nTT > 0 || nLL >= 2 ? nTT + nLL : 0; }      // ghi chu 'Dim day' khi con chu de chu / canh kinh hoac >= 2 cho cham duong dim khac
   pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   lab.forEach(d => { const f = fs;      // T130: nhan ten tam (khong phai dim) giu co fs
     pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
@@ -4685,7 +4704,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(s => grow(b.c[0] + s[0] * e[0] + s[1] * g[0], b.c[1] + s[0] * e[1] + s[1] * g[1]));
   });
   items.forEach(it => { if (it.C) { grow(it.C[0] - it.r, it.C[1] - it.r); grow(it.C[0] + it.r, it.C[1] + it.r); } if (it.ld) it.ld.forEach(p => grow(p[0], p[1])); });
-  return { items, box: bx, f: fD };
+  return { items, box: bx, f: fD, ov: PV_OV };
 }
 // T83b (T84): - long: dim ngan trong, dai ngoai (moi canh, moi phia); chuoi doan + lo chung 1 tang; dim tong ngoai cung
 //   - khoang tang: tang 1 cach canh 2 x co chu, moi tang sau +2,5 x co chu, dim 020-ok +80/30 x co chu (co chu = 0,72 fs px ~ chu 30 mm CAD)
@@ -5106,7 +5125,7 @@ function renderPV(mode, v, W, H, opt) {
       s += '<circle cx="' + X(q.p) + '" cy="' + Y(q.p) + '" r="' + (act ? 9 : 7) + '" fill="' + (bo ? (bon ? '#1f4e9c' : '#fff') : ax ? '#bdc3c7' : on ? '#e67e22' : '#fff') + '" stroke="' + (bo ? '#1f4e9c' : ax ? '#7f8c8d' : '#d35400') + '" stroke-width="' + (act ? 3 : 2) + '" pointer-events="none"/>';
     });
   }
-  return { svg: s, info: Rn(w) + ' × ' + Rn(h) + ' mm · ' + g.holes.length + ' lỗ', note: g.note || '', dots, k, ox, oy, qhit, qbox };
+  return { svg: s, info: Rn(w) + ' × ' + Rn(h) + ' mm · ' + g.holes.length + ' lỗ', note: (g.note || '') + (E.l.ov > 0 && !g.note ? 'Dim dày – bấm ⤢ Phóng to để xem rõ.' : ''), dots, k, ox, oy, qhit, qbox, ov: E.l.ov || 0 };      // T132: ov = cap chu con de nhau o co chu san (xem truoc nho)
 }
 
 // ---------- bang nhin: tab / thu gon / co gian theo ban phim ----------
@@ -8569,7 +8588,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261017170207';
+var CTK_BUILD = '20261018081515';
 (function () {
   function chk() {
     try {
