@@ -977,8 +977,8 @@ function catParse(s) {
   s = String(s == null ? '' : s).trim(); if (!s) return null;
   const p = s.split(';'), t = p[0].trim().toUpperCase().replace(',', '.'), nm = (p[1] || '').split('/').map(x => x.trim());
   let k = null, m;
-  if ((m = /^G(\d+(?:\.\d+)?)$/.exec(t))) k = { g: +m[1] };
-  else if ((m = /^@?(\d+(?:\.\d+)?)$/.exec(t))) k = { x: +m[1] };
+  if ((m = /^G(\d+(?:\.\d+)?)(V?)$/.exec(t))) k = { g: +m[1], v: !!m[2] };
+  else if ((m = /^@?(\d+(?:\.\d+)?)(V?)$/.exec(t))) k = { x: +m[1], v: !!m[2] };      // T149: chu V cuoi = cat DUNG
   return { k, t, names: [nm[0] || '', nm[1] || ''], bad: p.length > 2 || nm.length > 2 || /[,"]/.test(s) };
 }
 function catStr(k, names) {      // ghi lai o Cat (k = 'G3' | '@2212' ...)
@@ -995,9 +995,11 @@ function catCols(v) {
   return { a, cols, H, C, Sa: a.reduce((t, x) => t + x, 0), flip: /^T/i.test(String(v.Huong || '').trim()) };
 }
 // a = chuoi day ban ve CUOI (trai -> phai, nhu thu tu nhap), name = TenTam -> { xf, cols:[x..], L:[chi so cot], R:[...], a, names, err }
-function catSplit(v, a) {
+// T149: cat DUNG (vt = true, chu V: @1500V / G3V) - vi tri do doc day nhu cat xien (G3V = qua CHAN cot 3), duong cat
+//   thang dung; C/flip = do lech canh xien / nghieng trai -> kiem tra duong cat khong cat qua canh xien (lisp CTK-M3VCut).
+function catSplit(v, a, C, flip) {
   const c = catParse(v.Cat); if (!c) return null;
-  if (!c.k || c.bad) return { err: 'Cột Cat dạng @2212 (mm dọc đáy từ trái), G3 (qua cột lỗ 3) hoặc G2.5 (giữa cột 2–3); tên: ;S2/S1' };
+  if (!c.k || c.bad) return { err: 'Cột Cat dạng @2212 (mm dọc đáy từ trái), G3 (qua cột lỗ 3) hoặc G2.5 (giữa cột 2–3), thêm V = cắt đứng (@1500V); tên: ;S2/S1' };
   const cols = [], Sa = a.reduce((s, x) => s + x, 0); let s = 0;
   a.slice(0, -1).forEach(x => { s += x; cols.push(s); });
   let xf = null;
@@ -1006,10 +1008,13 @@ function catSplit(v, a) {
   else xf = c.k.x;
   if (xf == null) return { err: 'Cắt qua cột lỗ ' + c.t.slice(1) + ': băng chỉ có ' + cols.length + ' cột lỗ' };
   if (!(xf > 1 && xf < Sa - 1)) return { err: 'Vị trí cắt ' + _r1(xf) + ' nằm ngoài băng (đáy ' + _r1(Sa) + ')' };
+  const vt = !!c.k.v && C > 1e-6;
+  if (vt && (flip ? xf > Sa - C - 1 : xf < C + 1)) return { err: 'Cắt đứng tại ' + _r1(xf) + ' cắt qua cạnh xiên (cần cách góc xiên > ' + _r1(C) + ')' };
+  const nm0 = String(v.TenTam || '').trim(), names = [c.names[0] || nm0 + 'A', c.names[1] || nm0 + 'B'];
+  if (vt) return { xf, Sa, cols, vt, names };      // lo chia theo TAM lo (geom)
   cols.forEach(x => { if (Math.abs(x - xf) <= 0.5) xf = x; });      // cach tam cot lo <= 0.5 mm -> qua tam (nua lo)
   const L = [], R = []; cols.forEach((x, i) => { if (x <= xf + 1e-6) L.push(i); if (x >= xf - 1e-6) R.push(i); });
-  const nm0 = String(v.TenTam || '').trim();
-  return { xf, Sa, cols, L, R, thru: cols.some(x => x === xf), names: [c.names[0] || nm0 + 'A', c.names[1] || nm0 + 'B'] };
+  return { xf, Sa, cols, L, R, thru: cols.some(x => x === xf), names };
 }
 // ---- doi kieu ghi hinh 1: Mode 1 (chuoi day) <-> Mode 6 thuong (45/1070/45). Tra ve gia tri cho mode moi (cac o trung ten giu nguyen ngoai ham)
 function kieuConvert(from, v) {
@@ -3592,12 +3597,16 @@ function geom(mode, v) {
           S.dims.forEach(d => { if (d.src) d.src = d.src.split(' ').map(t => MAP[t] || t).join(' '); });
         }
         if (mode === '3' && String(v.Cat || '').trim()) {      // T147: cat doi bang -> 1 hinh bang lien + duong cat + 2 nhan (2 tam rieng)
-          const fa = flip ? a.slice().reverse() : a, cs = catSplit(v, fa);
+          const fa = flip ? a.slice().reverse() : a, cs = catSplit(v, fa, C, flip);
+          const X = x => flip ? Sa - x : x, xp = cs && !cs.err ? X(cs.xf) : 0;      // ban ve cuoi -> toa do truoc lat guong
+          // T149: cat dung qua TAM lo (<= 0.5) -> lisp chua ho tro (CTK-M3VCut)
+          if (cs && cs.vt && S.holes.some(h => h.src === 'main' && Math.abs(h.x - xp) <= 0.5)) cs.err = 'Đường cắt đứng đi qua tâm lỗ – dời điểm cắt ít nhất 1 mm';
           if (cs && cs.err) S.catErr = cs.err;
           else if (cs) {
-            const X = x => flip ? Sa - x : x, xp = X(cs.xf);      // ban ve cuoi -> toa do truoc lat guong
-            S.cut = { a: [xp, 0], b: [xp + C, H] };
-            const nh = j => S.holes.filter(h => h.src === 'main' && (j ? cs.R : cs.L).indexOf(h.axis) >= 0).length;
+            S.cut = cs.vt ? { a: [xp, 0], b: [xp, H], vt: true } : { a: [xp, 0], b: [xp + C, H] };
+            // tam trai/phai tren ban ve CUOI: cat xien chia theo COT lo (cot tren duong cat tinh 2 tam); cat dung chia theo TAM lo
+            const side = (h, j) => cs.vt ? ((h.x < xp) !== (flip ? !j : !!j)) : (j ? cs.R : cs.L).indexOf(h.axis) >= 0;
+            const nh = j => S.holes.filter(h => h.src === 'main' && side(h, j)).length;
             const rg = j => { const u0 = X(j ? cs.xf : 0), u1 = X(j ? Sa : cs.xf); return [Math.min(u0, u1), Math.max(u0, u1)]; };
             S.cutInfo = [0, 1].map(j => ({ n: cs.names[j], day: j ? Sa - cs.xf : cs.xf, lo: nh(j), x: rg(j), thru: cs.thru }));
             S.dims = S.dims.filter(d => d.kind !== 'nhan');
@@ -9158,7 +9167,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261018142248';
+var CTK_BUILD = '20261019074244';
 (function () {
   function chk() {
     try {

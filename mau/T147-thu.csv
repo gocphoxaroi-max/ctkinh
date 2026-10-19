@@ -1,0 +1,12 @@
+Ngày vẽ,Today
+Tên Đại Lý,KH Km3
+Tên KH,T147 bang cat doi + Mode 3 lo do cheo
+Loại Kính,12mm xam khoi
+
+#MODE 3
+TenTam,H,DiagLen,OffsetLeft,AKnownList,Total,D,HoleHeights,CutP3,X,Y,DistBaseList,HoleGroupsB,EdgeQ1Q2,Huong,SoLuong,GocDo,BoGoc,LoTuDo,LoCheo,Cat
+KM3,645,770,331,903-914-929-878,4200,22,60/145-60/145-60/145-60/145-60/145,,,,,,,,1,,,,C,G3;S2/S1
+KM3B,645,770,331,903-914-929-878,4200,22,60/145-60/145-60/145-60/145-60/145,,,,,,,,1,,,,C,@1500;S4/S3
+KM3C,645,770,331,903-914-929-878,4200,22,60/145-60/145-60/145-60/145-60/145,,,,,,,T,1,,,,C,G2.5;S6/S5
+CHEO1,645,770,331,903-914,2600,22,60/145-60/145-60/145,,,,,,,,1,,,,C,
+DUNG1,645,770,331,903-914,2600,22,60/145-60/145-60/145,,,,,,,,1,,,,,
