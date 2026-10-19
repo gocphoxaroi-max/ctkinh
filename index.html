@@ -1456,11 +1456,17 @@ function qDims(mode, res, v, selId) {
   return dims.filter(d => d.qs !== 'hide');
 }
 // ---- kiem tra 1 tam: tra ve {err:{k:msg}, warn:[..]}
+// T156: Mode 1 - o C (do nghieng) KHONG bat buoc khi tam la CHU NHAT (C = 0) hoac TAM GIAC (TG_CanhTren / TG_Phia: C khong dung toi); bo trong = 0
+function cOptional(mode, v, ctx) {
+  if (mode !== '1') return false;
+  const has = k => String((v || {})[k] == null ? '' : v[k]).trim() !== '';
+  return has('TG_CanhTren') || has('TG_Phia') || !!(ctx && (ctx.shape === 'chunhat' || ctx.shape === 'tamgiac'));
+}
 function validate(mode, v, ctx) {
   const M = MODES[mode], err = {}, warn = [], noLo = noHoleVals(mode, v);
   for (const f of M.fields) {
     const x = fixComma(f.type, v[f.k]);
-    if (!x) { if (f.req && !(mode === '1' && f.k === 'H' && m1Slant(v)) && !(noLo && noLoKeys(mode).indexOf(f.k) >= 0)) err[f.k] = mode === '3' && (f.k === 'OffsetLeft' || f.k === 'Total') ? 'Bắt buộc (không có số thì ghi ? = app tự tính)' : 'Bắt buộc'; continue; }      // T125: tam khong lo -> D + o lo khong bat buoc      // T59: co canh xien L + goc V -> H tu tinh
+    if (!x) { if (f.req && !(mode === '1' && f.k === 'H' && m1Slant(v)) && !(noLo && noLoKeys(mode).indexOf(f.k) >= 0) && !(f.k === 'C' && cOptional(mode, v, ctx))) err[f.k] = mode === '3' && (f.k === 'OffsetLeft' || f.k === 'Total') ? 'Bắt buộc (không có số thì ghi ? = app tự tính)' : 'Bắt buộc'; continue; }      // T125: tam khong lo -> D + o lo khong bat buoc      // T59: co canh xien L + goc V -> H tu tinh
     let ok = true, msg = '';
     if (mode === '3' && /^(OffsetLeft|Total|AKnownList)$/.test(f.k) && /\?/.test(x)) {      // T143: "?" = app tu tinh
       if (f.k === 'AKnownList' ? !RX.list.test(x.replace(/\?/g, '1')) : x !== '?') err[f.k] = f.k === 'AKnownList' ? 'Dạng 918-?-921' : 'Nhập số > 0 hoặc ?';
@@ -4141,7 +4147,7 @@ function F0(k) { return MODES[cur].fields.find(f => f.k === k) || {}; }
 document.addEventListener('change', e => { if (e.target && e.target.id === 'f_C' && cur === '1' && curShape() === 'xiengoc') { const t = e.target.value.trim().replace(',', '.'); if (/^\d+(\.\d+)?$/.test(t)) { e.target.value = 'V' + t; live(); } } });
 function live() {
   xgLayout();
-  const v = readForm(), r =validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3] });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
+  const v = readForm(), r =validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3], shape: SHAPE });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
   for (const f of MODES[cur].fields) {
     const el = $('f_' + f.k), e = $('e_' + f.k); if (!el) continue;
     const shown = (v[f.k] || '') !== '' || el.dataset.touched;
@@ -4384,7 +4390,7 @@ function qBar() {
   if (!m) {
     const miss = QLAST.filter(x => x.kind !== 'corner' && x.req && !x.dup && qGet(v, x) === '').length;
     const seq = qSeq(), left = seq.filter(x => qGet(v, x) === '' && !x.soft).length;      // T75: so dau phai Mode 5 (soft) khong bat buoc      // T41: nhap chinh bang "Nhap so ›" / "Tiep ›" theo thu tu; cham so tren hinh = sua
-    const ek = miss ? [] : Object.keys(validate(cur, v, {}).err);      // T41: du so tren hinh nhung bang con o loi / thieu (vd tam giac: C) -> noi ro, nut Luu chua sang
+    const ek = miss ? [] : Object.keys(validate(cur, v, { shape: SHAPE }).err);      // T41: du so tren hinh nhung bang con o loi / thieu (vd tam giac: C) -> noi ro, nut Luu chua sang
     $('qlab').innerHTML = miss ? 'Số <i>mờ</i> = số mẫu, chưa phải số thật · còn ' + miss + ' số bắt buộc' : ek.length ? 'Còn thiếu / sai ở bảng dưới: <b>' + esc(ek.join(', ')) + '</b>' : '<b class="qg">✓ Đủ số bắt buộc</b> – kiểm hình rồi bấm "Lưu tấm"';
     $('qopt').innerHTML = (left ? '<button type="button" class="qgo" onclick="qNext()">Nhập số ' + (qDFirst(v, seq) ? 1 : seq.length - left + 1) + '/' + seq.length + ' ›</button>' : '') + (QLAST.length && (cur === '1' || cur === '3') && curShape() !== 'tamgiac' ? '<button type="button" onclick="qLine(true)">+ đường lỗ</button><button type="button" onclick="qLine(false)">− đường lỗ</button>' : '') +
       (QLAST.length && cur === '5' ? '<button type="button" onclick="q5Seg(true)">+ đoạn đáy</button><button type="button" onclick="qLine(true)">+ đường lỗ</button><button type="button" onclick="qLine(false)">− đường lỗ</button>' : '');      // T75; T55: bo nut "⋯ Thêm" - thay bang the "✂ Sửa góc" o dai cong cu ben canh hinh
@@ -4636,7 +4642,7 @@ function ltDel() {
   LT = null; QSEL = null; live(); sizeDock(); toast('Đã xoá lỗ tự do');
 }
 function ltBar(v) {        // thanh nhap lo tu do (goi tu qBar)
-  const q = ltVert(v, LT.o.n), o = LT.o, D = parseFloat(v.D) || 18, no = (LT.i >= 0 ? LT.i : ltParse(v.LoTuDo).length) + 1;
+  const q = ltVert(v, LT.o.n), o = LT.o, D = parseFloat(v.D) || parseFloat(S.defD) || 18, no = (LT.i >= 0 ? LT.i : ltParse(v.LoTuDo).length) + 1;
   $('qsl').textContent = LT.st === 3 ? 'φ' : 'Số ' + LT.st;
   $('qprog').innerHTML = '<b>Lỗ tự do ' + no + ' (mốc ' + esc(o.n) + ') · số ' + LT.st + '/3</b> – ' + esc(LT.st === 1 ? ltMTxt(o.m1, q) + ' từ mốc' : LT.st === 2 ? ltMTxt(o.m2, q) + ' tới tâm lỗ' : 'φ lỗ (trống = φ' + ltNum(D) + ' của tấm)');
   $('qbk').disabled = LT.st <= 1; $('qsp').hidden = true;
@@ -5991,6 +5997,7 @@ function fieldShort(f) { let t = String(f.label || f.k).replace(/<[^>]*>/g, '');
 function savePanel(dup) {
   document.querySelectorAll('#form input,#form select').forEach(e => e.dataset.touched = 1);
   const v = readForm(), r = live();
+  if (cur === '1' && v.C === '' && cOptional(cur, v, { shape: SHAPE })) v.C = '0';      // T156: chu nhat / tam giac khong nhap C -> luu C = 0
   const bad = MODES[cur].fields.filter(f => r.err[f.k]);
   if (bad.length) {
     // T78: toast noi ro o nao thieu/sai + nhay toi o dau tien (giu 5 giay)
@@ -6029,15 +6036,19 @@ function panelNav(d) {
   navUpd();
 }
 function startNew() {
+  // T156 (anh Dampt 19/10): tam moi = XOA HET o nhap (khong mang so tam truoc sang). Chi giu: ten tam +1, phi mac dinh cong trinh (S.defD). "Luu + giong" tu fillForm lai SAU khi goi ham nay.
+  const snap0 = DIRTY ? snapForm() : null;
   editIdx = -1; DIRTY = false; $('bCancel').hidden = true; $('bSaveT').textContent = 'Lưu tấm'; $('edTitle').textContent = '2. Nhập tấm mới';
-  const last = [...S.panels].reverse().find(p => p.mode === cur), lastAny = S.panels[S.panels.length - 1];
-  const v = last ? Object.assign({}, last.v, { TenTam: freeName(last.v.TenTam), SoLuong: '' }) : { TenTam: freeName(lastAny ? lastAny.v.TenTam : '') };
+  QSEL = null; QACT = null; QCHN = []; QORIG = null; LT = null; if (GOCP) { GOCP = false; updGocBtns(); }
+  const lastAny = S.panels[S.panels.length - 1];
+  const v = { TenTam: freeName(lastAny ? lastAny.v.TenTam : '') };
   if (S.defD) v.D = S.defD;     // T37: phi mac dinh ca cong trinh (van sua rieng tung tam)
   document.querySelectorAll('#form input,#form select').forEach(e => delete e.dataset.touched);
   fillForm(v); const t = $('f_TenTam'); navUpd();
-  SHAPE = shapeOf(cur, readForm()) || (SHAPE && shapeFits(SHAPE, cur) ? SHAPE : null); markMode();   // T12
+  SHAPE = shapeOf(cur, readForm()); markMode();   // T12; T156: hinh mau cung ve mac dinh cua Mode (khong giu the tam truoc)
   // tren dien thoai khong tu bat ban phim (de xem hinh truoc)
   if (t && !isNarrow()) { t.focus(); t.select(); }
+  if (snap0) toastUndo('Đã xoá phần đang nhập dở', () => restoreSnap(snap0));
 }
 function editPanel(i) {
   editIdx = i; const p = S.panels[i]; setMode(p.mode, false); fillForm(p.v); DIRTY = false; SHAPE = shapeOf(p.mode, p.v); markMode();
@@ -6076,7 +6087,11 @@ function renderList() {
   $('bCnt').textContent = n + ' tấm'; navUpd();
 }
 function infoSummary() { const s = [S.info[2], S.info[3]].filter(Boolean).join(' · '); $('infoSum').textContent = s ? '– ' + s : ''; }
-function readInfo() { S.info = [0, 1, 2, 3].map(i => $('i' + i).value.trim()); S.defD = fixComma('num', $('i4').value); infoSummary(); save(); }
+function readInfo() {
+  const oldD = S.defD || ''; S.info = [0, 1, 2, 3].map(i => $('i' + i).value.trim()); S.defD = fixComma('num', $('i4').value); infoSummary(); save();
+  // T156: doi phi mac dinh -> tam MOI dang nhap (o D trong hoac dang la phi mac dinh cu) nhan phi moi ngay
+  if (S.defD !== oldD && editIdx < 0 && typeof live === 'function') { const d = $('f_D'); if (d && (d.value.trim() === '' || d.value.trim() === oldD)) { d.value = S.defD; live(); } }
+}
 function fillInfo() { [0, 1, 2, 3].forEach(i => $('i' + i).value = S.info[i] || ''); $('i4').value = S.defD || ''; infoSummary(); }
 function newJob() {
   if (S.panels.length && !confirm('Xoá danh sách hiện tại để bắt đầu công trình mới? (Nên Xuất CSV trước)')) return;
@@ -9338,7 +9353,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261019122155';
+var CTK_BUILD = '20261019122830';
 (function () {
   function chk() {
     try {
