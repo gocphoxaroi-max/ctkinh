@@ -663,6 +663,9 @@ MODES['3'].cols.push('LoCheo', 'Cat');
 MODES['3'].fields.splice(MODES['3'].fields.findIndex(f => f.k === 'HoleHeights') + 1, 0,
   F('LoCheo', 'Cách đo lỗ (HoleHeights)', 'sel', { opts: [['', 'Đứng – lỗ đầu cao từ đáy'], ['C', 'Chéo – dọc đường lỗ (song song cạnh xiên)']] }));
 MODES['3'].fields.push(F('Cat', 'Cắt đôi băng – @2148 (dọc đáy từ trái) | G3 (qua cột lỗ 3) | G2.5 (giữa cột 2–3); ;S2/S1 = tên tấm trái/phải (bấm "✂ Cắt đôi")', 'text', { sec: 'Cắt đôi băng', ex: 'G3;S2/S1' }));
+// T150: Mode 5 - cot Tren = canh tren TU DO (chieu nghi: doan ngang / bac rieng o tren) - lisp 17 tim theo TEN, 16 ve
+MODES['5'].cols.push('Tren');
+MODES['5'].fields.push(F('Tren', 'Cạnh trên tự do (chỉ khi trên có đoạn ngang/bậc riêng): đo từ góc trên-TRÁI sang phải, vd N540+DL150/0 – đoạn cuối tự nối về góc trên-phải', 'day', { sec: 'Cạnh trên tự do', ex: 'N540+DL150/0' }));
 function m3C(v) { return /^C/i.test(String((v || {}).LoCheo == null ? '' : v.LoCheo).trim()); }
 // T11: 3 o "so kiem" (tho ghi tren giay: tong day, so lo dem duoc, canh xien) - CHI de doi chieu, KHONG co trong cols nen KHONG ghi vao CSV
 for (const m in MODES) {
@@ -2784,6 +2787,26 @@ function geom5(v, m, rev) {
       if (ip && TL[0] + 1 < ip[0] && ip[0] < TR[0] - 1) topMid = [ip];
     }
   }
+  // T150 (ThucTX S2/S6): o Tren = canh tren TU DO - cac doan tu goc tren-TRAI (ban ve cuoi) sang phai, cu phap nhu Day
+  //   (N / DL / DX, bac dung DL150/0); doan cuoi tu noi ve goc tren-phai. rev: tinh tu TR sang trai (truoc khi lat). Lisp: 16 (TREN:).
+  let c5Tren = 0;
+  const trS = String(v.Tren == null ? '' : v.Tren).trim();
+  if (trS !== '') {
+    const tsg = [];
+    trS.split('+').forEach(t0 => {
+      const tk = up(t0);
+      if (tk === '') return;
+      if (/^D[LX]/.test(tk)) { const ns = tk.slice(2).split('/'), s0 = lAtof(ns[0]), h0 = ns.length > 1 ? lAtof(ns[1]) : 0, w0 = s0 > h0 ? Math.sqrt(s0 * s0 - h0 * h0) : 0; tsg.push([h0, tk[1] === 'X' ? -w0 : w0]); }
+      else if (/^N/.test(tk)) tsg.push([lAtof(tk.slice(1)), 0]);
+      else tsg.push([lAtof(tk), 0]);
+    });
+    if (tsg.length) {
+      let pt = rev ? TR : TL; topMid = [];
+      tsg.forEach(sg => { pt = [pt[0] + (rev ? -sg[0] : sg[0]), pt[1] + sg[1]]; topMid.push(pt); });
+      if (rev) topMid.reverse();
+      c5Tren = tsg.length;
+    }
+  }
   // --- 1b. goc PHAI + cong trai (CutP3) - applyMods (T07) ---
   const nB = Bp.map((p, i) => nm('B' + i, p)), nT = [TR].concat(topMid.slice().reverse(), [TL]).map((p, i) => nm('T' + i, p));
   const r = applyMods(nB, nT[0], nT.slice(1, -1), nT[nT.length - 1], [], m, { leftOK: true, D });
@@ -2986,6 +3009,20 @@ function geom5(v, m, rev) {
     if (d && flagIdx !== null && s[flagIdx - 1] != null && s[flagIdx] != null &&
         sl[k] >= (rev ? s[flagIdx] : s[flagIdx - 1]) - 0.5 && sl[k + 1] <= (rev ? s[flagIdx - 1] : s[flagIdx]) + 0.5) markKT(d);
   }
+  // T150 (ThucTX.dxf S1/S6/S8/S2): duong lo tren doan DOC - tho do CONG DON tu chan doc (dau THAP cua doan)
+  //   -> dim cong don toi duong lo thu 2, 3.. (tang ngoai chuoi, cach 55). Lisp: 16 (c5cs).
+  {
+    let a0 = 0;
+    segs.forEach((sg, k) => {
+      const a1 = a0 + Ls[k];
+      if (Math.abs(sg[1]) > 1e-6 && Math.abs(sg[0]) > 0.5) {
+        const upS = sg[1] > 0, cs = lines5.filter(L => L.s > a0 + 0.5 && L.s < a1 - 0.5).map(L => L.s).sort((x, y) => upS ? x - y : y - x);
+        const lo = F(upS ? a0 : a1);
+        cs.slice(1).forEach((sv, j) => { const off = 60 + 55 * (j + 1); if (upS) edgeDim(lo, F(sv), off, stS, 'Day KhoangLo', 2); else edgeDim(F(sv), lo, off, stS, 'Day KhoangLo', 2); });
+      }
+      a0 = a1;
+    });
+  }
   // T56 (anh Dampt B4, PKV7 "965"): day gap khuc - doan NGANG co duong lo chia doan -> dim tong doan do (tu diem gap khuc toi het
   //   dau tam = tong cac doan chuoi 765 + 200), dat ngoai chuoi nhu canh tren (chainTotals: xtot). Bo doan bi sua goc (K / D / L).
   if (n > 1) {
@@ -3001,10 +3038,12 @@ function geom5(v, m, rev) {
   if (cR > 0.5 && Math.abs(cL - cR) <= 0.5 && Math.abs(segs[n - 1][1]) <= 1e-6) edgeDim(Bn, [TR[0], Bn[1]], 80, stS, 'DauPhai', 1);
   if (!bottomSpans && !hasSlope && sl.length > 2) rotH(B0, Bn, B0[1] - 120, '012', 'Day', 1);
   segs.forEach((sg, k) => {      // T143: khung xoay (mr) -> dim phoi la dim xoay, khong co dim ngang -> van ghi hinh chieu (DL1505/1220 1 doan)
-    if (Math.abs(sg[1]) > 1e-6 && (mr || Math.abs(sg[0] - (bx2 - bx1)) > 0.5)) rotH(Bp[k],Bp[k + 1], Math.min(Bp[k][1], Bp[k + 1][1]) - 130, stS, 'Day', 1);
+    // T150 (ThucTX S1): hang dim = DUOI day khung (by1 - 130), khong theo doan (doan sau bac -> dim nam trong kinh)
+    if (Math.abs(sg[1]) > 1e-6 && (mr || Math.abs(sg[0] - (bx2 - bx1)) > 0.5)) rotH(Bp[k],Bp[k + 1], Math.min(by1, Bp[k][1], Bp[k + 1][1]) - 130, stS, 'Day', 1);
   });
   // --- 9. canh tren + lech c + khoang "@" tu dau trai ---
-  if (!topSpans) { const mt = [TL].concat(topMid, [TR]); for (let k = 0; k < mt.length - 1; k++) edgeDim(mt[k + 1], mt[k], 40, stS, 'H DauTrai DauPhai', 1); }
+  // T150: co o Tren -> chi dim cac doan tho ghi, bo doan tu noi ve goc tren-phai
+  if (!topSpans) { const mt = [TL].concat(topMid, [TR]); for (let k = 0; k < mt.length - 1; k++) if (!c5Tren || (rev ? k >= mt.length - 1 - c5Tren : k < c5Tren)) edgeDim(mt[k + 1], mt[k], 40, stS, c5Tren ? 'Tren' : 'H DauTrai DauPhai', 1); }
   if (Math.abs(cL) > 0.5) topDim([B0[0], TL[1]], TL, 40, stS, 'DauTrai', 1);
   if (cR < -0.5) topDim(TR, [Bn[0], TR[1]], 40, stS, 'DauPhai', 1);
   let nAt = 0;
@@ -3033,6 +3072,9 @@ function geom5(v, m, rev) {
   if (Math.abs(cR) > 1e-6) edgeDim(c5N2 || Bn, TR, 60, stS, 'DauPhai H', 1);
   else if (hTwo) edgeDim(Bn, TR, 100, hStyle, 'H', 1);
   else if (!(m.cut > 0 || m.top > 0 || m.bot > 0 || m.kw > 0)) edgeDim(Bn, TR, 100, stS, 'H', 1);      // T52: dau phai dung - tho ghi be rong (770) CA 2 DAU
+  // T150 (ThucTX.dxf S1/S3/S7/S6 dau phai, S2 dau trai): dau DUNG ma chan dau cao hon day khung -> dim DUNG tu day khung len chan dau
+  if (!c5L0 && Math.abs(cL) <= 1e-6 && B0[1] - by1 > 0.5) rotV([B0[0], by1], B0, B0[0] - 100, stS, 'Day H', 1);
+  if (!c5N2 && c5sQ === null && Math.abs(cR) <= 1e-6 && Bn[1] - by1 > 0.5) rotV([Bn[0], by1], Bn, Bn[0] + 100, stS, 'Day H', 1);
   // --- 12. offset VUONG GOC tu dau tam toi duong lo dau / cuoi (CTK5-OffDim) ---
   const eA = rev ? [Bn, dR, Us[n - 1], cR] : [B0, dL, Us[0], cL], eB = rev ? [B0, dL, Us[0], cL] : [Bn, dR, Us[n - 1], cR];
   const offDim = (Q, e, top, mark) => {
@@ -9177,7 +9219,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261019074802';
+var CTK_BUILD = '20261019090052';
 (function () {
   function chk() {
     try {
