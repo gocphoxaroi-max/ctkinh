@@ -4514,6 +4514,14 @@ function catWrite(val) {
   catSetVal(t);
 }
 function catCol(t) { $('qin').value = t; $('qin').classList.remove('bad'); catSetVal(t); }
+// T149: huong duong cat: Xien (song song canh xien) / Dung (thang dung, them chu V sau vi tri)
+let CATV = false;
+function catVt(v) { const c = catParse(v.Cat); return c && c.k ? !!c.k.v : CATV; }
+function catDir(vt) {
+  CATV = !!vt; const c = catParse(readForm().Cat);
+  if (c && c.k) catCol(c.t.replace(/V$/, '') + (vt ? 'V' : '')); else { drawPreview(readForm()); sizeDock(); }
+  toast(vt ? 'Cắt ĐỨNG (thẳng đứng)' : 'Cắt XIÊN (song song cạnh xiên)');
+}
 function catName(j, val) {
   const el = $('f_Cat'), c = catParse(el ? el.value : ''); if (!c) { toast('Chọn điểm cắt trước'); return; }
   const nm = c.names.slice(); nm[j] = String(val).trim(); catSetVal(c.t, nm);
@@ -4521,22 +4529,24 @@ function catName(j, val) {
 function catDel() { $('qin').value = ''; catSetVal(''); toast('Đã bỏ cắt'); }
 function catPick(px, py) {      // cham hinh -> vi tri doc day (song song canh xien) -> G<k> neu gan cot lo
   if (!PVR || !PVR.k) return;
-  const v = readForm(), q = catCols(v), x = (px - PVR.ox) / PVR.k, y = -(py - PVR.oy) / PVR.k, t = q.H > 0 ? y * q.C / q.H : 0;
+  const v = readForm(), q = catCols(v), x = (px - PVR.ox) / PVR.k, y = -(py - PVR.oy) / PVR.k, vt = catVt(v), t = q.H > 0 && !vt ? y * q.C / q.H : 0;
   let xb = q.flip ? x - q.C + t : x - t, tok = null, bd = Math.min(24 / PVR.k, 0.15 * Math.min(...(q.a.length > 2 ? q.a.slice(1, -1) : q.a).filter(z => z > 1), 1e9));      // hit tam cot: <= 24 px va <= 15% khoang cot (con cat giua 2 cot duoc)
   q.cols.forEach((c, i) => { if (Math.abs(c - xb) < bd) { bd = Math.abs(c - xb); tok = 'G' + (i + 1); } });
   if (!tok) { if (!(xb > 1 && xb < q.Sa - 1)) { toast('Chạm trong băng kính'); return; } tok = '@' + Math.round(xb); }
-  catCol(tok);
+  catCol(tok + (vt ? 'V' : ''));      // T149: cat dung -> them V
 }
 function catBar(v) {
-  const c = catParse(v.Cat), q = catCols(v), g = geom(cur, v), ci = g.shape && g.shape.cutInfo;
+  const c = catParse(v.Cat), q = catCols(v), g = geom(cur, v), ci = g.shape && g.shape.cutInfo, vt = catVt(v), sv = vt ? 'V' : '';
   $('qsl').textContent = 'Điểm cắt';
-  $('qprog').innerHTML = '<b>✂ Cắt đôi băng</b> – chạm hình tại điểm cắt, hoặc gõ <b>G3</b> (qua cột lỗ 3), <b>G2.5</b> (giữa cột 2–3), <b>2148</b> (mm dọc đáy từ trái)';
-  $('qbk').disabled = true; $('qsp').hidden = true; $('qin').placeholder = 'G3 / 2148';
-  $('qlab').innerHTML = '<b>Cắt đôi băng</b> <small>– đường cắt song song cạnh xiên</small>';
+  $('qprog').innerHTML = '<b>✂ Cắt đôi băng</b> – chạm hình tại điểm cắt, hoặc gõ <b>G3</b> (qua cột lỗ 3), <b>G2.5</b> (giữa cột 2–3), <b>2148</b> (mm dọc đáy từ trái); thêm <b>V</b> = cắt đứng (<b>1500V</b>)';
+  $('qbk').disabled = true; $('qsp').hidden = true; $('qin').placeholder = vt ? 'G3V / 1500V' : 'G3 / 2148';
+  $('qlab').innerHTML = '<b>Cắt đôi băng</b> <small>– ' + (vt ? 'đường cắt THẲNG ĐỨNG (G3V = qua chân cột 3)' : 'đường cắt song song cạnh xiên') + '</small>';
   const op = $('qopt');
   if (!(document.activeElement && op.contains(document.activeElement))) {      // dang go ten -> khong ve lai (giu con tro)
     const nm = c ? c.names : ['', ''], d0 = String(v.TenTam || '').trim();
-    op.innerHTML = q.cols.map((x, i) => '<button type="button" class="' + (c && c.t === 'G' + (i + 1) ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="catCol(\'G' + (i + 1) + '\')">Cột ' + (i + 1) + '</button>').join('') +
+    op.innerHTML = '<button type="button" class="' + (vt ? '' : 'on') + '" onmousedown="event.preventDefault()" onclick="catDir(0)">⟋ Xiên</button>' +
+      '<button type="button" class="' + (vt ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="catDir(1)">| Đứng</button>' +      // T149: huong cat
+      q.cols.map((x, i) => '<button type="button" class="' + (c && c.t === 'G' + (i + 1) + sv ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="catCol(\'G' + (i + 1) + sv + '\')">Cột ' + (i + 1) + '</button>').join('') +
       (c ? '<button type="button" onmousedown="event.preventDefault()" onclick="catDel()">Bỏ cắt</button>' : '') +
       '<div class="catnm"><label>Tấm trái <input type="text" id="catN0" value="' + esc(nm[0]) + '" placeholder="' + esc(d0 + 'A') + '" autocapitalize="characters" onchange="catName(0, this.value)"></label>' +
       '<label>Tấm phải <input type="text" id="catN1" value="' + esc(nm[1]) + '" placeholder="' + esc(d0 + 'B') + '" autocapitalize="characters" onchange="catName(1, this.value)"></label></div>';
@@ -9167,7 +9177,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261019074244';
+var CTK_BUILD = '20261019074802';
 (function () {
   function chk() {
     try {
