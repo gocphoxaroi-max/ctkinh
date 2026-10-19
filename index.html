@@ -3709,9 +3709,30 @@ function geom(mode, v) {
       if (r.flip) flip = true;
     }
     if (S.dims && S.dims.length) chainTotals(S.dims, S.holes.map(h => [h.x, h.y]), S.dims.xtot);   // T29: dim tong chuoi dim day (truoc lat guong)
-    if (S.cutInfo) {      // T147: dim day TUNG TAM (sau dim tong bang) - hang duoi cung
-      const yb = Math.min(0, ...S.dims.filter(d => d.kind === 'ngang' && d.n && d.n[1] < 0 && d.a).map(d => d.a[1] - d.off));
-      S.cutInfo.forEach(p => dimAdd(S.dims, [p.x[0], 0], [p.x[1], 0], [(p.x[0] + p.x[1]) / 2, yb - 70], '012', 'Cat', 1));
+    if (S.cutInfo && S.cut) {      // T153 (theo CAD T151/T153): dim so le nhu 2 tam doc lap noi tiep
+      const xs = S.verts.map(q => q.p[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), Hc = S.cut.b[1], ca = S.cut.a[0], cb = S.cut.b[0], e = 0.5;
+      const isH = (d, top) => d.kind === 'ngang' && d.n && Math.abs(d.a[1] - d.b[1]) < e && (top ? d.n[1] > 0 && Math.abs(d.a[1] - Hc) < e : d.n[1] < 0 && Math.abs(d.a[1]) < e);
+      const lr = d => [Math.min(d.a[0], d.b[0]), Math.max(d.a[0], d.b[0])];
+      // 1. bo dim tong BANG (020-ok day phu het bang)
+      for (let k = S.dims.length - 1; k >= 0; k--) { const d = S.dims[k]; if (isH(d, false) && d.st === '020-ok' && lr(d)[0] <= x0 + e && lr(d)[1] >= x1 - e) S.dims.splice(k, 1); }
+      // 2. canh tren: dim chay qua dinh tren duong cat -> tach 2 dim (tung tam)
+      S.dims.filter(d => isH(d, true) && lr(d)[0] < cb - e && lr(d)[1] > cb + e).forEach(d => {
+        const [l, r] = lr(d), y = d.a[1], pt = [l, y + d.off];
+        S.dims.splice(S.dims.indexOf(d), 1);
+        dimAdd(S.dims, [l, y], [cb, y], pt, d.st, 'Cat', d.pri || 1); dimAdd(S.dims, [cb, y], [r, y], pt, d.st, 'Cat', d.pri || 1);
+      });
+      // 3. duoi: hang 1 = chuoi lo; hang 2 = day tung tam + phan mo rong thò ra; hang 3 = tong phoi tam o phia duoi
+      const yz = S.verts.filter(q => Math.abs(q.p[1]) < e).map(q => q.p[0]), bx0 = Math.min(...yz), bx1 = Math.max(...yz);
+      const bOff = Math.max(0, ...S.dims.filter(d => isH(d, false)).map(d => d.off)), catRow = bOff + 90, farRow = catRow + 100;
+      S.dims.filter(d => isH(d, false) && d.st !== '020-ok' && (lr(d)[0] >= bx1 - e || lr(d)[1] <= bx0 + e)).forEach(d => { d.off = catRow; });
+      S.cutInfo.forEach(p => dimAdd(S.dims, [p.x[0], 0], [p.x[1], 0], [(p.x[0] + p.x[1]) / 2, -catRow], '012', 'Cat', 1));
+      // 4. tong phoi tung tam: nghieng PHAI (hoac cat dung): TRAI tren / PHAI duoi; nghieng TRAI (lat guong, cat xien): DAO
+      //    (toa do truoc lat: tam trai o tren, tru khi lat guong + cat dung)
+      const lx = [x0, Math.max(ca, cb)], rx = [Math.min(ca, cb), x1], topL = !(flip && S.cut.vt), tT = topL ? lx : rx, tB = topL ? rx : lx;
+      const tOff = Math.max(0, ...S.dims.filter(d => isH(d, true)).map(d => d.off));
+      dimAdd(S.dims, [tT[0], Hc], [tT[1], Hc], [tT[0], Hc + tOff + 80], '020-ok', 'Cat', 1);
+      dimAdd(S.dims, [tB[0], 0], [tB[1], 0], [tB[0], -farRow], '020-ok', 'Cat', 1);
+      S.cutTot = { top: tT, bot: tB };
     }
     // T74: nhan tam dem CA lo phan cong trai L (lisp CTK-ApplyCornerMods -> CTK-LtLabel). Mode 5 lisp chua cong (module 16 ngoai phieu).
     if (mode !== '5') { const nL = S.holes.filter(h => h.src === 'L').length, lb = nL && S.dims.find(d => d.kind === 'nhan'); if (lb) lb.text = lblAdd(lb.text, nL, parseFloat(v.D) || 18); }
@@ -5320,7 +5341,7 @@ function renderPV(mode, v, W, H, opt) {
     return '<path d="M' + P(f.t1) + ' A' + rk + ' ' + rk + ' 0 0 ' + (cr > 0 ? 1 : 0) + ' ' + P(f.t2) + '" fill="none" stroke="' + FILC + '" stroke-width="2.4" pointer-events="none"/>';
   }).join('');
   s += g.holes.map((p, i) => '<circle cx="' + X(p) + '" cy="' + Y(p) + '" r="' + Math.max(((sh.holes[i] && sh.holes[i].d) || d) / 2 * k, 2.5).toFixed(1) + '" fill="#fff" stroke="#1f4e9c" stroke-width="1.3" data-hi="h' + i + '"' + ((sh.holes[i] && srcData[sh.holes[i].src]) || holeData) + '/>').join('');
-  if (sh.cut) s += ln(sh.cut.a, sh.cut.b, ' stroke="#e67e22" stroke-width="2.6" stroke-dasharray="10 5" pointer-events="none"');      // T147: duong cat doi bang (net dut cam)
+  if (sh.cut) s += ln(sh.cut.a, sh.cut.b, ' stroke="#e00000" stroke-width="2.4" pointer-events="none"');      // T153: duong cat doi bang = NET LIEN DO (nhu CAD T151)
   // dim
   const dcol = '#1e7a46', halo = ' stroke="#fff" stroke-width="3" paint-order="stroke" stroke-linejoin="round"';
   // T30: goc chu luon trong (-90,90] theo khung hinh (ang()); khi xoay T24 nguoi dung xoay may ngang nen khung hinh = khung doc -> KHONG lat them
@@ -9219,7 +9240,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261019090052';
+var CTK_BUILD = '20261019104322';
 (function () {
   function chk() {
     try {
