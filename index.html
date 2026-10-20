@@ -1004,7 +1004,7 @@ function m1HG2M3(s) {
 }
 function m1AsM3(v, H, C) {
   const hh = m1HG2M3(v.HoleGroups); if (hh == null) return null;
-  return Object.assign({}, v, { H: String(H), DiagLen: String(Math.hypot(C, H)), HoleHeights: hh, LoCheo: 'C', _m1: 1 });
+  return Object.assign({}, v, { H: String(H), DiagLen: String(Math.hypot(C, H)), HoleHeights: hh, LoCheo: 'C', _m1: 1, _H: H, _hyp: Math.hypot(C, H), _C: C });
 }
 // chuoi day ban ve CUOI (trai -> phai) + vi tri cot lo cua bang Mode 3 (cho cham hinh chon diem cat)
 function catCols(v, mode) {
@@ -1543,7 +1543,7 @@ function validate(mode, v, ctx) {
     (geom(mode, v).shape.cgWarn || []).forEach(t => warn.push(t));
   }
   if ((mode === '3' || mode === '1') && String(v.Cat || '').trim() && !err.Cat) {      // T147: cat doi bang (T160: + Mode 1)
-    const kh = ['CutP3', 'DistBaseList', 'GocDo', 'BoGoc', 'LoTuDo', 'CatGoc', 'TG_CanhTren'].filter(k => String(v[k] || '').trim());
+    const kh = ['DistBaseList', 'GocDo', 'BoGoc', 'LoTuDo', 'CatGoc', 'TG_CanhTren'].filter(k => String(v[k] || '').trim());
     if (kh.length) err.Cat = 'Băng cắt đôi chưa dùng chung với ' + kh.join(', ') + ' – bỏ các ô đó hoặc bỏ cắt';
     else if (!Object.keys(err).length) { const ce = geom(mode, v).shape.catErr; if (ce) err.Cat = ce; }
   }
@@ -3674,7 +3674,30 @@ function ltFromCSV(mode, v) {
 // ---- T154: BANG CAT DOI NGHIENG: CAD (CTK-M3CutItems + CTK-BandJoin) ve 2 tam Mode 3 DOC LAP roi ghep -> web lam y het:
 //   bandPieces = dung 2 tam (chuoi day / nhom lo tach tai diem cat, tam trai/phai tren ban ve CUOI), bandMerge = gop dim 2 tam
 //   (CTK-BandDimOff xoa dim lan sang tam kia; CTK-BandExtDown ha dim phan mo rong; tong phoi tam TRAI o TREN / PHAI o DUOI, nghieng trai dao).
-function bandPieces(v, cs, C) {
+// T163: CutP3 + cat doi: moi gia cong thuoc tam con chua dau bang cua no. Dau PHAI (cat goc / G / D / K) va dau TRAI (L / GT / V / MT) cua bang
+// (toa do tam GOC, truoc khi lat guong); nghieng TRAI: tam trai o ban ve cuoi chua dau PHAI goc.
+function cutSplitEnds(s) {
+  const t = normCut(s).split('/').filter(x => x !== ''), L = [], R = [];
+  for (let i = 0; i < t.length; i++) {
+    const k = t[i].toUpperCase();
+    if (/^(MT|GT|V|L)/.test(k)) {
+      L.push(t[i]);
+      if (/^L[0-9.]+@/.test(k)) { if (i + 1 < t.length) L.push(t[++i]); if (/^[0-9.]+$/.test(t[i + 1] || '') && parseFloat(t[i + 1]) > 0) L.push(t[++i]); }
+    }
+    else if (/^K/.test(k)) { R.push(t[i]); if (i + 1 < t.length) R.push(t[++i]); }
+    else R.push(t[i]);
+  }
+  return { L, R };
+}
+function bandCutP3(v, flip) {      // -> {l, r, ext: {l, r}} chuoi CutP3 cho tam con TRAI / PHAI tren ban ve cuoi + be rong can cho moi dau
+  if (!String(v.CutP3 || '').trim()) return { l: '', r: '', ext: { l: 0, r: 0 } };
+  const e = cutSplitEnds(v.CutP3), jl = e.L.join('/'), jr = e.R.join('/'), ml = parseCut(jl), mr = parseCut(jr);
+  // be rong can o day (nhu CAD CTK-M3Straddle): cat goc 70 -> 70; D -> D*canh xien/C; K -> rong*canh xien/H; V -> V*canh xien/H (L / GT / G nhu cong ra ngoai, khong vat)
+  const H = parseFloat(v._H) || 0, hyp = parseFloat(v._hyp) || 0, C = parseFloat(v._C) || 0;
+  const wr = Math.max(mr.cut, C > 1e-6 && mr.bot > 0 ? mr.bot * hyp / C : 0, H > 0 ? mr.kw * hyp / H : 0), wl = H > 0 ? ml.vc * hyp / H : 0;
+  return { l: flip ? jr : jl, r: flip ? jl : jr, ext: { l: flip ? wr : wl, r: flip ? wl : wr } };
+}
+function bandPieces(v, cs, C, flip) {
   if (!cs || cs.err || cs.vt) return null;
   const f = k => parseFloat(v[k]) || 0, H = f('H'), DL = f('DiagLen'), rect = !(C > 1e-6); if (!(H > 0) || !(rect ? DL >= H - 1e-6 : DL > H)) return null;      // T160: C = 0 (hinh chu nhat) cung 2 tam (AList = AKnownList nhu lisp)
   const xf = cs.xf, cols = cs.cols, Sa = cs.Sa, tk = String(v.HoleHeights == null ? '' : v.HoleHeights).trim().split('-').map(x => x.trim());
@@ -3685,10 +3708,10 @@ function bandPieces(v, cs, C) {
   rA.push(Sa - prev);
   if (lA.length < 1 || rA.length < 1) return null;      // T159: tam khong co cot lo nao (cat truoc cot dau / sau cot cuoi) van la tam Mode 3 1 doan day (nhu CTK-M3Piece AList 1 phan tu)
   const r9 = x => String(Math.round(x * 1e9) / 1e9), blank = { Cat: '', CutP3: '', X: '', Y: '', DistBaseList: '', HoleGroupsB: '', EdgeQ1Q2: '', GocDo: '', BoGoc: '', CatGoc: '', LoTuDo: '', SoLuong: '1' };
-  const mk = (nm, A, G) => { if (rect) return geom('3', Object.assign({}, v, blank, { TenTam: nm, DiagLen: String(H), OffsetLeft: '0', AKnownList: A.map(r9).join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-'), _a: A.slice() })).shape;
+  const mk = (nm, A, G, cp) => { if (rect) return geom('3', Object.assign({}, v, blank, { CutP3: cp || '', TenTam: nm, DiagLen: String(H), OffsetLeft: '0', AKnownList: A.map(r9).join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-'), _a: A.slice() })).shape;
     const a1 = A[0] * H / DL, mid = A.slice(1, -1), mv = mid.map(r9);
-    return geom('3', Object.assign({}, v, blank, { TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') }, A.length < 2 ? { _a: [A[0]] } : {})).shape; };      // T159: 1 doan day (khong lo) -> AList 1 phan tu nhu lisp
-  const L = mk(cs.names[0], lA, lG), R = mk(cs.names[1], rA, rG);
+    return geom('3', Object.assign({}, v, blank, { CutP3: cp || '', TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') }, A.length < 2 ? { _a: [A[0]] } : {})).shape; };      // T159: 1 doan day (khong lo) -> AList 1 phan tu nhu lisp
+  const bc = bandCutP3(Object.assign({}, v, { _H: H, _hyp: DL, _C: C }), flip), L = mk(cs.names[0], lA, lG, bc.l), R = mk(cs.names[1], rA, rG, bc.r);
   return L && R && L.verts.length > 2 && R.verts.length > 2 ? { L, R, xf } : null;
 }
 // cat DUNG (@1500V...) = 2 tam MODE 5 hinh thang (nhu CTK-M3VCut / CTK-M3VSide: KhoangLo + Lo tinh tu cot lo bi cat)
@@ -3721,9 +3744,9 @@ function bandPiecesV(v, cs, C, flip) {
     }
     return { kl, lo: lo || '' };
   };
-  const base = { H: r4(H), D: r4(f('D') || 18), LoPhu: '', CutP3: '', X: '', Y: '', SoLuong: '1' }, sL = side(0), sR = side(1);
-  const mk = (nm, day, dt, dp, sd, hg) => geom('5', Object.assign({}, base, { TenTam: nm, Day: day, DauTrai: dt, DauPhai: dp, KhoangLo: sd.kl, Lo: sd.lo, Huong: hg })).shape;
-  const L = mk(cs.names[0], 'N' + r4(xc), 'C' + r4(sg * C), '0', sL, ''), R = mk(cs.names[1], 'N' + r4(Sa - xc), '0', 'C' + r4(-sg * C), sR, 'T');
+  const base = { H: r4(H), D: r4(f('D') || 18), LoPhu: '', CutP3: '', X: '', Y: '', SoLuong: '1' }, sL = side(0), sR = side(1), bc = bandCutP3(Object.assign({}, v, { _H: H, _hyp: dl, _C: C }), flip);      // T163: tam Mode 5 chi nhan gia cong 'dau trai' tai dau xien cua no (tam PHAI luon lat guong)
+  const mk = (nm, day, dt, dp, sd, hg, cp) => geom('5', Object.assign({}, base, { CutP3: cp || '', TenTam: nm, Day: day, DauTrai: dt, DauPhai: dp, KhoangLo: sd.kl, Lo: sd.lo, Huong: hg })).shape;
+  const L = mk(cs.names[0], 'N' + r4(xc), 'C' + r4(sg * C), '0', sL, '', flip ? '' : bc.l), R = mk(cs.names[1], 'N' + r4(Sa - xc), '0', 'C' + r4(-sg * C), sR, 'T', flip ? bc.r : '');
   return L && R && L.verts.length > 2 && R.verts.length > 2 ? { L, R, vt: true } : null;
 }
 function bandMerge(S) {
@@ -3752,17 +3775,19 @@ function bandMerge(S) {
     out.push(...ds);
   };
   const mnx = sh => Math.min(...sh.verts.map(q => q.p[0])), mxx = sh => Math.max(...sh.verts.map(q => q.p[0]));
-  take(P.L, P.vt ? S.cut.a[0] - mxx(P.L) : 0, -1); take(P.R, P.vt ? S.cut.a[0] - mnx(P.R) : P.xf, 1);      // cat dung: canh dung cua moi tam trung duong cat
+  take(P.L, P.vt ? S.cut.a[0] - mxx(P.L) : (() => { const bs = P.L.verts.filter(q => Math.abs(q.p[1]) < e).map(q => q.p[0]); return bs.length ? S.cut.a[0] - Math.max(...bs) : 0; })(), -1);      // T163: tam trai canh theo chan duong cat
+  take(P.R, P.vt ? S.cut.a[0] - mnx(P.R) : (() => { const bs = P.R.verts.filter(q => Math.abs(q.p[1]) < e).map(q => q.p[0]); return bs.length ? S.cut.a[0] - Math.min(...bs) : P.xf; })(), 1);      // cat dung: canh dung cua moi tam trung duong cat
   // dim trung hoan toan (vd 3 dim lo cua cot nam tren duong cat - ca 2 tam deu co) chi giu 1
   { const seen = {}, rd = x => Math.round(x * 2); for (let k = 0; k < out.length; k++) { const d = out[k], key = [d.kind, rd(d.a[0]), rd(d.a[1]), rd(d.b[0]), rd(d.b[1]), rd(d.off || 0), d.text].join('|');
       if (seen[key]) { out.splice(k, 1); k--; } else seen[key] = 1; } }
   // 4. tong phoi tung tam: nghieng PHAI = TRAI tren / PHAI duoi; nghieng TRAI = DAO (CTK-BandJoin 4b/4c)
   const Hc = B[1], yy = d => d.a[1] + d.n[1] * d.off, hz = d => d.kind === 'ngang' && d.n && Math.abs(d.a[1] - d.b[1]) < e;
   const tops = out.filter(d => hz(d) && yy(d) > Hc + tol).map(yy), bots = out.filter(d => hz(d) && yy(d) < -tol).map(yy);
-  const yT = tops.length ? Math.max(...tops) + 80 : Hc + 120, d0 = ys.length ? Math.min(...ys) : bots.length ? Math.min(...bots) - 100 : -250;
+  const tpc = B[0] < A[0] - 1 ? P.R : P.L, yT = Math.max(tops.length ? Math.max(...tops) + 80 : 0, Math.max(Hc, ...tpc.verts.map(q => q.p[1])) + 120), d0 = ys.length ? Math.min(...ys) : bots.length ? Math.min(...bots) - 100 : -250;
   const lean = B[0] < A[0] - 1;
+  const allY = [].concat(P.L.verts, P.R.verts).map(q => q.p[1]), yMax = Math.max(Hc, ...allY), yMin = Math.min(0, ...allY);
   [[ext[0], !lean], [ext[1], lean]].forEach(([x, top]) => {
-    if (top) dimAdd(out, [x[0], Hc], [x[1], Hc], [x[0], yT], '020-ok', 'Cat', 1); else dimAdd(out, [x[0], 0], [x[1], 0], [x[0], d0], '020-ok', 'Cat', 1);
+    if (top) dimAdd(out, [x[0], yMax], [x[1], yMax], [x[0], yT], '020-ok', 'Cat', 1); else dimAdd(out, [x[0], yMin], [x[1], yMin], [x[0], d0], '020-ok', 'Cat', 1);      // T163: diem do tong phoi = mep tren/duoi CAO/THAP nhat cua 2 tam (G / D nhu CAD)
   });
   S.cutTot = { top: lean ? ext[1] : ext[0], bot: lean ? ext[0] : ext[1] };
   S.dims = out.concat(S.dims.filter(d => d.kind === 'nhan'));
@@ -3893,7 +3918,7 @@ function geom(mode, v) {
         }
         let vCat = v;      // T160: Mode 1 -> quy ve o nhap Mode 3 (lo do cheo) de dung chung bandPieces / bandPiecesV / catSplit
         if (mode === '1' && String(v.Cat || '').trim()) {
-          const un = String(v.CutP3 || '').trim() || db.length ? 'có CutP3 / mở rộng A+B' : null;
+          const un = db.length ? 'có mở rộng A+B' : null;      // T163: CutP3 nay di cung cat doi (moi gia cong thuoc tam con chua dau bang cua no)
           vCat = un ? null : m1AsM3(v, H, C);
           if (!vCat) S.ignored.push('cắt đôi băng (' + (un || 'nhóm lỗ không đổi được') + ')');
         }
@@ -3903,6 +3928,12 @@ function geom(mode, v) {
           // T149: cat dung qua TAM lo (<= 0.5) -> lisp chua ho tro (CTK-M3VCut)
           if (cs && cs.vt && S.holes.some(h => h.src === 'main' && Math.abs(h.x - xp) <= 0.5)) cs.err = 'Đường cắt đứng đi qua tâm lỗ – dời điểm cắt ít nhất 1 mm';
           if (mode === '1' && cs && cs.vt && !cs.err && /(^|[-\/])T/i.test(String(v.HoleGroups || ''))) cs.err = 'Cắt đứng chưa dùng với lỗ đo từ mép trên (T…)';      // T160 (lisp T161: bao canh bao)
+          if (cs && !cs.err && String(v.CutP3 || '').trim()) {      // T163: gia cong CutP3 o dau bang khong duoc vat qua duong cat
+            const bc = bandCutP3(Object.assign({}, vCat, { _H: H, _hyp: hyp, _C: C }), flip), wl = cs.xf, wr = cs.Sa - cs.xf;
+            if (cs.vt) cs.err = 'Cắt đứng (hậu tố V) chưa dùng chung với CutP3 – dùng cắt xiên hoặc bỏ gia công';
+            else             if (bc.ext.l > 0 && bc.ext.l > wl - 1) cs.err = 'Gia công CutP3 ở đầu trái (' + _r1(bc.ext.l) + ') vắt qua đường cắt (tấm trái chỉ rộng ' + _r1(wl) + ') – dời điểm cắt ra xa đầu băng hoặc bỏ gia công';
+            else if (bc.ext.r > 0 && bc.ext.r > wr - 1) cs.err = 'Gia công CutP3 ở đầu phải (' + _r1(bc.ext.r) + ') vắt qua đường cắt (tấm phải chỉ rộng ' + _r1(wr) + ') – dời điểm cắt ra xa đầu băng hoặc bỏ gia công';
+          }
           if (cs && cs.err) S.catErr = cs.err;
           else if (cs) {
             S.cut = cs.vt ? { a: [xp, 0], b: [xp, H], vt: true } : { a: [xp, 0], b: [xp + C, H] };
@@ -3912,7 +3943,7 @@ function geom(mode, v) {
             const rg = j => { const u0 = X(j ? cs.xf : 0), u1 = X(j ? Sa : cs.xf); return [Math.min(u0, u1), Math.max(u0, u1)]; };
             S.cutInfo = [0, 1].map(j => ({ n: cs.names[j], day: j ? Sa - cs.xf : cs.xf, lo: nh(j), x: rg(j), thru: cs.thru }));
             S.dims = S.dims.filter(d => d.kind !== 'nhan');
-            S.bandPcs = cs.vt ? bandPiecesV(vCat, cs, C, flip) : bandPieces(vCat, cs, C);      // T154: cat nghieng -> 2 tam Mode 3 doc lap (nhu CAD)
+            S.bandPcs = cs.vt ? bandPiecesV(vCat, cs, C, flip) : bandPieces(vCat, cs, C, flip);      // T154: cat nghieng -> 2 tam Mode 3 doc lap (nhu CAD)
             if (mode === '1' && S.bandPcs) { const M1 = { OffsetLeft: 'AList', AKnownList: 'AList', Total: 'AList', HoleHeights: 'HoleGroups', DiagLen: 'C' };      // T160: nguon dim -> o Mode 1
               [S.bandPcs.L, S.bandPcs.R].forEach(sh => sh.dims.forEach(d => { if (d.src) d.src = d.src.split(' ').map(t => M1[t] || t).join(' '); })); }
             S.cutInfo.forEach(p => { const c = [(p.x[0] + p.x[1]) / 2 + C / 2, H / 2]; S.dims.push({ kind: 'nhan', a: c, b: c, val: 0, text: nhanTxt(p.n, '-', p.lo, D), src: 'Cat', pri: 2 }); });
@@ -9620,7 +9651,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261020080739';
+var CTK_BUILD = '20261020091631';
 (function () {
   function chk() {
     try {
