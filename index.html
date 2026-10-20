@@ -3666,10 +3666,10 @@ function bandPieces(v, cs, C) {
   lA.push(xf - prev); prev = xf;
   cols.forEach((x, i) => { if (x >= xf - 1e-6) { rA.push(x - prev); rG.push(tk[i] || ''); prev = x; } });
   rA.push(Sa - prev);
-  if (lA.length < 2 || rA.length < 2) return null;      // khong co cot lo trong 1 tam -> dim bang cu
+  if (lA.length < 1 || rA.length < 1) return null;      // T159: tam khong co cot lo nao (cat truoc cot dau / sau cot cuoi) van la tam Mode 3 1 doan day (nhu CTK-M3Piece AList 1 phan tu)
   const r9 = x => String(Math.round(x * 1e9) / 1e9), blank = { Cat: '', CutP3: '', X: '', Y: '', DistBaseList: '', HoleGroupsB: '', EdgeQ1Q2: '', GocDo: '', BoGoc: '', CatGoc: '', LoTuDo: '', SoLuong: '1' };
   const mk = (nm, A, G) => { const a1 = A[0] * H / DL, mid = A.slice(1, -1), mv = mid.map(r9);
-    return geom('3', Object.assign({}, v, blank, { TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') })).shape; };
+    return geom('3', Object.assign({}, v, blank, { TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') }, A.length < 2 ? { _a: [A[0]] } : {})).shape; };      // T159: 1 doan day (khong lo) -> AList 1 phan tu nhu lisp
   const L = mk(cs.names[0], lA, lG), R = mk(cs.names[1], rA, rG);
   return L && R && L.verts.length > 2 && R.verts.length > 2 ? { L, R, xf } : null;
 }
@@ -3779,7 +3779,7 @@ function geom(mode, v) {
         const DL = f('DiagLen'); C = Math.sqrt(Math.max(0, DL * DL - H * H));
         const a1 = f('OffsetLeft') * DL / (H || 1), mid = nums(v.AKnownList);
         // T25: C = 0 (DiagLen <= H, tam chu nhat) -> lisp dung THANG AKnownList lam AList (bo OffsetLeft/Total)
-        a = C < 1e-6 ? mid : [a1, ...mid, f('Total') - a1 - mid.reduce((s, x) => s + x, 0)];
+        a = v._a ? v._a.slice() : C < 1e-6 ? mid : [a1, ...mid, f('Total') - a1 - mid.reduce((s, x) => s + x, 0)];      // T159: _a = AList san (tam cat khong co cot lo)
       }
       const nAxU = Math.max(0, a.length - 1), hyp = Math.hypot(C, H);
       // T85: co DistBaseList nhung EdgeQ1Q2 trong -> Q1Q2 = canh xien (song song, dai bang canh xien; lisp 17 CTHL-RowToItem)
@@ -5128,6 +5128,19 @@ function pvPlaceOther(d, k, fs, poly, texts, lines, items, f, W, Hh) {
         }
         for (const c of co) if (free(c, w2, h2, hm) && !inPoly(c, w2, h2, -1) && !pvInside([c[0] / k, -c[1] / k], poly)) { best = { c, f: f2, out: true }; break; }
       }
+      if (!best && d.src === 'Cat') {      // T159: nhan 2 tam cua BANG CAT DOI KHONG duoc mat (CAD luon co 2 nhan): het cho thi chon vi tri VUONG IT NHAT (co chu 70 %), uu tien gan tam tam
+        const f2 = f * 0.7, w2 = tw(d.text, f2) / 2, h2 = (f2 + 2) / 2;
+        const pen = c => { const bx = pvBox(c, [1, 0], w2, h2); let n = texts.filter(x => pvHit(x, bx)).length * 4 + lines.filter(x => pvHit(x, bx)).length * 2;
+          for (const o of hl) { const dx = Math.max(Math.abs(o.c[0] - c[0]) - w2, 0), dy = Math.max(Math.abs(o.c[1] - c[1]) - h2, 0); if (dx * dx + dy * dy < o.r * o.r) n += 3; }
+          return n; };
+        let bs = null, bsn = 1e9;
+        const st = Math.max(f2 * 0.8, (X1 - X0) / 60, (Y1 - Y0) / 60);
+        for (let x = X0 + w2; x <= X1 - w2 + 1e-6; x += st) for (let y = Y0 + h2; y <= Y1 - h2 + 1e-6; y += st) {
+          const c = [x, y]; if (!inPoly(c, w2, h2, 0)) continue;
+          const n = pen(c) + Math.hypot(c[0] - c0[0], c[1] - c0[1]) / (X1 - X0 + 1) ; if (n < bsn) { bsn = n; bs = c; } }
+        if (bs) best = { c: bs, f: f2 };
+        else best = { c: c0, f: f2 };
+      }
       if (best) {
         const b = pvBox(best.c, [1, 0], tw(d.text, best.f) / 2, (best.f + 2) / 2);
         let lead = null;
@@ -5586,11 +5599,20 @@ function renderPV(mode, v, W, H, opt) {
   };
   const box2 = [{ kind: 'ngang', a: [x0, y0], b: [x1, y0], n: [0, -1], off: 1, st: '020-ok', text: String(Rn(w)), src: '', pri: 1 },
                 { kind: 'doc', a: [x0, y0], b: [x0, y1], n: [-1, 0], off: 1, st: '020-ok', text: String(Rn(h)), src: '', pri: 1 }];
+  // T159: BANG CAT DOI (S.cutTot) - CAD KHONG co dim tong ca bang: dim bao ngoai = tong phoi tung tam (TRAI tren / PHAI duoi, nghieng trai dao) + chieu cao; KEM 2 nhan tam
+  if (sh.cutTot && sh.cutInfo) {
+    const hc = sh.cut ? Math.abs(sh.cut.b[1] - sh.cut.a[1]) : h, tt = sh.cutTot.top, tb = sh.cutTot.bot;
+    box2[0] = { kind: 'ngang', a: [tt[0], y1], b: [tt[1], y1], n: [0, 1], off: 1, st: '020-ok', text: String(Rn(tt[1] - tt[0])), src: 'Cat', pri: 1 };
+    box2[1] = { kind: 'ngang', a: [tb[0], y0], b: [tb[1], y0], n: [0, -1], off: 1, st: '020-ok', text: String(Rn(tb[1] - tb[0])), src: 'Cat', pri: 1 };
+    box2.push({ kind: 'doc', a: [x0, y0], b: [x0, y0 + hc], n: [-1, 0], off: 1, st: '020-ok', text: String(Rn(hc)), src: '', pri: 1 });
+    sh.dims.filter(d => d.kind === 'nhan').forEach(d => box2.push(d));
+  }
   // chua co dim CAD (mode khac) hoac tat dim: 2 dim bao ngoai nhu cu
   // T32: muc Chinh bo dim lo khoan (tru dim lo dang duoc cham / bam o nhap); Du / mac dinh (anh xuat, PDF) = tat ca
   const revSet = (opt.dims && opt.dimLv === 'chinh') ? pvRevDims(sh, opt.rev) : new Set();
   const base = (opt.dims && opt.dimLv === 'chinh' && sh.dims) ? sh.dims.filter(d => !pvIsHoleDim(d) || revSet.has(d)) : sh.dims;
-  const sets = opt.noBox ? [[]] : opt.q ? qSets(base, w, h) : (opt.dims && base && base.length) ? (opt.full ? [base, base.filter(d => d.pri === 1)] : [base.filter(d => d.pri === 1)]).concat([box2]) : [box2];
+  const p1 = d => d.pri === 1 || (sh.cutInfo && d.kind === 'nhan');      // T159: bang cat doi - 2 nhan tam khong bi bo khi khung chat
+  const sets = opt.noBox ? [[]] : opt.q ? qSets(base, w, h) : (opt.dims && base && base.length) ? (opt.full ? [base, base.filter(p1)] : [base.filter(p1)]).concat([box2]) : [box2];
   let dims = sets[0];
   // tim ti le k (px/mm) LON NHAT de hinh + toan bo dim lot khung (chu dim giu co pixel) - chia doi
   const pt = opt.padTop == null ? 30 : opt.padTop;     // chua cho nhan kich thuoc / nut Dim / phong to o tren
@@ -9570,7 +9592,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261019124356';
+var CTK_BUILD = '20261020074934';
 (function () {
   function chk() {
     try {
