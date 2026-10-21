@@ -1808,6 +1808,7 @@ function frameRefs(refs, p1, p2, p3, p4, f) {
   if (f.okB) { xR = Math.max(xR, f.p2n[0]); yBot = Math.min(yBot, f.p2n[1]); }
   if (f.okL) xL = Math.min(xL, f.L0[0], f.L1[0]);
   const keepL = f.okL && f.okT;
+  f.box = { xL, xR, yBot, yTop };      // T166: khung phoi (net dut) - tong phoi bang cat doi do toi day
   // ben phai: canh doc khung (moi), canh doc khung cu giu lai khi cong tren, day khung keo toi xR
   R([xR, yBot], [xR, yTop]);
   if (f.okT) R([oXR, yB0], [oXR, yT0]);
@@ -2005,7 +2006,7 @@ function applyMods(B, TR, mid, TL, tail, m, o) {
     }
   }
   out.verts = [...bot, ...cpB, ...cpT, ...mid, ...left, ...tail, ...vEnd];
-  if (o.frame) { fr.any = fr.okT || fr.okB || fr.okL || fr.okTL || fr.vcut || notched || cpT.length === 2; frameRefs(out.refs, P(B[0]), p2, p3, p4, fr); }
+  if (o.frame) { fr.any = fr.okT || fr.okB || fr.okL || fr.okTL || fr.vcut || notched || cpT.length === 2; frameRefs(out.refs, P(B[0]), p2, p3, p4, fr); if (fr.box) out.frameBox = fr.box; }
   else {                                                      // Mode 5 / MT / cat goc P1: giu cach ve cu (chua doi chieu lisp)
     if (fr.okL) out.refs.push({ a: P(B[0]), b: p4 });
     if (fr.okB) out.refs.push({ a: P(cpB[0]), b: p2 }, { a: p2, b: fr.p2n });
@@ -3755,7 +3756,8 @@ function bandMerge(S) {
   const ys = [], out = [], ext = [];
   const take = (sh, dx, sgn) => {
     const verts = sh.verts.map(q => [q.p[0] + dx, q.p[1]]), xs = verts.map(q => q[0]), bx = verts.filter(q => Math.abs(q[1]) < e).map(q => q[0]);
-    ext.push([Math.min(...xs), Math.max(...xs)]);
+    const fb = sh.frameBox;      // T166: tong phoi do toi NET DUT (khung phoi nguyen truoc khi cat goc), nhu tam don
+    ext.push(fb ? [Math.min(...xs, fb.xL + dx), Math.max(...xs, fb.xR + dx)] : [Math.min(...xs), Math.max(...xs)]);
     // 1. CTK-BandDimOff: xoa dim lan sang tam kia
     let ds = sh.dims.filter(d => d.kind !== 'nhan').map(d => shift(d, dx)).filter(d => {
       if (!(d.kind === 'ngang' || d.kind === 'doc' || d.kind === 'xien') || !d.n) return true;
@@ -3785,7 +3787,7 @@ function bandMerge(S) {
   const tops = out.filter(d => hz(d) && yy(d) > Hc + tol).map(yy), bots = out.filter(d => hz(d) && yy(d) < -tol).map(yy);
   const tpc = B[0] < A[0] - 1 ? P.R : P.L, yT = Math.max(tops.length ? Math.max(...tops) + 80 : 0, Math.max(Hc, ...tpc.verts.map(q => q.p[1])) + 120), d0 = ys.length ? Math.min(...ys) : bots.length ? Math.min(...bots) - 100 : -250;
   const lean = B[0] < A[0] - 1;
-  const allY = [].concat(P.L.verts, P.R.verts).map(q => q.p[1]), yMax = Math.max(Hc, ...allY), yMin = Math.min(0, ...allY);
+  const allY = [].concat(P.L.verts, P.R.verts).map(q => q.p[1]).concat([P.L, P.R].reduce((r, z) => z.frameBox ? r.concat([z.frameBox.yBot, z.frameBox.yTop]) : r, [])), yMax = Math.max(Hc, ...allY), yMin = Math.min(0, ...allY);
   [[ext[0], !lean], [ext[1], lean]].forEach(([x, top]) => {
     if (top) dimAdd(out, [x[0], yMax], [x[1], yMax], [x[0], yT], '020-ok', 'Cat', 1); else dimAdd(out, [x[0], yMin], [x[1], yMin], [x[0], d0], '020-ok', 'Cat', 1);      // T163: diem do tong phoi = mep tren/duoi CAO/THAP nhat cua 2 tam (G / D nhu CAD)
   });
@@ -3799,7 +3801,7 @@ function geom(mode, v) {
   const S = { verts: [], holes: [], axes: [], refs: [], mods: null, ignored: [], dims: [] };
   const D = f('D') || 18, nm = (n, p) => ({ n, p });
   const addHole = (p, src, axis) => S.holes.push({ x: p[0], y: p[1], d: D, src, axis });
-  const take = r => { S.verts = r.verts; S.holes.push(...r.holes); S.axes.push(...r.axes); S.refs.push(...r.refs); S.ignored.push(...r.ignored); };
+  const take = r => { S.verts = r.verts; S.holes.push(...r.holes); S.axes.push(...r.axes); S.refs.push(...r.refs); S.ignored.push(...r.ignored); if (r.frameBox) S.frameBox = r.frameBox; };
   const m = parseCut(v.CutP3); S.mods = m;
   // T17: Mode 1 / TG / Mode 3 nghieng TRAI: nhu lisp - dao AList + thu tu nhom lo, ve nhu nghieng phai roi LAT GUONG
   // T18b: Mode 5 nghieng TRAI cung lat guong (so lieu doc trai -> phai tren ban ve cuoi, xem rev5)
@@ -9651,7 +9653,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261020091631';
+var CTK_BUILD = '20261021073710';
 (function () {
   function chk() {
     try {
