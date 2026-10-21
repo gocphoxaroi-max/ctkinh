@@ -3711,7 +3711,7 @@ function bandPieces(v, cs, C, flip) {
   const r9 = x => String(Math.round(x * 1e9) / 1e9), blank = { Cat: '', CutP3: '', X: '', Y: '', DistBaseList: '', HoleGroupsB: '', EdgeQ1Q2: '', GocDo: '', BoGoc: '', CatGoc: '', LoTuDo: '', SoLuong: '1' };
   const mk = (nm, A, G, cp) => { if (rect) return geom('3', Object.assign({}, v, blank, { CutP3: cp || '', TenTam: nm, DiagLen: String(H), OffsetLeft: '0', AKnownList: A.map(r9).join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-'), _a: A.slice() })).shape;
     const a1 = A[0] * H / DL, mid = A.slice(1, -1), mv = mid.map(r9);
-    return geom('3', Object.assign({}, v, blank, { CutP3: cp || '', TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') }, A.length < 2 ? { _a: [A[0]] } : {})).shape; };      // T159: 1 doan day (khong lo) -> AList 1 phan tu nhu lisp
+    return geom('3', Object.assign({}, v, blank, { _bandV: 1, CutP3: cp || '', TenTam: nm, OffsetLeft: r9(a1), AKnownList: mv.join('-'), Total: r9(A.reduce((t, x) => t + x, 0)), HoleHeights: G.join('-') }, A.length < 2 ? { _a: [A[0]] } : {})).shape; };      // T159: 1 doan day (khong lo) -> AList 1 phan tu nhu lisp
   const bc = bandCutP3(Object.assign({}, v, { _H: H, _hyp: DL, _C: C }), flip), L = mk(cs.names[0], lA, lG, bc.l), R = mk(cs.names[1], rA, rG, bc.r);
   return L && R && L.verts.length > 2 && R.verts.length > 2 ? { L, R, xf } : null;
 }
@@ -3754,8 +3754,17 @@ function bandMerge(S) {
   const P = S.bandPcs, e = 0.5, A = S.cut.a, B = S.cut.b, ln = V2.dist(A, B), u = [(B[0] - A[0]) / ln, (B[1] - A[1]) / ln], tol = 1;
   const sd = p => u[0] * (p[1] - A[1]) - u[1] * (p[0] - A[0]), shift = (d, dx) => dx ? Object.assign({}, d, { a: [d.a[0] + dx, d.a[1]], b: [d.b[0] + dx, d.b[1]] }, d.c ? { c: [d.c[0] + dx, d.c[1]] } : {}) : Object.assign({}, d);
   const ys = [], out = [], ext = [];
+  // T167: CTK-BandExtDown chi gom dim co diem do nam tren day THAP NHAT cua 2 tam (ybot, tinh ca khung net dut) - tam co D/G keo day xuong thi chuoi day KHONG bi ha hang
+  const yb = Math.min(...P.L.verts.concat(P.R.verts).map(q => q.p[1]), ...[P.L, P.R].filter(z => z.frameBox).map(z => z.frameBox.yBot));
   const take = (sh, dx, sgn) => {
-    const verts = sh.verts.map(q => [q.p[0] + dx, q.p[1]]), xs = verts.map(q => q[0]), bx = verts.filter(q => Math.abs(q[1]) < e).map(q => q[0]);
+    const verts = sh.verts.map(q => [q.p[0] + dx, q.p[1]]), xs = verts.map(q => q[0]), bx = verts.filter(q => Math.abs(q[1] - yb) < e).map(q => q[0]);
+    // CAD ve day (net lien) toi chan canh xien khung phoi qua mieng khoet K: noi dai g0..g1 theo ref ngang tai day ket thuc o chan 1 ref xien
+    { const rf = (sh.refs || []).map(r => [[r.a[0] + dx, r.a[1]], [r.b[0] + dx, r.b[1]]]), ob = rf.filter(r => Math.abs(r[0][1] - r[1][1]) > e && Math.abs(r[0][0] - r[1][0]) > e), onFoot = pt => ob.some(r => (Math.abs(r[0][0] - pt[0]) < e && Math.abs(r[0][1] - pt[1]) < e) || (Math.abs(r[1][0] - pt[0]) < e && Math.abs(r[1][1] - pt[1]) < e));
+      for (let it = 0; it < 4 && bx.length; it++) { const g0 = Math.min(...bx), g1 = Math.max(...bx); let ch = false;
+        rf.forEach(r => { if (Math.abs(r[0][1] - yb) < e && Math.abs(r[1][1] - yb) < e) { const lo = Math.min(r[0][0], r[1][0]), hi = Math.max(r[0][0], r[1][0]);
+          if (Math.abs(lo - g1) < e && hi > g1 + e && onFoot([hi, yb])) { bx.push(hi); ch = true; } else if (Math.abs(hi - g0) < e && lo < g0 - e && onFoot([lo, yb])) { bx.push(lo); ch = true; } } });
+        if (!ch) break; } }
+    S.bandMinX = Math.min(S.bandMinX === undefined ? Infinity : S.bandMinX, ...xs);      // T167: goc ve that (mep trai 2 tam) - bo kiem tra doi chieu CAD dung
     const fb = sh.frameBox;      // T166: tong phoi do toi NET DUT (khung phoi nguyen truoc khi cat goc), nhu tam don
     ext.push(fb ? [Math.min(...xs, fb.xL + dx), Math.max(...xs, fb.xR + dx)] : [Math.min(...xs), Math.max(...xs)]);
     // 1. CTK-BandDimOff: xoa dim lan sang tam kia
@@ -3768,7 +3777,7 @@ function bandMerge(S) {
     const dy = d => d.a[1] + d.n[1] * d.off, hz = d => d.kind === 'ngang' && d.n && Math.abs(d.a[1] - d.b[1]) < e;
     ds = ds.filter(d => { if (hz(d) && d.st === '020-ok' && (dy(d) < -tol || dy(d) > S.cut.b[1] + tol)) { if (dy(d) < -tol) ys.push(dy(d)); return false; } return true; });
     // 3. CTK-BandExtDown: dim phan mo rong NGOAI canh day (vd 421) o hang chuoi -> xuong hang day tung tam
-    const low = ds.filter(d => hz(d) && d.st !== '020-ok' && dy(d) < -tol && Math.abs(d.a[1]) < e), rows = [];
+    const low = ds.filter(d => hz(d) && d.st !== '020-ok' && dy(d) < yb - tol && Math.abs(d.a[1] - yb) < e), rows = [];
     low.forEach(d => { if (!rows.some(y => Math.abs(y - dy(d)) < tol)) rows.push(dy(d)); });
     rows.sort((x, y) => y - x);
     if (bx.length && rows.length >= 2) { const g0 = Math.min(...bx), g1 = Math.max(...bx);
@@ -3891,7 +3900,7 @@ function geom(mode, v) {
           if (ig.length) S.ignored.push(ig.join(', ') + ' (có mở rộng A+B bên phải)');
         }
       } else {
-        take(applyMods([nm('p1', p1), nm('p2', p2)], nm('p3', p3), [], nm('p4', p4), [], m, { leftOK: true, D, frame: true, v1: mode === '1' }));
+        take(applyMods([nm('p1', p1), nm('p2', p2)], nm('p3', p3), [], nm('p4', p4), [], m, { leftOK: true, D, frame: true, v1: mode === '1' || !!v._bandV }));
         if (m.mt) S.ignored.push('MT (chưa có mở rộng A+B)');
         { const vp = S.verts.map(q => q.p); mrCorner(S.refs, vp, minRect(vp)); }      // T66: tam mong - goc khung phoi xoay (CTK-DrawMinRect)
       }
@@ -4044,6 +4053,7 @@ function geom(mode, v) {
       S.holes.forEach(h => { h.x = X - h.x; });
       if (S.sl) S.sl = { a: fx(S.sl.a), b: fx(S.sl.b) };
       if (S.cut) S.cut = { a: fx(S.cut.a), b: fx(S.cut.b) };      // T147
+      if (S.frameBox) S.frameBox = Object.assign({}, S.frameBox, { xL: X - S.frameBox.xR, xR: X - S.frameBox.xL });      // T167: khung phoi net dut cung phai lat guong (tong phoi tam nghieng trai)
       S.axes = S.axes.map(l => Object.assign({}, l, { a: fx(l.a), b: fx(l.b) }));
       S.refs = S.refs.map(r => Object.assign({}, r, { a: fx(r.a), b: fx(r.b) }));
       S.dims = S.dims.map(d => Object.assign({}, d, { a: fx(d.a), b: fx(d.b) }, d.n ? { n: [-d.n[0], d.n[1]] } : {}, d.c ? { c: fx(d.c) } : {}, d.p ? { p: fx(d.p) } : {}));
@@ -9653,7 +9663,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261021073710';
+var CTK_BUILD = '20261021075443';
 (function () {
   function chk() {
     try {
