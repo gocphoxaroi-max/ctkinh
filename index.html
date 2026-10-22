@@ -4,7 +4,13 @@
 <meta name="theme-color" content="#1f4e79">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Nhập liệu CTKinh</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vẽ Kính">
+<meta name="application-name" content="Vẽ Kính">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Thợ Vẽ Kính</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
@@ -9668,7 +9674,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261022074436';
+var CTK_BUILD = '20261022110225';
 (function () {
   function chk() {
     try {
@@ -9686,6 +9692,42 @@ var CTK_BUILD = '20261022074436';
   }
   setTimeout(chk, 1500);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) chk(); });
+})();
+</script>
+<script>
+/* T178 PWA: dang ky service worker + goi y cai ve dien thoai (loi o dau cung khong lam hong app) */
+(function () {
+  try {
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      window.addEventListener('load', function () { try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {} });
+    }
+  } catch (e) {}
+  try {
+    var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    if (standalone || !/^https?:$/.test(location.protocol)) return;
+    try { if (localStorage.getItem('ctkInstHide') === '1') return; } catch (e) {}
+    var ev = null, bar = null;
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    function show(txt, btnTxt, fn) {
+      if (bar) bar.remove();
+      bar = document.createElement('div');
+      bar.style.cssText = 'margin:8px 10px 0;padding:8px 10px;border-radius:10px;background:#fff8e1;border:1px solid #e0b84a;color:#5a4300;font:14px system-ui,sans-serif;display:flex;gap:8px;align-items:center';
+      var sp = document.createElement('span'); sp.style.flex = '1'; sp.textContent = txt; bar.appendChild(sp);
+      if (btnTxt) { var b = document.createElement('button'); b.type = 'button'; b.textContent = btnTxt; b.style.cssText = 'min-height:40px;padding:6px 12px'; b.onclick = fn; bar.appendChild(b); }
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Ẩn'); x.style.cssText = 'min-height:40px;min-width:40px;padding:0';
+      x.onclick = function () { bar.remove(); try { localStorage.setItem('ctkInstHide', '1'); } catch (e) {} };
+      bar.appendChild(x);
+      var h = document.querySelector('header'); if (h && h.parentNode) h.parentNode.insertBefore(bar, h.nextSibling);
+    }
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault(); ev = e;
+      show('Cài "Thợ Vẽ Kính" về màn hình chính để mở nhanh, dùng không cần mạng.', 'Cài về ĐT', function () {
+        try { ev.prompt(); ev.userChoice.then(function () { if (bar) bar.remove(); ev = null; }); } catch (e2) {}
+      });
+    });
+    window.addEventListener('appinstalled', function () { if (bar) bar.remove(); });
+    if (ios) window.addEventListener('load', function () { setTimeout(function () { show('Cài về iPhone: bấm nút Chia sẻ (ô vuông có mũi tên) → "Thêm vào MH chính".'); }, 1500); });
+  } catch (e) {}
 })();
 </script>
 </body></html>
