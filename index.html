@@ -7221,6 +7221,7 @@ function setupFieldListeners() {
 }
 
 </script>
+<script>var CTK_TAIKHOAN = true;</script>
 <script>// ============================================================================
 // T90 - KINH SON (op bep): logic thuan, KHONG dung DOM -> chay duoc trong trinh duyet va test headless.
 // Don vi mm. Quy uoc dinh vi khoet (theo mau Kinhson.dxf cua khach):
@@ -9672,9 +9673,259 @@ async function ksMake(kind) {
   });
 })();
 </script>
+<script>var CTK_FBCFG = {"apiKey": "AIzaSyCumWQHiLqwpjlEVMh59Bk4ywzViU-4vtQ", "authDomain": "tho-ve-kinh.firebaseapp.com", "projectId": "tho-ve-kinh", "storageBucket": "tho-ve-kinh.firebasestorage.app", "messagingSenderId": "1005148336772", "appId": "1:1005148336772:web:79460ec4cbe1f16b0988d1"};
+/* T182 - Dang nhap Google + dung thu 15 ngay (GD1, theo T181). Dong goi vao trang luc build (build-form.py --web).
+   Cau hinh Firebase web (cong khai) duoc build thay vao CTK_FBCFG. Khong co khoa bi mat.
+   Khong chan nguoi dung: loi o dau cung chi hien thong bao diu, app van dung binh thuong.
+   Tat: CTK_TAIKHOAN=false (build) | ?notk=1 tren dia chi | localStorage ctk_tk_off=1. */
+(function () {
+  'use strict';
+  var DAY = 86400000, THU_NGAY = 15, OFFLINE_NGAY = 14;
+  var KEY = 'ctk_tk_v1', KEYDEV = 'ctk_tk_dev';
+
+  /* ======== LOGIC THUAN (kiem duoc khong can mang) ======== */
+  function dungState(st, nowMs) {
+    /* st: {hetHan, lanCuoi, maxSeen} (ms). Tra {tt:'ok'|'offline'|'het', conNgay, han} */
+    if (!st || !st.hetHan) return { tt: 'chua', conNgay: 0, han: 0 };
+    var eff = Math.max(nowMs || 0, st.maxSeen || 0);          /* chong lui gio dien thoai */
+    var gioiHanOff = (st.lanCuoi || 0) + OFFLINE_NGAY * DAY;   /* toi da 14 ngay ke tu lan dong bo cuoi */
+    var conNgay = Math.ceil((st.hetHan - eff) / DAY);
+    if (eff >= st.hetHan) return { tt: 'het', conNgay: 0, han: st.hetHan };
+    if (eff >= gioiHanOff) return { tt: 'offline', conNgay: conNgay, han: Math.min(st.hetHan, gioiHanOff) };
+    return { tt: 'ok', conNgay: conNgay, han: Math.min(st.hetHan, gioiHanOff) };
+  }
+  function tinhHetHan(doc) {
+    /* doc: {hetHan?, batDauThu} (ms). GD1: rules khong cho client ghi hetHan luc tao -> hetHan = batDauThu + 15 ngay */
+    if (doc.hetHan) return doc.hetHan;
+    return doc.batDauThu ? doc.batDauThu + THU_NGAY * DAY : 0;
+  }
+  function chonThietBi(thietBi, devId, nowMs, doiMayLuc) {
+    /* tra {act:'co'|'them'|'doi'|'day', ...}. 'doi' = day 2 may nhung duoc doi (>7 ngay tu lan doi truoc) */
+    var ks = Object.keys(thietBi || {});
+    if (ks.indexOf(devId) >= 0) return { act: 'co' };
+    if (ks.length < 2) return { act: 'them' };
+    if ((doiMayLuc || 0) + 7 * DAY < nowMs) return { act: 'doi' };
+    return { act: 'day', conSau: Math.ceil(((doiMayLuc || 0) + 7 * DAY - nowMs) / DAY) };
+  }
+  function chuTT(r) {
+    if (r.tt === 'het') return 'Hết hạn dùng thử';
+    if (r.tt === 'offline') return 'Mở app có mạng 1 lần để xác nhận';
+    if (r.tt === 'chua') return 'Chưa đăng nhập';
+    return 'Dùng thử: còn ' + r.conNgay + ' ngày';
+  }
+  window.CTK_TK_LOGIC = { dungState: dungState, tinhHetHan: tinhHetHan, chonThietBi: chonThietBi, chuTT: chuTT, DAY: DAY };
+
+  if (typeof CTK_TAIKHOAN === 'undefined' || !CTK_TAIKHOAN) return;
+  try {
+    if (/[?&]notk=1/.test(location.search) || localStorage.getItem('ctk_tk_off') === '1') return;
+  } catch (e) {}
+  if (!/^https?:$/.test(location.protocol)) return;           /* file:// khong dang nhap Google duoc */
+
+  /* ======== TRANG THAI LUU MAY ======== */
+  var st = null, fb = null, loadP = null, userNow = null, devices = {}, devLast = 0, busy = false, msg = '';
+  function luu() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function doc0() { try { var t = localStorage.getItem(KEY); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+  function devId() {
+    try {
+      var d = localStorage.getItem(KEYDEV);
+      if (!d) { d = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(KEYDEV, d); }
+      return d;
+    } catch (e) { return 'dtam'; }
+  }
+  function tenMay() {
+    var u = navigator.userAgent || '', h = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'May';
+    var b = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Trinh duyet';
+    return (h + ' ' + b).slice(0, 30);
+  }
+  function chamGio() {                                          /* ghi "gio lon nhat da thay" */
+    if (!st) return;
+    var n = Date.now(); if (n > (st.maxSeen || 0)) { st.maxSeen = n; luu(); }
+  }
+  st = doc0(); chamGio();
+
+  /* ======== GIAO DIEN (tao bang JS, khong dung bien toan cuc cua app) ======== */
+  var css = '#tkBar{display:flex;align-items:center;gap:8px;padding:4px 12px;background:#eef3f8;border-bottom:1px solid #d3dde8;font:14px system-ui,sans-serif;color:#1f4e79;flex-wrap:wrap}' +
+    '#tkBar button,.tkbox button{min-height:44px;padding:6px 12px;font:16px system-ui,sans-serif;border-radius:8px;border:1px solid #1f4e79;background:#fff;color:#1f4e79}' +
+    '#tkBar button.tkchip{flex:1 1 auto;text-align:left;border-color:#b9c7d6}' +
+    '#tkBar.tkw{background:#fff8e1;border-color:#e0b84a;color:#5a4300}' +
+    '.tkov{position:fixed;left:0;right:0;top:0;bottom:0;z-index:99990;background:rgba(15,30,45,.55);display:flex;align-items:center;justify-content:center;padding:16px}' +
+    '.tkbox{background:#fff;border-radius:14px;padding:16px;max-width:420px;width:100%;max-height:90vh;max-height:90dvh;overflow:auto;font:16px system-ui,sans-serif;color:#222;box-sizing:border-box}' +
+    '.tkbox h2{margin:0 0 8px;font-size:20px}.tkbox p{margin:6px 0}.tkbox .tkrow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}' +
+    '.tkbox button.tkpri{background:#1a73e8;color:#fff;border-color:#1a73e8;flex:1 1 auto}.tkbox .tkerr{color:#b03a2e}.tkbox small{color:#667}' +
+    '.tkdev{display:flex;align-items:center;gap:8px;margin:4px 0;justify-content:space-between}';
+  var elBar = null, elOv = null, dismissed = false;
+  function mk(tag, txt, cls) { var e = document.createElement(tag); if (txt) e.textContent = txt; if (cls) e.className = cls; return e; }
+  function initUI() {
+    var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+    elBar = document.createElement('div'); elBar.id = 'tkBar';
+    var h = document.querySelector('header');
+    if (h && h.parentNode) h.parentNode.insertBefore(elBar, h.nextSibling); else document.body.insertBefore(elBar, document.body.firstChild);
+    draw();
+  }
+  function ngay(ms) { var d = new Date(ms); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function draw() {
+    if (!elBar) return;
+    elBar.textContent = ''; elBar.className = '';
+    var b = mk('button', '', 'tkchip'); b.type = 'button';
+    if (!st || !st.uid) {
+      b.textContent = '👤 Chưa đăng nhập – bấm để đăng nhập Google';
+      b.onclick = function () { dismissed = false; showCard(); };
+    } else {
+      var r = dungState(st, Date.now());
+      b.textContent = '👤 ' + (st.ten || st.email || '') + ' · ' + chuTT(r);
+      if (r.tt !== 'ok') elBar.className = 'tkw';
+      b.onclick = showPanel;
+    }
+    elBar.appendChild(b);
+    if (msg) { var m = mk('span', msg); elBar.appendChild(m); }
+  }
+  function closeOv() { if (elOv) { elOv.remove(); elOv = null; } }
+  function ov(build) {
+    closeOv();
+    elOv = mk('div', '', 'tkov'); var bx = mk('div', '', 'tkbox'); elOv.appendChild(bx);
+    elOv.onclick = function (ev) { if (ev.target === elOv) closeOv(); };
+    build(bx); document.body.appendChild(elOv);
+  }
+  function showCard() {
+    ov(function (bx) {
+      bx.appendChild(mk('h2', 'Đăng nhập bằng Google'));
+      bx.appendChild(mk('p', 'Đăng nhập 1 chạm để dùng thử miễn phí ' + THU_NGAY + ' ngày. Hạn dùng đi theo tài khoản Google của anh, đổi máy không mất.'));
+      bx.appendChild(mk('p', 'Ngoài công trình không có mạng vẫn dùng bình thường.')).style.color = '#667';
+      var er = mk('p', '', 'tkerr'); er.id = 'tkErr'; bx.appendChild(er);
+      var row = mk('div', '', 'tkrow');
+      var g = mk('button', 'Đăng nhập bằng Google', 'tkpri'); g.type = 'button'; g.onclick = dangNhap;
+      var l = mk('button', 'Để sau'); l.type = 'button'; l.onclick = function () { dismissed = true; closeOv(); };
+      row.appendChild(g); row.appendChild(l); bx.appendChild(row);
+    });
+  }
+  function loi(t) { var e = document.getElementById('tkErr'); if (e) e.textContent = t; else { msg = t; draw(); setTimeout(function () { msg = ''; draw(); }, 6000); } }
+  function showPanel() {
+    ov(function (bx) {
+      bx.appendChild(mk('h2', st.ten || st.email || 'Tài khoản'));
+      bx.appendChild(mk('p', st.email || ''));
+      var r = dungState(st, Date.now());
+      bx.appendChild(mk('p', chuTT(r) + (st.hetHan ? ' (đến ' + ngay(st.hetHan) + ')' : '')));
+      if (st.lanCuoi) bx.appendChild(mk('small', 'Xác nhận với máy chủ lần cuối: ' + ngay(st.lanCuoi) + '. Ngoài mạng tối đa ' + OFFLINE_NGAY + ' ngày.'));
+      if (st.mayDay) {
+        var w = mk('p', 'Tài khoản này đã dùng đủ 2 máy. Muốn dùng máy này, gỡ 1 máy cũ (mỗi 7 ngày được đổi 1 lần):', 'tkerr'); bx.appendChild(w);
+      }
+      var ids = Object.keys(devices || {});
+      if (ids.length) {
+        bx.appendChild(mk('p', 'Máy đang dùng:'));
+        ids.forEach(function (id) {
+          var row = mk('div', '', 'tkdev'); var lb = (devices[id] || id) + (id === devId() ? ' (máy này)' : '');
+          row.appendChild(mk('span', lb));
+          if (id !== devId() && Object.keys(devices).length >= 2) {
+            var gb = mk('button', 'Gỡ'); gb.type = 'button'; gb.onclick = function () { goMay(id); }; row.appendChild(gb);
+          }
+          bx.appendChild(row);
+        });
+      }
+      var er = mk('p', '', 'tkerr'); er.id = 'tkErr'; bx.appendChild(er);
+      var row2 = mk('div', '', 'tkrow');
+      var rf = mk('button', 'Đồng bộ lại'); rf.type = 'button'; rf.onclick = function () { dongBo(true); };
+      var lo = mk('button', 'Đăng xuất'); lo.type = 'button'; lo.onclick = dangXuat;
+      var cl = mk('button', 'Đóng', 'tkpri'); cl.type = 'button'; cl.onclick = closeOv;
+      row2.appendChild(rf); row2.appendChild(lo); row2.appendChild(cl); bx.appendChild(row2);
+    });
+  }
+
+  /* ======== FIREBASE (nap luoi, tu thu muc tk/ cung nguon, khong CDN) ======== */
+  function nap() {
+    if (loadP) return loadP;
+    loadP = Promise.all([import('./tk/firebase-app.js'), import('./tk/firebase-auth.js'), import('./tk/firebase-firestore-lite.js')]).then(function (m) {
+      var app = m[0].initializeApp(CTK_FBCFG);
+      fb = { app: m[0], auth: m[1], fs: m[2], a: m[1].getAuth(app), db: m[2].getFirestore(app) };
+      fb.auth.onAuthStateChanged(fb.a, function (u) { userNow = u; if (u) dongBo(false); });
+      return fb;
+    }).catch(function (e) { loadP = null; throw e; });
+    return loadP;
+  }
+  function dangNhap() {
+    if (busy) return; busy = true; loi('');
+    if (!navigator.onLine) { busy = false; loi('Cần có mạng để đăng nhập lần đầu.'); return; }
+    nap().then(function (f) {
+      return f.auth.signInWithPopup(f.a, new f.auth.GoogleAuthProvider());
+    }).then(function () { busy = false; closeOv(); }).catch(function (e) {
+      busy = false; var c = (e && e.code) || '';
+      loi(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' ? 'Đã huỷ đăng nhập.' :
+        c === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên rồi thử lại.' :
+        c === 'auth/unauthorized-domain' ? 'Địa chỉ web chưa được cấp phép trong Firebase (báo anh Dampt).' :
+        'Chưa đăng nhập được (' + (c || 'lỗi mạng') + '). App vẫn dùng bình thường.');
+    });
+  }
+  function dangXuat() {
+    closeOv();
+    var xong = function () { st = null; try { localStorage.removeItem(KEY); } catch (e) {} devices = {}; draw(); };
+    if (fb) fb.auth.signOut(fb.a).then(xong, xong); else xong();
+  }
+  function tsMs(v) { return v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : 0); }
+  function dongBo(tay) {
+    if (!fb || !userNow || busy && !tay) return;
+    var u = userNow, f = fb.fs, ref = f.doc(fb.db, 'users', u.uid), id = devId(), tm = tenMay();
+    busy = true;
+    f.getDoc(ref).then(function (snap) {
+      if (!snap.exists()) {
+        var tb = {}; tb[id] = tm;
+        return f.setDoc(ref, { email: u.email, tenHienThi: u.displayName || '', batDauThu: f.serverTimestamp(), goi: 'thu', maCuoi: '', maDaDung: [],
+          thietBi: tb, doiMayLuc: f.serverTimestamp(), lanCuoi: f.serverTimestamp(), phienBan: String(window.CTK_BUILD || '') });
+      }
+      var d = snap.data(), up = { lanCuoi: f.serverTimestamp(), phienBan: String(window.CTK_BUILD || '') };
+      var cd = chonThietBi(d.thietBi, id, Date.now(), tsMs(d.doiMayLuc));
+      if (cd.act === 'them') { up['thietBi.' + id] = tm; }
+      if (u.displayName && u.displayName !== d.tenHienThi) up.tenHienThi = u.displayName;
+      return f.updateDoc(ref, up);
+    }).then(function () { return f.getDoc(ref); }).then(function (snap) {
+      var d = snap.data(), id2 = devId();
+      var hh = tinhHetHan({ hetHan: tsMs(d.hetHan), batDauThu: tsMs(d.batDauThu) });
+      var lc = tsMs(d.lanCuoi) || Date.now();
+      devices = d.thietBi || {};
+      var cd2 = chonThietBi(devices, id2, Date.now(), tsMs(d.doiMayLuc));
+      st = { uid: u.uid, email: u.email || '', ten: u.displayName || d.tenHienThi || '', hetHan: hh, goi: d.goi || 'thu', lanCuoi: lc,
+        maxSeen: Math.max(Date.now(), lc, (st && st.maxSeen) || 0), mayDay: cd2.act === 'doi' || cd2.act === 'day', mayCho: cd2.conSau || 0 };
+      luu(); busy = false; draw();
+      if (tay) { closeOv(); showPanel(); }
+      if (st.mayDay) showPanel();
+    }).catch(function (e) {
+      busy = false;
+      var c = (e && e.code) || '';
+      /* Rules chua dan / mat mang: bao diu, KHONG chan app */
+      var t = c.indexOf('permission') >= 0 ? 'Máy chủ chưa sẵn sàng (chưa cấp luật). App vẫn dùng bình thường.' : 'Chưa đồng bộ được tài khoản (không có mạng?). App vẫn dùng bình thường.';
+      if (tay) loi(t); else { msg = t; draw(); setTimeout(function () { msg = ''; draw(); }, 6000); }
+    });
+  }
+  function goMay(oldId) {
+    if (!fb || !userNow) return;
+    var f = fb.fs, ref = f.doc(fb.db, 'users', userNow.uid), id = devId(), up = {};
+    up['thietBi.' + oldId] = f.deleteField();
+    if (!devices[id]) up['thietBi.' + id] = tenMay();
+    up.doiMayLuc = f.serverTimestamp(); up.lanCuoi = f.serverTimestamp();
+    f.updateDoc(ref, up).then(function () { dongBo(true); }).catch(function () {
+      loi('Chưa đổi được máy (mỗi 7 ngày chỉ đổi 1 lần, hoặc mất mạng).');
+    });
+  }
+
+  /* ======== KHOI DONG ======== */
+  function start() {
+    try {
+      initUI();
+      setInterval(chamGio, 60000);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) { chamGio(); draw(); if (navigator.onLine && st && st.uid && !fb) setTimeout(function () { nap().catch(function () {}); }, 500); } });
+      window.addEventListener('online', function () { if (st && st.uid) nap().then(function () { if (userNow) dongBo(false); }).catch(function () {}); });
+      if (!st || !st.uid) {
+        if (navigator.onLine) setTimeout(function () { if (!dismissed && !elOv) showCard(); }, 1200);
+        if (navigator.onLine) setTimeout(function () { nap().catch(function () {}); }, 2500);     /* de dang nhap nhanh khi bam */
+      } else if (navigator.onLine) {
+        setTimeout(function () { nap().catch(function () {}); }, 3000);                          /* dong bo lan cuoi, nhe */
+      }
+    } catch (e) { /* loi thi bo qua, app van chay */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261022111525';
+var CTK_BUILD = '20261022150200';
 (function () {
   function chk() {
     try {
