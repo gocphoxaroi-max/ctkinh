@@ -219,7 +219,7 @@ body.kb{padding-bottom:12px}
 .kbar button:disabled{opacity:.35}
 @media(max-width:899px){.chips{display:none}}
 body.kbf{padding-bottom:12px}
-body.kbf header,body.kbf #infoCard,body.kbf #listCard,body.kbf .edhead,body.kbf .modesel,body.kbf .warns,body.kbf .bbar{display:none}
+body.kbf header,body.kbf #tkBar,body.kbf #prodCard,body.kbf #infoCard,body.kbf #listCard,body.kbf .edhead,body.kbf .modesel,body.kbf .warns,body.kbf .bbar{display:none}
 body.kbf main{padding:4px}
 body.kbf #edCard{padding:4px}
 body.kbf #form .fields>div:not(.fcur){display:none}
@@ -5888,7 +5888,8 @@ function sizeDock() {
   const z = UI.size || 'm'; let h;
   if (KBF.on) {   // che do go: chi con o dang nhap -> hinh xem truoc chiem phan con lai phia tren thanh phim phu
     const bar = $('kbar'), af = document.querySelector('.a-form');
-    const avail = Math.floor(vh - bar.offsetHeight - (af ? af.offsetHeight : 90) - 30);
+    const dk = $('dock'), above = Math.max(0, Math.round(dk.getBoundingClientRect().top + scrollY));     // T189: noi dung con lai phia tren khung hinh
+    const avail = Math.floor(vh - bar.offsetHeight - (af ? af.offsetHeight : 90) - above - 30);
     document.body.classList.toggle('kbtiny', avail < 100);
     h = Math.max(100, Math.round(avail * (z === 's' ? 0.62 : 1)));
   } else {
@@ -6007,7 +6008,15 @@ function pvTap(ev) {
   } if (isNarrow()) setDockSize(UI.size === 'l' ? 'm' : 'l'); else openPreview(); }
 // o dang nhap khong bi bang nhin che / khong bi ban phim che
 function keepVisible(el) {
-  if (!isNarrow() || KBF.on) return;
+  if (!isNarrow()) return;
+  if (KBF.on) {   // T189: che do go - dua o dang go vao khoang giua [day khung hinh, dinh thanh phim phu]
+    const vv = window.visualViewport, r = el.getBoundingClientRect(), kb = $('kbar').getBoundingClientRect();
+    const top = (vv ? vv.offsetTop : 0), bot = Math.min(kb.top > 0 ? kb.top : 1e9, vv ? vv.height + vv.offsetTop : innerHeight) - 6;
+    const dd = $('dock'), dr = dd.getBoundingClientRect(), lim = Math.max(top, dr.height > 0 ? dr.bottom : top) + 4;
+    if (r.bottom > bot) window.scrollBy(0, r.bottom - bot);
+    else if (r.top < lim) window.scrollBy(0, r.top - lim);
+    return;
+  }
   const r = el.getBoundingClientRect(), d = $('dock').getBoundingClientRect(), vv = window.visualViewport;
   const bot = vv ? vv.height + vv.offsetTop : innerHeight;
   if (r.top < d.bottom + 6) window.scrollBy(0, r.top - d.bottom - 34);
@@ -6097,7 +6106,7 @@ function updateBar(el) {
   $('kPrev').disabled = i <= 0; $('kNext').disabled = i < 0 || i >= l.length - 1;
 }
 function engageKbf(a) {
-  if (!KBF.on) { KBF.on = true; KBF.scroll = window.scrollY; $('kbar').hidden = false; document.body.classList.add('kbf'); window.scrollTo(0, 0); setTimeout(sizeDock, 80); setTimeout(sizeDock, 320); }      // T76: thanh phim phu vua hien -> do lai khung hinh sau khi biet chieu cao thanh
+  if (!KBF.on) { KBF.on = true; KBF.scroll = window.scrollY; $('kbar').hidden = false; document.body.classList.add('kbf'); window.scrollTo(0, 0); setTimeout(sizeDock, 80); setTimeout(sizeDock, 320); setTimeout(() => { if (KBF.on && KBF.el) keepVisible(KBF.el); }, 420); }      // T76: thanh phim phu vua hien -> do lai khung hinh sau khi biet chieu cao thanh
   if (KBF.el !== a) { KBF.el = a; setFcur(a); updateBar(a); }
 }
 function leaveKbf() {
@@ -9707,11 +9716,16 @@ async function ksMake(kind) {
     if ((doiMayLuc || 0) + 7 * DAY < nowMs) return { act: 'doi' };
     return { act: 'day', conSau: Math.ceil(((doiMayLuc || 0) + 7 * DAY - nowMs) / DAY) };
   }
-  function chuTT(r) {
+  var TEN_GOI = { tester3: 'Tester 3 tháng', thang: 'Tháng', quy: 'Quý', nam: 'Năm', tang6: 'Tặng 6 tháng' };
+  function tenGoi(goi) { return TEN_GOI[goi] || goi || ''; }
+  function chuTT(r, goi) {
+    /* goi = 'thu' (chua nhap ma) -> "Dung thu"; goi khac (da nhap ma) -> "Da kich hoat". Luat/ngay khong doi. */
     if (r.tt === 'het') return 'Hết hạn dùng thử';
     if (r.tt === 'offline') return 'Mở app có mạng 1 lần để xác nhận';
     if (r.tt === 'chua') return 'Chưa đăng nhập';
-    return 'Dùng thử: còn ' + r.conNgay + ' ngày';
+    if (r.conNgay <= 7) return 'Sắp hết hạn – còn ' + r.conNgay + ' ngày';
+    if (goi && goi !== 'thu') return 'Đã kích hoạt – còn ' + r.conNgay + ' ngày';
+    return 'Dùng thử còn ' + r.conNgay + ' ngày';
   }
   /* ---- T183: ma kich hoat (GIONG HET tao-ma-kich-hoat.py) ---- */
   var ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ', TIEN_TO_BAM = 'tvk1:';
@@ -9750,7 +9764,7 @@ async function ksMake(kind) {
     if (r.tt === 'offline') return { ok: false, ly: 'offline' };
     return { ok: true };
   }
-  window.CTK_TK_LOGIC = { dungState: dungState, tinhHetHan: tinhHetHan, chonThietBi: chonThietBi, chuTT: chuTT, DAY: DAY,
+  window.CTK_TK_LOGIC = { dungState: dungState, tinhHetHan: tinhHetHan, chonThietBi: chonThietBi, chuTT: chuTT, tenGoi: tenGoi, DAY: DAY,
     chuanHoaMa: chuanHoaMa, soKiem: soKiem, maHopLe: maHopLe, bamMa: bamMa, hanMoi: hanMoi, kiemMa: kiemMa, choTao: choTao };
 
   if (typeof CTK_TAIKHOAN === 'undefined' || !CTK_TAIKHOAN) return;
@@ -9810,8 +9824,8 @@ async function ksMake(kind) {
       b.onclick = function () { dismissed = false; showCard(); };
     } else {
       var r = dungState(st, Date.now());
-      b.textContent = '👤 ' + (st.ten || st.email || '') + ' · ' + chuTT(r);
-      if (r.tt !== 'ok') elBar.className = 'tkw';
+      b.textContent = '👤 ' + (st.ten || st.email || '') + ' · ' + chuTT(r, st.goi);
+      if (r.tt !== 'ok' || r.conNgay <= 7) elBar.className = 'tkw';
       b.onclick = showPanel;
     }
     elBar.appendChild(b);
@@ -9845,7 +9859,13 @@ async function ksMake(kind) {
       bx.appendChild(mk('h2', st.ten || st.email || 'Tài khoản'));
       bx.appendChild(mk('p', st.email || ''));
       var r = dungState(st, Date.now());
-      bx.appendChild(mk('p', chuTT(r) + (st.hetHan ? ' (đến ' + ngay(st.hetHan) + ')' : '')));
+      if (st.goi && st.goi !== 'thu' && r.tt !== 'chua') {
+        bx.appendChild(mk('p', chuTT(r, st.goi)));
+        bx.appendChild(mk('p', 'Gói: ' + tenGoi(st.goi)));
+        if (st.hetHan) bx.appendChild(mk('p', 'Hết hạn: ' + ngay(st.hetHan)));
+      } else {
+        bx.appendChild(mk('p', chuTT(r, st.goi) + (st.hetHan ? ' (đến ' + ngay(st.hetHan) + ')' : '')));
+      }
       if (st.lanCuoi) bx.appendChild(mk('small', 'Xác nhận với máy chủ lần cuối: ' + ngay(st.lanCuoi) + '. Ngoài mạng tối đa ' + OFFLINE_NGAY + ' ngày.'));
       if (st.mayDay) {
         var w = mk('p', 'Tài khoản này đã dùng đủ 2 máy. Muốn dùng máy này, gỡ 1 máy cũ (mỗi 7 ngày được đổi 1 lần):', 'tkerr'); bx.appendChild(w);
@@ -10093,7 +10113,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261023105435';
+var CTK_BUILD = '20261023143540';
 (function () {
   function chk() {
     try {
