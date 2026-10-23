@@ -9673,7 +9673,7 @@ async function ksMake(kind) {
   });
 })();
 </script>
-<script>var CTK_FBCFG = {"apiKey": "AIzaSyCumWQHiLqwpjlEVMh59Bk4ywzViU-4vtQ", "authDomain": "tho-ve-kinh.firebaseapp.com", "projectId": "tho-ve-kinh", "storageBucket": "tho-ve-kinh.firebasestorage.app", "messagingSenderId": "1005148336772", "appId": "1:1005148336772:web:79460ec4cbe1f16b0988d1", "googleClientId": ""};
+<script>var CTK_FBCFG = {"apiKey": "AIzaSyCumWQHiLqwpjlEVMh59Bk4ywzViU-4vtQ", "authDomain": "tho-ve-kinh.firebaseapp.com", "projectId": "tho-ve-kinh", "storageBucket": "tho-ve-kinh.firebasestorage.app", "messagingSenderId": "1005148336772", "appId": "1:1005148336772:web:79460ec4cbe1f16b0988d1", "googleClientId": "1005148336772-2r6ts83n0bndfprb3ochirumoeeoq0nj.apps.googleusercontent.com"};
 /* T182 - Dang nhap Google + dung thu 15 ngay (GD1, theo T181). Dong goi vao trang luc build (build-form.py --web).
    Cau hinh Firebase web (cong khai) duoc build thay vao CTK_FBCFG. Khong co khoa bi mat.
    Khong chan nguoi dung: loi o dau cung chi hien thong bao diu, app van dung binh thuong.
@@ -9713,7 +9713,45 @@ async function ksMake(kind) {
     if (r.tt === 'chua') return 'Chưa đăng nhập';
     return 'Dùng thử: còn ' + r.conNgay + ' ngày';
   }
-  window.CTK_TK_LOGIC = { dungState: dungState, tinhHetHan: tinhHetHan, chonThietBi: chonThietBi, chuTT: chuTT, DAY: DAY };
+  /* ---- T183: ma kich hoat (GIONG HET tao-ma-kich-hoat.py) ---- */
+  var ABC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ', TIEN_TO_BAM = 'tvk1:';
+  function chuanHoaMa(s) {
+    s = String(s || '').toUpperCase().replace(/O/g, '0').replace(/I/g, '1').replace(/L/g, '1').replace(/U/g, 'V');
+    var o = ''; for (var i = 0; i < s.length; i++) if (ABC.indexOf(s.charAt(i)) >= 0) o += s.charAt(i);
+    return o;
+  }
+  function soKiem(s11) { var t = 0; for (var i = 0; i < s11.length; i++) t += (2 * i + 1) * ABC.indexOf(s11.charAt(i)); return ABC.charAt(t % 32); }
+  function maHopLe(ma) { var s = chuanHoaMa(ma); return s.length === 12 && soKiem(s.slice(0, 11)) === s.charAt(11); }
+  function bamMa(ma) {                                  /* sha256 hex cua "tvk1:" + ma chuan hoa (WebCrypto) */
+    var buf = new TextEncoder().encode(TIEN_TO_BAM + chuanHoaMa(ma));
+    return crypto.subtle.digest('SHA-256', buf).then(function (h) {
+      return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function hanMoi(hanCu, nowMs, soNgay) {
+    /* ms: han moi = max(han cu, bay gio) + soNgay (cong tu han cu neu con han) */
+    return Math.max(hanCu || 0, nowMs || 0) + soNgay * DAY;
+  }
+  function kiemMa(cd, nowMs, daDung, maBam) {
+    /* cd: du lieu codes/{maBam} (hanNhap: ms hoac 0/null) -> {ok:true, soNgay, goi} | {ok:false, loi} */
+    if (!cd) return { ok: false, loi: 'Mã không đúng (không có trong hệ thống). Kiểm tra lại từng ký tự.' };
+    if ((daDung || []).indexOf(maBam) >= 0 || cd.trangThai === 'da_dung') return { ok: false, loi: 'Mã này đã được dùng rồi.' };
+    if (cd.trangThai === 'thu_hoi') return { ok: false, loi: 'Mã này đã bị thu hồi. Liên hệ anh Dampt.' };
+    if (cd.trangThai !== 'moi') return { ok: false, loi: 'Mã không dùng được.' };
+    if (cd.hanNhap && nowMs >= cd.hanNhap) return { ok: false, loi: 'Mã đã hết hạn nhập. Liên hệ anh Dampt để lấy mã mới.' };
+    if (!(cd.soNgay > 0)) return { ok: false, loi: 'Mã không hợp lệ (thiếu số ngày).' };
+    return { ok: true, soNgay: cd.soNgay, goi: cd.goi };
+  }
+  function choTao(st0, nowMs) {
+    /* cong khoa: chua dang nhap = chua khoa (T182); da co tai khoan: 'het' hoac 'offline' qua han = khoa */
+    if (!st0 || !st0.uid) return { ok: true };
+    var r = dungState(st0, nowMs);
+    if (r.tt === 'het') return { ok: false, ly: 'het' };
+    if (r.tt === 'offline') return { ok: false, ly: 'offline' };
+    return { ok: true };
+  }
+  window.CTK_TK_LOGIC = { dungState: dungState, tinhHetHan: tinhHetHan, chonThietBi: chonThietBi, chuTT: chuTT, DAY: DAY,
+    chuanHoaMa: chuanHoaMa, soKiem: soKiem, maHopLe: maHopLe, bamMa: bamMa, hanMoi: hanMoi, kiemMa: kiemMa, choTao: choTao };
 
   if (typeof CTK_TAIKHOAN === 'undefined' || !CTK_TAIKHOAN) return;
   try {
@@ -9824,12 +9862,90 @@ async function ksMake(kind) {
           bx.appendChild(row);
         });
       }
+      veONhapMa(bx);
       var er = mk('p', '', 'tkerr'); er.id = 'tkErr'; bx.appendChild(er);
       var row2 = mk('div', '', 'tkrow');
       var rf = mk('button', 'Đồng bộ lại'); rf.type = 'button'; rf.onclick = function () { dongBo(true); };
       var lo = mk('button', 'Đăng xuất'); lo.type = 'button'; lo.onclick = dangXuat;
       var cl = mk('button', 'Đóng', 'tkpri'); cl.type = 'button'; cl.onclick = closeOv;
       row2.appendChild(rf); row2.appendChild(lo); row2.appendChild(cl); bx.appendChild(row2);
+    });
+  }
+
+  /* ======== T183: NHAP MA KICH HOAT + KHOA KHI HET HAN ======== */
+  function veONhapMa(bx) {
+    bx.appendChild(mk('p', 'Nhập mã kích hoạt:'));
+    var inp = mk('input'); inp.type = 'text'; inp.id = 'tkMa'; inp.placeholder = 'XXXX-XXXX-XXXX'; inp.autocomplete = 'off'; inp.autocapitalize = 'characters'; inp.spellcheck = false;
+    inp.style.cssText = 'width:100%;box-sizing:border-box;font:20px/1.2 system-ui,sans-serif;min-height:48px;padding:6px 10px;border:1px solid #b9c7d6;border-radius:8px;text-transform:uppercase;letter-spacing:1px';
+    bx.appendChild(inp);
+    var go = mk('button', 'Kích hoạt'); go.type = 'button'; go.style.marginTop = '8px'; go.onclick = function () { kichHoat(inp.value); };
+    inp.onkeydown = function (ev) { if (ev.key === 'Enter') kichHoat(inp.value); };
+    bx.appendChild(go);
+  }
+  function kichHoat(txt) {
+    if (busy) return;
+    if (!st || !st.uid) { loi('Cần đăng nhập Google trước khi nhập mã.'); return; }
+    if (!chuanHoaMa(txt)) { loi('Chưa nhập mã.'); return; }
+    if (!maHopLe(txt)) { loi('Mã gõ chưa đúng (sai ký tự). Kiểm tra lại từng ký tự, mã dạng XXXX-XXXX-XXXX.'); return; }
+    if (!navigator.onLine) { loi('Cần có mạng để nhập mã kích hoạt (chỉ 1 lần).'); return; }
+    busy = true; loi('Đang kiểm tra mã...');
+    var f, ref, cref, maBam, d0;
+    nap().then(function (fb0) {
+      f = fb0.fs;
+      if (!userNow) { var e = new Error('chua-dang-nhap'); e.code = 'chua-dang-nhap'; throw e; }
+      return bamMa(txt);
+    }).then(function (h) {
+      maBam = h; ref = f.doc(fb.db, 'users', userNow.uid); cref = f.doc(fb.db, 'codes', maBam);
+      return Promise.all([f.getDoc(ref), f.getDoc(cref).catch(function (e) { if (e && e.code === 'permission-denied') return null; throw e; })]);
+    }).then(function (rs) {
+      d0 = rs[0].data() || {}; var cs = rs[1];
+      var cd = cs && cs.exists() ? cs.data() : null;
+      if (cd) { var hn = cd.hanNhap; cd = { trangThai: cd.trangThai, soNgay: cd.soNgay, goi: cd.goi, hanNhap: hn ? (hn.toMillis ? hn.toMillis() : (typeof hn === 'string' ? Date.parse(hn) : hn)) : 0 }; }
+      var kq = kiemMa(cd, Date.now(), d0.maDaDung, maBam);
+      if (!kq.ok) { var e2 = new Error('ma'); e2.code = 'ma-loi'; e2.hienLoi = kq.loi; throw e2; }
+      /* han moi: cong tu han cu (con han) hoac tu bay gio. Timestamp chinh xac (giay+nano) de khop rules */
+      var T = f.Timestamp, hc = d0.hetHan || (d0.batDauThu ? new T(d0.batDauThu.seconds + THU_NGAY * 86400, d0.batDauThu.nanoseconds) : null);
+      var base = (hc && hc.toMillis() > Date.now()) ? hc : T.now();
+      var hm = new T(base.seconds + kq.soNgay * 86400, base.nanoseconds);
+      var b = f.writeBatch(fb.db);
+      b.update(cref, { trangThai: 'da_dung', dungBoi: userNow.uid, dungLuc: f.serverTimestamp() });
+      b.update(ref, { hetHan: hm, goi: kq.goi, maCuoi: maBam, maDaDung: (d0.maDaDung || []).concat([maBam]), lanCuoi: f.serverTimestamp() });
+      return b.commit().then(function () { return kq; });
+    }).then(function (kq) {
+      busy = false; closeOv(); dongBo(true);
+      msg = 'Đã kích hoạt: thêm ' + kq.soNgay + ' ngày.'; draw(); setTimeout(function () { msg = ''; draw(); }, 8000);
+    }).catch(function (e) {
+      busy = false; var c = (e && e.code) || '';
+      if (c === 'ma-loi') return loi(e.hienLoi);
+      ghiLoi('nhap-ma', e);
+      loi(c === 'permission-denied' ? 'Máy chủ từ chối mã (mã đã dùng, hết hạn nhập hoặc luật chưa cấp). Thử lại sau; nếu vẫn lỗi báo anh Dampt. [permission-denied]' :
+        c === 'chua-dang-nhap' ? 'Chưa đăng nhập xong, đợi vài giây rồi thử lại.' :
+        'Chưa kích hoạt được (không có mạng?). Thử lại. [' + (c || (e && e.message) || 'loi') + ']');
+    });
+  }
+  function showHet(ly) {
+    ov(function (bx) {
+      bx.appendChild(mk('h2', ly === 'offline' ? 'Cần xác nhận với máy chủ' : 'Hết hạn dùng'));
+      bx.appendChild(mk('p', ly === 'offline' ? 'Máy chưa kết nối mạng quá ' + OFFLINE_NGAY + ' ngày. Mở app khi có mạng 1 lần để tiếp tục tạo/lưu/xuất.' :
+        'Đã hết thời gian dùng. Vẫn xem được các tấm đã nhập và xuất CSV dữ liệu cũ. Để tạo/lưu/xuất mới: nhập mã kích hoạt hoặc liên hệ anh Dampt để lấy mã.'));
+      if (ly !== 'offline') veONhapMa(bx);
+      var er = mk('p', '', 'tkerr'); er.id = 'tkErr'; bx.appendChild(er);
+      var row = mk('div', '', 'tkrow');
+      if (ly === 'offline') { var rf = mk('button', 'Đồng bộ lại', 'tkpri'); rf.type = 'button'; rf.onclick = function () { dongBo(true); }; row.appendChild(rf); }
+      var cl = mk('button', 'Đóng'); cl.type = 'button'; cl.onclick = closeOv; row.appendChild(cl); bx.appendChild(row);
+    });
+  }
+  window.ctkDuocTao = function () {
+    var r = choTao(st, Date.now());
+    if (r.ok) return true;
+    try { showHet(r.ly); } catch (e) {}
+    return false;
+  };
+  function gan() {                                    /* boc cac ham tao/luu/xuat: chan khi het han; xem + CSV cu van chay */
+    ['savePanel', 'ksSavePanel', 'openImgSheet', 'ksReview', 'ksExportJet', 'makeImgs', 'makePdf', 'xuatNhieu'].forEach(function (n) {
+      var o = window[n]; if (typeof o !== 'function' || o.ctkGan) return;
+      var w = function () { if (!window.ctkDuocTao()) return (n === 'ksSavePanel' || n === 'savePanel') ? false : undefined; return o.apply(this, arguments); };
+      w.ctkGan = true; window[n] = w;
     });
   }
 
@@ -9960,7 +10076,7 @@ async function ksMake(kind) {
   /* ======== KHOI DONG ======== */
   function start() {
     try {
-      initUI();
+      initUI(); gan();
       setInterval(chamGio, 60000);
       document.addEventListener('visibilitychange', function () { if (!document.hidden) { chamGio(); draw(); if (navigator.onLine && st && st.uid && !fb) setTimeout(function () { nap().catch(function () {}); }, 500); } });
       window.addEventListener('online', function () { if (st && st.uid) nap().then(function () { if (userNow) dongBo(false); }).catch(function () {}); });
@@ -9977,7 +10093,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261023084038';
+var CTK_BUILD = '20261023105435';
 (function () {
   function chk() {
     try {
