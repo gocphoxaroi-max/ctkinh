@@ -9673,7 +9673,7 @@ async function ksMake(kind) {
   });
 })();
 </script>
-<script>var CTK_FBCFG = {"apiKey": "AIzaSyCumWQHiLqwpjlEVMh59Bk4ywzViU-4vtQ", "authDomain": "tho-ve-kinh.firebaseapp.com", "projectId": "tho-ve-kinh", "storageBucket": "tho-ve-kinh.firebasestorage.app", "messagingSenderId": "1005148336772", "appId": "1:1005148336772:web:79460ec4cbe1f16b0988d1"};
+<script>var CTK_FBCFG = {"apiKey": "AIzaSyCumWQHiLqwpjlEVMh59Bk4ywzViU-4vtQ", "authDomain": "tho-ve-kinh.firebaseapp.com", "projectId": "tho-ve-kinh", "storageBucket": "tho-ve-kinh.firebasestorage.app", "messagingSenderId": "1005148336772", "appId": "1:1005148336772:web:79460ec4cbe1f16b0988d1", "googleClientId": ""};
 /* T182 - Dang nhap Google + dung thu 15 ngay (GD1, theo T181). Dong goi vao trang luc build (build-form.py --web).
    Cau hinh Firebase web (cong khai) duoc build thay vao CTK_FBCFG. Khong co khoa bi mat.
    Khong chan nguoi dung: loi o dau cung chi hien thong bao diu, app van dung binh thuong.
@@ -9792,13 +9792,16 @@ async function ksMake(kind) {
       bx.appendChild(mk('p', 'Đăng nhập 1 chạm để dùng thử miễn phí ' + THU_NGAY + ' ngày. Hạn dùng đi theo tài khoản Google của anh, đổi máy không mất.'));
       bx.appendChild(mk('p', 'Ngoài công trình không có mạng vẫn dùng bình thường.')).style.color = '#667';
       var er = mk('p', '', 'tkerr'); er.id = 'tkErr'; bx.appendChild(er);
+      var gs = mk('div'); gs.id = 'tkGsi'; gs.style.minHeight = '44px'; bx.appendChild(gs);
+      var cp = mk('button', 'Chép thông tin lỗi'); cp.type = 'button'; cp.id = 'tkCopy'; cp.style.display = 'none'; cp.onclick = chepLoi; bx.appendChild(cp);
       var row = mk('div', '', 'tkrow');
-      var g = mk('button', 'Đăng nhập bằng Google', 'tkpri'); g.type = 'button'; g.onclick = dangNhap;
+      var g = mk('button', gisId() ? 'Cách khác (cửa sổ popup)' : 'Đăng nhập bằng Google', gisId() ? '' : 'tkpri'); g.type = 'button'; g.onclick = dangNhapPopup;
       var l = mk('button', 'Để sau'); l.type = 'button'; l.onclick = function () { dismissed = true; closeOv(); };
       row.appendChild(g); row.appendChild(l); bx.appendChild(row);
+      if (gisId()) veNutGis();
     });
   }
-  function loi(t) { var e = document.getElementById('tkErr'); if (e) e.textContent = t; else { msg = t; draw(); setTimeout(function () { msg = ''; draw(); }, 6000); } }
+  function loi(t) { var e = document.getElementById('tkErr'); var cb = document.getElementById('tkCopy'); if (cb) cb.style.display = lastErr ? '' : 'none'; if (e) e.textContent = t; else { msg = t; draw(); setTimeout(function () { msg = ''; draw(); }, 6000); } }
   function showPanel() {
     ov(function (bx) {
       bx.appendChild(mk('h2', st.ten || st.email || 'Tài khoản'));
@@ -9834,25 +9837,74 @@ async function ksMake(kind) {
   function nap() {
     if (loadP) return loadP;
     loadP = Promise.all([import('./tk/firebase-app.js'), import('./tk/firebase-auth.js'), import('./tk/firebase-firestore-lite.js')]).then(function (m) {
-      var app = m[0].initializeApp(CTK_FBCFG);
+      var cfg = {}; for (var k in CTK_FBCFG) if (k !== 'googleClientId') cfg[k] = CTK_FBCFG[k];
+      var app = m[0].initializeApp(cfg);
       fb = { app: m[0], auth: m[1], fs: m[2], a: m[1].getAuth(app), db: m[2].getFirestore(app) };
       fb.auth.onAuthStateChanged(fb.a, function (u) { userNow = u; if (u) dongBo(false); });
       return fb;
     }).catch(function (e) { loadP = null; throw e; });
     return loadP;
   }
-  function dangNhap() {
-    if (busy) return; busy = true; loi('');
-    if (!navigator.onLine) { busy = false; loi('Cần có mạng để đăng nhập lần đầu.'); return; }
-    nap().then(function (f) {
-      return f.auth.signInWithPopup(f.a, new f.auth.GoogleAuthProvider());
-    }).then(function () { busy = false; closeOv(); }).catch(function (e) {
-      busy = false; var c = (e && e.code) || '';
-      loi(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' ? 'Đã huỷ đăng nhập.' :
-        c === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên rồi thử lại.' :
-        c === 'auth/unauthorized-domain' ? 'Địa chỉ web chưa được cấp phép trong Firebase (báo anh Dampt).' :
-        'Chưa đăng nhập được (' + (c || 'lỗi mạng') + '). App vẫn dùng bình thường.');
+  /* ---- T186: chan doan + Google Identity Services (GIS) ---- */
+  var lastErr = null, GIS_URL = 'https://accounts.google.com/gsi/client', gisP = null, WAIT_MS = 45000;
+  function gisId() { try { return (typeof CTK_FBCFG !== 'undefined' && CTK_FBCFG.googleClientId) || ''; } catch (e) { return ''; } }
+  function ghiLoi(buoc, e) {
+    var sa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    lastErr = { ma: (e && (e.code || e.type || e.message)) || String(e || ''), buoc: buoc, trinhDuyet: navigator.userAgent, che_do: sa ? 'standalone(PWA)' : 'tab', mayChan: /blocked/i.test(String((e && e.code) || e || '')) ? 'co' : 'khong', gis: gisId() ? 'co' : 'khong', online: navigator.onLine, host: location.host, luc: new Date().toISOString(), build: String(window.CTK_BUILD || '') };
+    return lastErr;
+  }
+  function chepLoi() {
+    var t = 'CTK-DANGNHAP ' + JSON.stringify(lastErr || {});
+    var xong = function () { loi('Đã chép thông tin lỗi. Dán gửi cho anh Dampt.'); };
+    try { navigator.clipboard.writeText(t).then(xong, function () { window.prompt('Chép đoạn này gửi anh Dampt:', t); }); } catch (e) { window.prompt('Chép đoạn này gửi anh Dampt:', t); }
+  }
+  function moiGis() {
+    if (gisP) return gisP;
+    gisP = new Promise(function (ok, no) {
+      if (window.google && google.accounts && google.accounts.id) return ok();
+      var sc = document.createElement('script'); sc.src = GIS_URL; sc.async = true;
+      sc.onload = function () { (window.google && google.accounts && google.accounts.id) ? ok() : no(new Error('gis-khong-co')); };
+      sc.onerror = function () { no(new Error('gis-tai-loi')); };
+      document.head.appendChild(sc);
+      setTimeout(function () { no(new Error('gis-het-gio')); }, 15000);
+    }).catch(function (e) { gisP = null; throw e; });
+    return gisP;
+  }
+  function baoLoi(e, buoc) {
+    busy = false; ghiLoi(buoc, e); var c = (e && e.code) || (e && e.message) || '';
+    loi(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' ? 'Đã huỷ đăng nhập.' :
+      c === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên rồi thử lại. [' + c + ']' :
+      c === 'auth/unauthorized-domain' ? 'Địa chỉ web chưa được cấp phép trong Firebase (báo anh Dampt). [' + c + ']' :
+      c === 'cho-het-gio' ? 'Chưa nhận được đăng nhập sau 45 giây. Thử lại: đóng cửa sổ Google nếu còn mở, bấm lại nút đăng nhập; hoặc mở trang bằng Chrome/Safari (không mở trong ứng dụng khác). [cho-het-gio]' :
+      'Chưa đăng nhập được [' + (c || 'loi-mang') + ']. Bấm "Chép thông tin lỗi" gửi anh Dampt. App vẫn dùng bình thường.');
+  }
+  function veNutGis() {
+    var box = document.getElementById('tkGsi'); if (!box) return;
+    moiGis().then(function () {
+      google.accounts.id.initialize({ client_id: gisId(), callback: onGisCred, auto_select: false, cancel_on_tap_outside: true, use_fedcm_for_prompt: true });
+      var b = document.getElementById('tkGsi'); if (!b) return;
+      google.accounts.id.renderButton(b, { type: 'standard', theme: 'outline', size: 'large', text: 'signin_with', locale: 'vi', width: Math.min(300, Math.max(200, b.clientWidth || 280)) });
+    }).catch(function (e) { ghiLoi('gis-nap', e); loi('Không nạp được Google Identity (' + (e && e.message) + '). Dùng nút "Cách khác".'); var g = document.getElementById('tkGsi'); if (g) g.style.display = 'none'; });
+  }
+  function choHan(p, ms) {
+    return new Promise(function (ok, no) {
+      var t = setTimeout(function () { var e = new Error('cho-het-gio'); e.code = 'cho-het-gio'; no(e); }, ms);
+      p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); no(e); });
     });
+  }
+  function onGisCred(resp) {
+    if (busy) return; busy = true; loi('Đang đăng nhập...'); lastErr = null;
+    if (!resp || !resp.credential) { baoLoi({ code: 'gis-khong-token' }, 'gis'); return; }
+    choHan(nap().then(function (f) {
+      return f.auth.signInWithCredential(f.a, f.auth.GoogleAuthProvider.credential(resp.credential));
+    }), WAIT_MS).then(function () { busy = false; closeOv(); }).catch(function (e) { baoLoi(e, 'gis-credential'); });
+  }
+  function dangNhapPopup() {
+    if (busy) return; busy = true; loi(''); lastErr = null;
+    if (!navigator.onLine) { busy = false; loi('Cần có mạng để đăng nhập lần đầu.'); return; }
+    choHan(nap().then(function (f) {
+      return f.auth.signInWithPopup(f.a, new f.auth.GoogleAuthProvider());
+    }), WAIT_MS).then(function () { busy = false; closeOv(); }).catch(function (e) { baoLoi(e, 'popup'); });
   }
   function dangXuat() {
     closeOv();
@@ -9925,7 +9977,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261022150200';
+var CTK_BUILD = '20261023084038';
 (function () {
   function chk() {
     try {
