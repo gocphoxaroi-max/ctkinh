@@ -42,6 +42,7 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
 .qchips button{font-size:16px;padding:5px 14px;border-radius:14px;border:1px solid #b9c6d3;background:#f4f7fa;color:#1f4e79;min-height:36px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chips button{font-size:13px;padding:5px 9px;border-radius:14px;border:1px solid #b9c6d3;background:#f4f7fa;color:#1f4e79;min-height:30px}
+.fnote{font-size:13px;color:#5b6772;line-height:1.35;margin:-1px 0 5px}
 .cuthint{font-size:13px;color:#1e8449;margin-top:3px;font-weight:bold}
 .edhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 /* --- chon mode bang hinh --- */
@@ -572,13 +573,14 @@ function normVals(mode, v) { let o = Object.assign({}, v); for (const f of MODES
   if (mode === '3' && m3NQ(o)) o = m3Geo(o);      // T143: CSV xuat SO THAT (lisp khong doc "?")
   return o; }
 const HUONG = [['', 'Nghiêng phải'], ['T', 'Nghiêng trái']];
+const NGHIENG_HINT = 'Đo NGANG từ chân cạnh bên lên tới đỉnh của nó. 0 = hai cạnh bên thẳng đứng (tấm chữ nhật); 350 = cạnh bên nghiêng, đỉnh lệch ngang 350 mm so với chân.';      // T195
 const F = (k, label, type, o = {}) => Object.assign({ k, label, type }, o);
 // cols = thu tu cot CSV dung nhu lisp doc; fields = o hien tren form
 const MODES = {
   '1': { name: 'Mode 1 – Song song (bình hành)', imgs: ['m1', 'm1ext', 'cut'],
     cols: ['TenTam','AList','H','C','D','HoleGroups','CutP3','X','Y','DistBaseList','HoleGroupsB','EdgeQ1Q2','TG_CanhTren','TG_Phia','TG_Buoc','TG_LoThem','Huong','SoLuong'],
     fields: [F('TenTam','Tên tấm','text',{req:1,ex:'S1'}), F('AList','Các đoạn đáy – từ góc trái, từng đoạn tới đường lỗ (mm)','list',{req:1,ex:'1025-1025'}),
-      F('H','Chiều cao H (mm)','num',{req:1,ex:'900'}), F('C','Xiên ngang bao nhiêu mm (hoặc G65 = góc với đáy, V36 = góc với cạnh đứng)','c1',{req:1,ex:'150'}),
+      F('H','Chiều cao H (mm)','num',{req:1,ex:'900'}), F('C','Nghiêng ngang bao nhiêu mm (hoặc G65 = góc với đáy, V36 = góc với cạnh đứng)','c1',{req:1,ex:'150',hint:NGHIENG_HINT}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('HoleGroups','Lỗ từng đường – cách đáy/khoảng 2 lỗ, các đường cách nhau bằng dấu - (T30 = lỗ trên cách mép trên)','groups',{ex:'130/415-130/415'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}),
       F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B',ex:'875-200'}), F('HoleGroupsB','Mở rộng: lỗ từng đường','groups',{sec:'Mở rộng A+B',ex:'105/145'}),
@@ -625,7 +627,7 @@ const MODES = {
   '6': { name: 'Mode 6 – CTKINH (tấm thường + tấm góc)', imgs: ['m6', 'm6goc'],
     cols: ['TenTam','H','A','C','D','Offset55','KhoanCheo1','KhoanCheo2','HuongNghieng','HuongDoLo','X','Y','GocHSub','GocCSub','GocALeft','GocOffset','GocKC1','GocKC2','GocKieu','SoLuong'],
     fields: [F('TenTam','Tên tấm','text',{req:1,ex:'S1'}), F('H','Chiều cao H (mm)','num',{req:1,ex:'530'}),
-      F('A','Khoảng giữa 2 đường lỗ (tấm góc: tới đường lỗ phải)','num',{req:1,ex:'1095'}), F('C','Xiên ngang bao nhiêu mm (0 = chữ nhật)','num0',{req:1,ex:'350'}),
+      F('A','Khoảng giữa 2 đường lỗ (tấm góc: tới đường lỗ phải)','num',{req:1,ex:'1095'}), F('C','Nghiêng ngang bao nhiêu mm (0 = chữ nhật)','num0',{req:1,ex:'350',hint:NGHIENG_HINT}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('Offset55','Đường lỗ cách góc (mm)','num',{req:1,ex:'45'}),
       F('KhoanCheo1','Lỗ đầu cách đáy (mm)','num',{req:1,ex:'80'}), F('KhoanCheo2','Bước giữa 2 lỗ (mm)','num',{req:1,ex:'410'}),
       F('HuongNghieng','Hướng nghiêng','sel',{opts:[['P','Phải'],['T','Trái']]}), F('HuongDoLo','Đo lỗ','sel',{opts:[['DUOI','Từ dưới lên'],['TREN','Từ trên xuống']]}),
@@ -1233,7 +1235,7 @@ function qMarks0(mode, shp, v) {
     if (mode === '1') add('H', -1, -1, 'num', 'Chiều cao H (ghi ngoài cạnh trái)', [bx0, H / 2], [-18, 0]);
     else { const q = F([Sa + C / 2, H / 2], [20, 0]); add('H', -1, -1, 'num', 'Chiều cao H (vuông góc 2 cạnh dài)', q[0], q[1]); }
     // 2) do nghieng
-    if (mode === '1' && shp !== 'chunhat') { const q = F([C / 2, H], [0, -15]); add('C', -1, -1, 'slope', 'Xiên ngang (góc trên-trái)', q[0], q[1]); }
+    if (mode === '1' && shp !== 'chunhat') { const q = F([C / 2, H], [0, -15]); const hs = F([0, H], [0, 0]), he = F([C, H], [0, 0]); add('C', -1, -1, 'slope', 'Nghiêng ngang (đo ngang từ chân lên đỉnh cạnh bên)', q[0], q[1], { hl: [hs[0], he[0]], sh: 'Nghiêng ngang', lg: 'Nghiêng ngang – đo ngang từ chân lên đỉnh cạnh bên (0 = chữ nhật)' }); }
     }
     if (mode === '3') {
       const q = F([C / 2, H / 2], [-20, 0]); add('DiagLen', -1, -1, 'num', 'Cạnh xiên thật (dọc nét xiên)', q[0], q[1]);
@@ -1311,7 +1313,7 @@ function qMarks0(mode, shp, v) {
       const lb = [P.p1[0] + off, 0], lt = [P.p4[0] + off, H], rb = [P.p2[0] - off, 0];
       const u = unit2(lt[0] - lb[0], lt[1] - lb[1]), r0 = top ? lt : lb, sg = top ? -1 : 1, at = d => [r0[0] + sg * u[0] * d, r0[1] + sg * u[1] * d];
       add('H', -1, -1, 'num', 'Chiều cao H (ngoài cạnh trái)', [bx0, H / 2], [-18, 0]);
-      if (shp !== 'chunhat') add('C', -1, -1, 'slope', 'Xiên ngang (góc trên-' + (left ? 'phải' : 'trái') + ')', left ? [(P.p3[0] + bx1) / 2, H] : [P.p4[0] / 2, H], [0, -15]);
+      if (shp !== 'chunhat') add('C', -1, -1, 'slope', 'Nghiêng ngang (đo ngang từ chân lên đỉnh cạnh bên)', left ? [(P.p3[0] + bx1) / 2, H] : [P.p4[0] / 2, H], [0, -15], { hl: left ? [[P.p3[0], H], [bx1, H]] : [[bx0, H], [P.p4[0], H]], sh: 'Nghiêng ngang', lg: 'Nghiêng ngang – đo ngang từ chân lên đỉnh cạnh bên (0 = chữ nhật)' });
       add('KhoanCheo1', -1, -1, 'num', 'Lỗ đầu cách ' + (top ? 'mép trên' : 'đáy'), at(kc1 / 2), [16, 0]);
       add('KhoanCheo2', -1, -1, 'num', 'Khoảng 2 lỗ (bước)', at(kc1 + kc2 / 2), [16, 0]);
       add('Offset55', -1, -1, 'num', 'Đáy: góc trái → đường lỗ (= 2 đầu)', [(P.p1[0] + lb[0]) / 2, 0], [0, 15]);
@@ -1640,6 +1642,7 @@ function checkSmart(mode, v, ctx, hasErr) {
       if (P.p2 && P.p3) { const e = V2.dist(P.p2, P.p3); if (m.cut >= e) red.push('Cắt góc ' + m.cut + ' lớn hơn cạnh phải của tấm (' + _r1(e) + ' mm).'); }
     }
   }
+  if (mode === '6' && !noHoleVals(mode, v)) { const k2 = parseFloat(String(v.KhoanCheo2 || '').replace(',', '.')), dd = parseFloat(String(v.D || '').replace(',', '.')); if (k2 > 0 && dd > 0 && k2 < dd) yel.push('Bước giữa 2 lỗ (' + k2 + ') nhỏ hơn φ lỗ (' + dd + ') – các lỗ sẽ chồng nhau, hình chỉ vẽ lỗ đầu. Nhập bước lớn hơn (vd 410).'); }      // T195
   // Mode 6 thuong: geom6 bo lo khong dung duoc (lo roi ngoai tam) -> thieu lo so voi 4 lo (2 duong x 2 lo)
   if (mode === '6' && !String(v.GocHSub || '').trim() && c.soLo < 4 && !noHoleVals(mode, v)) red.push('Chỉ vẽ được ' + c.soLo + '/4 lỗ – có lỗ rơi ngoài tấm. Kiểm tra lại lỗ đầu (KhoanCheo1), bước lỗ (KhoanCheo2), H.');
   // lo: ngoai tam / cham mep (DO), qua sat mep (VANG), 2 lo qua sat / chong (DO / VANG)
@@ -3170,7 +3173,8 @@ function geom6(v) {
       let prev = polar(r0, ra, kA), cur = kA + kB;
       out.holes.push({ x: prev[0], y: prev[1], d, src: 'main', axis }); n++;
       add(r0, prev, polar(prev, la + Math.PI / 2, perp), '010-ok', src, 2);
-      while (kB > 0 && cur <= L) {
+      // T195: buoc lo < phi lo = lo chong len nhau (so dang go do, vd "4" truoc khi thanh "410" -> ~900 lo + 900 dim lam khung may) -> chi ve lo dau; toi da 80 lo / duong
+      while (kB >= Math.max(d, 1) && cur <= L && n < 80) {
         const q = polar(r0, ra, cur);
         out.holes.push({ x: q[0], y: q[1], d, src: 'main', axis }); n++;
         add(prev, q, polar(q, la + Math.PI / 2, perp), '010-ok', src, 2);
@@ -4300,7 +4304,7 @@ function fieldHTML(f) {
     : '<input id="' + id + '" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" enterkeyhint="next" ' + 'inputmode="' + imode(f) + '" ' + (num ? '' : 'autocapitalize="characters"') + ' placeholder="' + esc(f.k === 'SoLuong' ? '1' : f.ex ? 'vd ' + f.ex : '') + '">';
   const cut = f.type === 'cut' ? '<div class="chips">' + CUT_CHIPS.map((c, i) => '<button type="button" onmousedown="event.preventDefault()" onclick="addCut(\'' + f.k + '\',' + i + ')">+ ' + esc(c[0]) + '</button>').join('') + '</div><div class="cuthint" id="d_' + f.k + '"></div>' : '';
   const qty = f.k === 'SoLuong' ? '<div class="qchips"><span class="qhint">để trống = 1 tấm</span><button type="button" onmousedown="event.preventDefault()" onclick="setQty(2)">×2</button><button type="button" onmousedown="event.preventDefault()" onclick="setQty(3)">×3</button></div>' : '';
-  return '<div><label for="' + id + '">' + esc(f.label) + (f.req ? ' *' : '') + '</label>' + inp + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
+  return '<div><label for="' + id + '">' + esc(f.label) + (f.req ? ' *' : '') + '</label>' + (f.hint ? '<div class="fnote">' + esc(f.hint) + '</div>' : '') + inp + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
 }
 function toggleRB() {
   const t = $('rbT'); t.hidden = !t.hidden; $('rbB').textContent = t.hidden ? 'Đọc lại số đo' : 'Ẩn đọc lại';
@@ -4647,7 +4651,7 @@ function qBar() {
   $('qopt').innerHTML = opt;
   if (cur === '5' && m.k !== 'D') { $('qinfo').textContent = q5Info(m, v); return; }
   if (cur === '3' && q3Can(m)) { $('qinfo').textContent = 'Chưa đo được số này? Bấm Tiếp để trống (hoặc nút ?) – app tự tính. Mỗi tấm chỉ được để ? ĐÚNG 1 số.'; return; }      // T143
-  $('qinfo').textContent = m.pre === 'V' || m.k === 'CanhXien' ? (() => { const x = m1Slant(v); return x ? 'Tự tính: H ≈ ' + Math.round(x.H) + ' · C ≈ ' + Math.round(x.C) + ' mm (số xám trên hình)' : 'Góc giữa cạnh xiên và đường đứng nét đứt (0–90°)'; })() : m.kind === 'slope' ? slopeInfo(v[m.k], parseFloat(v.H)) : m.kind === 'corner' ? (QCT === 'R' ? 'Bo góc R (mm) – dim cạnh vẫn đo tới góc nhọn' : describeCut(v.CutP3)) : m.kind === 'field' ? flab : '';
+  $('qinfo').textContent = m.pre === 'V' || m.k === 'CanhXien' ? (() => { const x = m1Slant(v); return x ? 'Tự tính: H ≈ ' + Math.round(x.H) + ' · C ≈ ' + Math.round(x.C) + ' mm (số xám trên hình)' : 'Góc giữa cạnh xiên và đường đứng nét đứt (0–90°)'; })() : m.kind === 'slope' ? (slopeInfo(v[m.k], parseFloat(v.H)) || NGHIENG_HINT) : m.kind === 'corner' ? (QCT === 'R' ? 'Bo góc R (mm) – dim cạnh vẫn đo tới góc nhọn' : describeCut(v.CutP3)) : m.kind === 'field' ? flab : '';
 }
 // T41: nhan day du cho dong tien do
 function qLong(m) {
@@ -4655,7 +4659,7 @@ function qLong(m) {
   if (m.lg) return m.lg;      // T75: Mode 5 - nhan rieng tung buoc
   if (m.tt) return 'Lỗ trên cách MÉP TRÊN (đường lỗ ' + (m.t + 1) + ')';      // T48
   if (m.s >= 0) return (m.s === 0 ? ((cur === '1' || cur === '3') && qTopOn(readForm(), m.t, m.k) ? 'Lỗ dưới cách đáy' : 'Lỗ đầu') : 'Khoảng 2 lỗ') + ' (đường lỗ ' + (m.t + 1) + ')';
-  if (m.kind === 'slope') return 'Độ nghiêng';
+  if (m.kind === 'slope') return 'Nghiêng ngang';
   if (m.k === 'D') return 'φ đường kính lỗ';
   return String(m.lab || m.k);
 }
@@ -5282,6 +5286,7 @@ const PV_MIN_FONT = 9;      // T126 (T130: KHONG con dung de thu nho chu - giu t
 const PV_G0 = 36;
 const PV_TOTAL_SCALE = 1.25, PV_TOTAL_WEIGHT = 800, PV_TOTAL_COL = '#0f5a30';      // T138: dim kich thuoc tong: chu to 1,25x, dam 800, mau dam hon
 const pvIsTotal = d => !!d && (d.st === '020-ok' || d.st === '015-ok');
+const PV_MANY = 12;      // T195: chuoi dim > PV_MANY dim (vd hang tram lo vi buoc lo dang go do) -> che do xep nhanh
 let PV_OV = 0;      // T132: so cap chu con de nhau sau khi da giam co chung toi san (hinh qua nho) -> renderPV ghi chu 'bam Phong to'
 let PV_FMIN = PV_MIN_FONT;      // T130: san co chu chung (renderPV dat theo opt.fmin: anh/PDF phong 2,4 -> nho hon)
 function pvLayout(dims, k, fs, poly) { const m = typeof window !== 'undefined' ? (window.PV_XEP || (window.PV_XEP_CU ? 'cu' : '')) : '';
@@ -5374,7 +5379,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     };
     const chE = {};       // T126: tang chung cua tung chuoi (chon 1 lan theo TONG diem ca chuoi)
     const ES = [0, 1, -1, 2, -2, 3, 4, -3, 5, 6, -4, 7, 8, -5, 9, 10, -6, 11, 12, -7, -8, 13, 14, -9, -10, 15, 16], ESo = ES.filter(e => e >= 0);      // T130: tang thu (am = vao phia trong: CHI dim trong tam (lo) sat canh kinh)
-    const ESx = x => x.lv > 0.5 ? ESo : ES;
+    const ESx = x => { const l = x.lv > 0.5 ? ESo : ES; return pvMany ? l.slice(0, 2) : l; };      // T195: nhieu dim -> thu it tang hon (hang tram dim x 27 tang = cham)
     Object.keys(chs).forEach(ck => { const arr = chs[ck]; if (arr.length < 2) return;
       let bt = Infinity; for (const e of ESx(arr[0])) { let tot = 0; arr.forEach(x => { tot += evalE(x, x.id, e).sc; }); if (tot < bt) { bt = tot; chE[ck] = e; } if (bt < 12 * (Math.abs(e) + 1) * arr.length) break; } });      // T130: chon tang TOT NHAT (truoc: tang cuoi cung thu)
     L.forEach((x, ix) => {
@@ -5386,6 +5391,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
       items.push({ d, A, B, t, n, o: best.o, D1: best.D1, D2: best.D2, tc: best.tc, tb: best.tb, ang: ang(t), short: g.short, f: g.f, f0: g.f0, tout: false, ld: null, len: x.len, ck: x.ck });
     });
   };
+  const pvMany = Object.values(chs).some(a => a.length > PV_MANY);      // T195
   const placeAll = () => {
     placeL();
   // T130: dim CUC HEP (doan 2-15 mm: o co chung fD so van cham so ben canh cung chuoi) -> chu ra NGOAI sat gion, phia xa so ben canh,
@@ -5417,7 +5423,8 @@ function pvLayoutCAD(dims, k, fs, poly) {
       if (it.some((o, j) => j !== i && o.D1 && [[o.D1, o.D2], [o.A, o.D1], [o.B, o.D2]].some(sg => segBox(sg, sb, null)))) ll++; }
     nTT = n; nLL = ll; return n * 4 + ll; };      // chu de chu / canh kinh nang gap 4 lan cham net manh      // nTT = chu de chu / canh kinh; nLL = chu cham duong dim / gion cua dim khac
   { const f0 = fD, F = []; for (let f = f0; f >= PV_FMIN - 1e-6; f = f > PV_FMIN + 1 ? f * 0.9 : (f > PV_FMIN ? PV_FMIN : -1)) F.push(f);
-    if (typeof window !== 'undefined' && window.PV_T132_OFF) F.length = 1;      // chi de chup anh 'truoc T132' (khong dung that)
+    if ((typeof window !== 'undefined' && window.PV_T132_OFF) || pvMany) F.length = 1;      // T195: qua nhieu dim (>PV_MANY, vd buoc lo go dang do "4" -> hang tram lo) -> khong thu giam co chu nhieu lan (do cham hang giay, khung hinh khung)
+    //      // chi de chup anh 'truoc T132' (khong dung that)
     let bestF = f0, bestN = Infinity;
     for (const f of F) { fD = f; placeAll(); const n = nOv(); if (n < bestN) { bestN = n; bestF = f; } if (nTT === 0 && nLL <= 1) break; }      // du tot: khong de chu, toi da 1 cho cham net manh -> giu co chu to nhat
     if (fD !== bestF) { fD = bestF; placeAll(); }
@@ -10139,7 +10146,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261023151202';
+var CTK_BUILD = '20261025095915';
 (function () {
   function chk() {
     try {
