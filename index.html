@@ -2805,7 +2805,7 @@ const RX = {
   end: /^(0|[XCT]-?\d+(\.\d+)?|V|-?\d+(\.\d+)?)$/i,
   h5: /^(\d+(\.\d+)?|(\?|P?\d+(\.\d+)?)\/(\?|P?\d+(\.\d+)?))$/i,
   kl: /^(\d+(\.\d+)?|\?|@[Pp]?\d+(\.\d+)?)(-(\d+(\.\d+)?|\?|@[Pp]?\d+(\.\d+)?))*$/,   // T218: @P1765 = cach dau PHAI
-  lophu: /^(-|\d+(\.\d+)?@\d+(\.\d+)?\/\d+(\.\d+)?(-\d+(\.\d+)?@\d+(\.\d+)?\/\d+(\.\d+)?)*)$/,
+  lophu: /^(-|\d+(\.\d+)?@[Pp-]?\d+(\.\d+)?\/[TtBb]?\d+(\.\d+)?(-\d+(\.\d+)?@[Pp-]?\d+(\.\d+)?\/[TtBb]?\d+(\.\d+)?)*)$/,
 };
 // ---- Cot CutP3 (sua goc) = cu phap THAT cua CTK-ParseCutStr (lisp 04-dim-chung-CutP3):
 //   cac phan ghep bang "/", thu tu tu do, khong phan biet hoa/thuong:
@@ -2935,7 +2935,7 @@ const MODES = {
       F('Day','Đáy: N700 + DL1500/1250 (dài dốc/ngang) + DX395x309 (ngang x chênh cao)…','day',{req:1,ex:'DL2218/1790+N965'}),
       F('DauTrai','Đầu trái: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}), F('DauPhai','Đầu phải: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'22'}), F('KhoangLo','Khoảng cách các đường lỗ: 110-932-920-?-200 (? = tự tính, @ = cách đầu trái, @P = đo từ đầu phải)','kl',{ex:'110-?-200'}),
-      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo dọc)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50','lophu',{ex:''}),
+      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo dọc)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50 (@P25/100 = đo từ mép PHẢI; /T100 = từ mép TRÊN; /B980 = từ ĐÁY; mặc định từ trái, từ trên)','lophu',{ex:''}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}), F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '6': { name: 'Mode 6 – CTKINH (tấm thường + tấm góc)', imgs: ['m6', 'm6goc'],
     cols: ['TenTam','H','A','C','D','Offset55','KhoanCheo1','KhoanCheo2','HuongNghieng','HuongDoLo','X','Y','GocHSub','GocCSub','GocALeft','GocOffset','GocKC1','GocKC2','GocKieu','SoLuong'],
@@ -3871,7 +3871,7 @@ function validate(mode, v, ctx) {
       case 'end': ok = RX.end.test(x); msg = '0, X770, C411, T1195 hoặc V'; break;
       case 'h5': ok = RX.h5.test(x) && !/^\?\/\?$/.test(x); msg = /^\?\/\?$/.test(x) ? 'Chỉ để ? một đầu – đầu kia phải ghi số cao' : 'Số, hoặc 900/1285, ?/1220 (để ? nếu thợ không ghi: app tự tính), P800/626'; break;
       case 'kl': ok = RX.kl.test(x); msg = 'Dạng 110-?-200'; break;
-      case 'lophu': ok = RX.lophu.test(x); msg = 'Dạng 16@15/50'; break;
+      case 'lophu': ok = RX.lophu.test(x); msg = 'Dạng 16@15/50, 16@P25/T100 (P = từ mép phải, T = từ mép trên, B = từ đáy)'; break;
       case 'cut': msg = checkCut(x); ok = !msg; break;
     }
     if (!ok) err[f.k] = msg;
@@ -5295,21 +5295,28 @@ function geom5(v, m, rev) {
     });
     lines5.push({ i: gi, hs, E: E.p, s: s[gi], X: X.p, pq: !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01 });      // T52: pq = lo dau do VUONG GOC canh duoi
   });
-  // --- 13. lo phu "phi@cachDauTrai/cachCanhTren" (TL, TR, topMid TRUOC khi sua goc - nhu lisp) ---
+  // --- 13. lo phu "phi@[P]x/[T|B]y" (T224): x tu mep TRAI (mac dinh) hoac PHAI (P hoac dau -); y tu mep TREN (mac dinh = T) hoac DAY (B) ---
+  //   (mep trai/phai theo huong tho nhin: Huong T lat guong -> P tinh tu dau doi dien truoc khi lat)
   const lpDims = [], holeD = [];
-  if (lpStr !== '') lpStr.split('-').forEach((t0, li) => {
+  const lpOutline = [].concat(Bp, [TR], topMid.slice().reverse(), [TL]);
+  if (lpStr !== '') lpStr.split(/-(?=\d+(?:\.\d+)?@)/).forEach((t0, li) => {
     const lp = t0.trim(), at = lp.indexOf('@');
     if (at < 0) return;
-    const ph = lAtof(lp.slice(0, at)), d1s = lp.slice(at + 1).split('/'), d2 = d1s.length > 1 ? lAtof(d1s[1]) : 0, d1 = lAtof(d1s[0]);
+    const ph = lAtof(lp.slice(0, at)), d1s = lp.slice(at + 1).split('/');
+    let s0 = d1s[0].trim(), s1 = d1s.length > 1 ? d1s[1].trim() : '';
+    const fromR = /^(P|-)/i.test(s0), yb = /^B/i.test(s1);
+    s0 = s0.replace(/^(P|-)/i, ''); s1 = s1.replace(/^[TB]/i, '');
+    const d1 = lAtof(s0), d2 = s1 === '' ? 0 : lAtof(s1), useR = fromR !== rev;
     let fA, fB, nInL;
-    if (rev) { fA = [Bn, TR, dR]; fB = topMid.length ? topMid[topMid.length - 1] : TL; nInL = [-dR[1], dR[0]]; }
+    if (useR) { fA = [Bn, TR, dR]; fB = topMid.length ? topMid[topMid.length - 1] : TL; nInL = [-dR[1], dR[0]]; }
     else { fA = [B0, TL, dL]; fB = topMid.length ? topMid[0] : TR; nInL = [dL[1], -dL[0]]; }
-    const uT = U(fB[0] - fA[1][0], fB[1] - fA[1][1]), nInT = rev ? [-uT[1], uT[0]] : [uT[1], -uT[0]];
-    const a = P(fA[0], nInL, d1), b = P(fA[1], nInT, d2), h = V2.inters(a, P(a, fA[2], 100), b, P(b, uT, 100));
+    const uT = U(fB[0] - fA[1][0], fB[1] - fA[1][1]), nInT = useR ? [-uT[1], uT[0]] : [uT[1], -uT[0]];
+    const kb = useR ? n - 1 : 0, bb = { p: Bp[kb], u: Us[kb], nUp: [-Us[kb][1], Us[kb][0]] };
+    const a = P(fA[0], nInL, d1), b = yb ? P(bb.p, bb.nUp, d2) : P(fA[1], nInT, d2), h = V2.inters(a, P(a, fA[2], 100), b, P(b, yb ? bb.u : uT, 100));
     if (h) {
       out.holes.push({ x: h[0], y: h[1], d: ph, src: 'LoPhu', axis: li });
       const hc = String(Math.floor(ph + 0.5)), e = holeD.find(q => q[0] === hc); if (e) e[1]++; else holeD.push([hc, 1]);
-      lpDims.push({ h, ph, fA, uT, nInT, nInL });
+      lpDims.push({ h, ph, fA, uT, nInT, nInL, yb, bb, useR });
     }
   });
   // ==========================================================================
@@ -5521,11 +5528,19 @@ function geom5(v, m, rev) {
     if (hasR && k === lines5.length - 1 && Math.abs(V2.dot(eB[1], eB[2])) > 0.01) offDim(L.E, eB, L.hs[L.hs.length - 1], flagR);
   });
   // --- 13b. dim lo phu: toi dau tam, toi canh tren (010-ok) + dim DUONG KINH (CTK5-Diam) ---
+  // T224: dim vi tri lo phu RA NGOAI tam. X: tu mep trai/phai toi lo (so tho ghi), duong dim vuot ra phia gan nhat (tren/duoi) cua tam.
+  //   Y: tu mep tren/day toi lo, duong dim ra phia mep trai/phai cung phia voi moc X. Cach bien tam: phia tren 60, con lai 230
+  //   (ne dim khac nam sat canh: day, tong, chieu cao); nhieu dim cung phia xep chong +55 (CAD cung cong thuc, CTK5-LpExt).
+  const lpCnt = {};
+  const lpRaw = (h, o) => lpOutline.reduce((m, v) => Math.max(m, V2.dot(sub(v, h), o)), 0);
+  const lpPos = (h, o) => { const key = Math.round(o[0] * 100) + ',' + Math.round(o[1] * 100), k = lpCnt[key] || 0; lpCnt[key] = k + 1; return lpRaw(h, o) + (o[1] > 0.5 ? 60 : 230) + 55 * k; };
   lpDims.forEach(q => {
     let ref = proj(q.h, q.fA[0], q.fA[1]);
-    add(ref, q.h, P(mid2(ref, q.h), q.nInT, 55), '010-ok', 'LoPhu', 2);
-    ref = proj(q.h, q.fA[1], P(q.fA[1], q.uT, 100));
-    add(ref, q.h, P(mid2(ref, q.h), q.nInL, -55), '010-ok', 'LoPhu', 2);
+    const eu = q.fA[2], dn = [-eu[0], -eu[1]], oX = lpRaw(q.h, eu) <= lpRaw(q.h, dn) ? eu : dn;
+    add(ref, q.h, lpRaw(q.h, oX) + (oX[1] > 0.5 ? 60 : 230) > 450 ? P(mid2(ref, q.h), q.nInT, 55) : P(q.h, oX, lpPos(q.h, oX)), '010-ok', 'LoPhu', 2);      // ra ngoai qua xa (>450, canh xien dung) -> dat trong nhu cu
+    ref = q.yb ? proj(q.h, q.bb.p, P(q.bb.p, q.bb.u, 100)) : proj(q.h, q.fA[1], P(q.fA[1], q.uT, 100));
+    const oY = q.yb ? (q.useR ? q.bb.u : [-q.bb.u[0], -q.bb.u[1]]) : [-q.uT[0], -q.uT[1]];
+    add(ref, q.h, lpRaw(q.h, oY) + (oY[1] > 0.5 ? 60 : 230) > 450 ? P(mid2(ref, q.h), q.nInL, -55) : P(q.h, oY, lpPos(q.h, oY)), '010-ok', 'LoPhu', 2);
     diamDim(dims, q.h, q.ph, '010-ok', 'LoPhu');
   });
   // --- 14. nhan ---
@@ -8556,7 +8571,7 @@ function keysFor(el) {
     case 'end': return ['X', 'C', 'T', 'V', '-', '.'];
     case 'h5': return ['/', '?', 'P', '.'];
     case 'kl': return ['-', '?', '@', '@P', '.'];
-    case 'lophu': return ['@', '/', '-', '.'];
+    case 'lophu': return ['@', '@P', '/', 'T', 'B', '-', '.'];
     case 'cut': return ['/', '@', 'L', 'G', 'D', 'K', 'MT'];
     default: return [];                                                // int, text: chi con nut dieu huong
   }
@@ -12643,7 +12658,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261026163033';
+var CTK_BUILD = '20261026165339';
 (function () {
   function chk() {
     try {
