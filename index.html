@@ -3184,12 +3184,12 @@ function geom6(v) {
     if (kA > 0 && kA <= L) {
       let prev = polar(r0, ra, kA), cur = kA + kB;
       out.holes.push({ x: prev[0], y: prev[1], d, src: 'main', axis }); n++;
-      add(r0, prev, polar(prev, la + Math.PI / 2, perp), '010-ok', src, 2);
+      add(r0, prev, polar(prev, la + Math.PI / 2, perp), '010-ok', src, 1).keep = true;      // T204: dim lo (60 / 410) cua Mode 6 la dim CHINH (nhu so mau 45/A/45): luon hien o muc Chinh + khung Nho
       // T195: buoc lo < phi lo = lo chong len nhau (so dang go do, vd "4" truoc khi thanh "410" -> ~900 lo + 900 dim lam khung may) -> chi ve lo dau; toi da 80 lo / duong
       while (kB >= Math.max(d, 1) && cur <= L && n < 80) {
         const q = polar(r0, ra, cur);
         out.holes.push({ x: q[0], y: q[1], d, src: 'main', axis }); n++;
-        add(prev, q, polar(q, la + Math.PI / 2, perp), '010-ok', src, 2);
+        add(prev, q, polar(q, la + Math.PI / 2, perp), '010-ok', src, 1).keep = true;
         prev = q; cur += kB;
       }
     }
@@ -4445,7 +4445,7 @@ function toggleGocPhu() {
 // dim lo khoan = dim chi gan voi o nhap lo (vi tri lo doc truc, khoang lo, duong kinh lo...)
 const HOLE_SRC = new Set(['HoleGroups', 'HoleGroupsB', 'HoleHeights', 'HoleYList', 'Lo', 'LoPhu', 'TG_LoThem', 'KhoanCheo1', 'KhoanCheo2', 'HuongDoLo', 'GocKC1', 'GocKC2',
   'GapFirstHoles', 'GapSecondHoles', 'KC2Left', 'KC2Right', 'KhoangLo', 'HeightLeft', 'HeightRight', 'OffsetLeft2']);
-function pvIsHoleDim(d) { return d.kind === 'dk' || (!!d.src && d.src.split(' ').every(t => HOLE_SRC.has(t))); }
+function pvIsHoleDim(d) { return !d.keep && (d.kind === 'dk' || (!!d.src && d.src.split(' ').every(t => HOLE_SRC.has(t)))); }
 const pvSegD = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
 // tap tren lo / duong lo -> tap dim lo cua rieng duong lo do (theo toa do diem dau dim nam tren duong / lo)
 function pvRevDims(sh, rev) {
@@ -10181,7 +10181,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261025162820';
+var CTK_BUILD = '20261026074242';
 (function () {
   function chk() {
     try {
