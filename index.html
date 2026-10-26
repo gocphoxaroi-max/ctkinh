@@ -642,10 +642,10 @@ const MODES = {
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('Offset55','Đường lỗ cách góc (mm)','num',{req:1,ex:'45'}),
       F('KhoanCheo1','Lỗ đầu cách đáy (mm)','num',{req:1,ex:'80'}), F('KhoanCheo2','Bước giữa 2 lỗ (mm)','num',{req:1,ex:'410'}),
       F('HuongNghieng','Hướng nghiêng','sel',{opts:[['P','Phải'],['T','Trái']]}), F('HuongDoLo','Đo lỗ','sel',{opts:[['DUOI','Từ dưới lên'],['TREN','Từ trên xuống']]}),
-      F('GocHSub','Góc: cao phần mở rộng','num',{sec:'Tấm góc',ex:'535'}), F('GocCSub','Góc: lệch phần mở rộng','num',{sec:'Tấm góc',ex:'340'}),
-      F('GocALeft','Góc: A trái','num',{sec:'Tấm góc',ex:'310'}), F('GocOffset','Góc: offset trái','num',{sec:'Tấm góc',ex:'45'}),
-      F('GocKC1','Góc: lỗ đầu trái','num',{sec:'Tấm góc',ex:'70'}), F('GocKC2','Góc: bước lỗ trái','num',{sec:'Tấm góc',ex:'410'}),
-      F('GocKieu','Góc: kiểu','sel',{sec:'Tấm góc',opts:[['','—'],['T','Nửa trái cao hơn (T)'],['D','Nửa trái thấp hơn (D)']]}),
+      F('GocHSub','Phần mở rộng: cao, đo vuông góc với cạnh dốc (mm)','num',{sec:'Tấm góc',ex:'535'}), F('GocCSub','Phần mở rộng: đoạn dọc theo cạnh dốc, tới đỉnh (mm)','num',{sec:'Tấm góc',ex:'340'}),
+      F('GocALeft','Phần mở rộng: đáy xiên, tới đường lỗ (mm)','num',{sec:'Tấm góc',ex:'310'}), F('GocOffset','Phần mở rộng: đường lỗ cách góc (mm)','num',{sec:'Tấm góc',ex:'45'}),
+      F('GocKC1','Phần mở rộng: lỗ đầu cách đáy xiên (mm)','num',{sec:'Tấm góc',ex:'70'}), F('GocKC2','Phần mở rộng: bước giữa 2 lỗ (mm)','num',{sec:'Tấm góc',ex:'410'}),
+      F('GocKieu','Phần mở rộng: nhô lên hay xuống','sel',{sec:'Tấm góc',opts:[['','—'],['T','Nhô lên – cao hơn thân (T)'],['D','Nhô xuống – thấp hơn thân (D)']]}),
       F('SoLuong','Số lượng','int',{ex:'1'})] },
 };
 // T59: Mode 1 do CANH XIEN + GOC (so tho Manh OD): cot CanhXien = L (do doc canh xien) + cot C = V<phi> (goc voi phuong DUNG)
@@ -1117,6 +1117,7 @@ function qGhost(mode, shp, v) {
   for (const f of M.fields) {
     const has = String(v[f.k] == null ? '' : v[f.k]).trim() !== '';
     if (has || f.type === 'sel' || f.k === 'TenTam' || f.k === 'SoLuong') continue;
+    if (shp === 'gocnghi' && f.k === 'C') continue;      // T207: the phan mo rong khong dung o C -> khong so mau C
     if (/^Kiem/.test(f.k) || (shp === 'xiengoc' && f.k === 'H')) continue;      // T59: so kiem chi la so mau o nhap (qSmp); the xien+goc khong nhap H
     const use = f.req || (sh.sec && f.sec === sh.sec) || G[f.k] != null;
     if (!use || f.k === 'AList' || f.k === 'AKnownList' || f.k === 'HoleGroups' || f.k === 'HoleHeights') continue;
@@ -1193,7 +1194,7 @@ const QFALL = {
   tamgiac: [['H', 'L'], ['TG_CanhTren', 'T'], ['AList', 'B'], ['HoleGroups', 'R'], ['D', 'TR']],
   haidau: [['H1', 'L'], ['C1', 'TL'], ['W', 'B'], ['H2', 'R'], ['C2', 'TR'], ['AList', 'B'], ['HoleYList', 'R'], ['D', 'T']],
   tudo: [['H', 'L'], ['Day', 'B'], ['DauTrai', 'BL'], ['DauPhai', 'BR'], ['KhoangLo', 'B'], ['Lo', 'R'], ['D', 'T']],
-  gocnghi: [['H', 'L'], ['C', 'TL', 'slope'], ['A', 'B'], ['Offset55', 'BL'], ['KhoanCheo1', 'R'], ['KhoanCheo2', 'R'], ['GocHSub', 'R'], ['GocCSub', 'TR'], ['GocALeft', 'BL'], ['GocOffset', 'BL'], ['GocKC1', 'L'], ['GocKC2', 'L'], ['D', 'T']],      // T42: them offset + lo phan sub (truoc chi la so mau an)
+  gocnghi: [['H', 'L'], ['A', 'B'], ['Offset55', 'BL'], ['KhoanCheo1', 'R'], ['KhoanCheo2', 'R'], ['GocHSub', 'R'], ['GocCSub', 'TR'], ['GocALeft', 'BL'], ['GocOffset', 'BL'], ['GocKC1', 'L'], ['GocKC2', 'L'], ['D', 'T']],      // T42: them offset + lo phan sub (truoc chi la so mau an)
 };
 const fLabel = (mode, k) => { const f = MODES[mode].fields.find(x => x.k === k); return f ? f.label : k; };
 const fReq = (mode, k) => { const f = MODES[mode].fields.find(x => x.k === k); return !!(f && f.req); };
@@ -1503,8 +1504,9 @@ function qDims(mode, res, v, selId) {
 // ---- kiem tra 1 tam: tra ve {err:{k:msg}, warn:[..]}
 // T156: Mode 1 - o C (do nghieng) KHONG bat buoc khi tam la CHU NHAT (C = 0) hoac TAM GIAC (TG_CanhTren / TG_Phia: C khong dung toi); bo trong = 0
 function cOptional(mode, v, ctx) {
-  if (mode !== '1') return false;
   const has = k => String((v || {})[k] == null ? '' : v[k]).trim() !== '';
+  if (mode === '6') return !!(ctx && ctx.shape === 'gocnghi') || has('GocHSub');      // T207: tam co phan mo rong KHONG dung o C (hinh suy tu GocHSub/GocCSub) -> an o C, khong bat buoc
+  if (mode !== '1') return false;
   return has('TG_CanhTren') || has('TG_Phia') || !!(ctx && (ctx.shape === 'chunhat' || ctx.shape === 'tamgiac'));
 }
 function validate(mode, v, ctx) {
@@ -1745,7 +1747,7 @@ function toCSV(info, panels) {
     const ps = panels.filter(p => p.mode === m);
     if (!ps.length) continue;
     L.push('', '#MODE ' + m, MODES[m].cols.join(','));
-    for (const p of ps) L.push(MODES[m].cols.map(c => clean(c === 'CutP3' ? normCut(p.v[c]) : c === 'GocDo' ? [gocTokens(m, p.v), gocPhuTokens(m, p.v)].filter(Boolean).join('-') : c === 'BoGoc' ? boTokens(m, p.v) : c === 'CatGoc' ? cgTokens(m, p.v) : c === 'LoTuDo' ? ltTokens(m, p.v) : p.v[c])).join(','));
+    for (const p of ps) L.push(MODES[m].cols.map(c => clean(c === 'CutP3' ? normCut(p.v[c]) : (c === 'C' && m === '6' && String(p.v.GocHSub == null ? '' : p.v.GocHSub).trim() !== '') ? '0' : c === 'GocDo' ? [gocTokens(m, p.v), gocPhuTokens(m, p.v)].filter(Boolean).join('-') : c === 'BoGoc' ? boTokens(m, p.v) : c === 'CatGoc' ? cgTokens(m, p.v) : c === 'LoTuDo' ? ltTokens(m, p.v) : p.v[c])).join(','));
   }
   return '﻿' + L.join('\r\n') + '\r\n';
 }
@@ -3273,7 +3275,7 @@ function geom6(v) {
     const B = [bLeft * cs, bLeft * sn], bl = [offL * cs, offL * sn], tl = [bl[0], bl[1] + hyp];
     const Cf = [B[0] + aRight + offR, B[1]], PD = [Cf[0], B[1] + Hp];
     const E = Math.abs(sn) <= 1e-9 ? [F[0], PD[1]] : P(F, [cs, sn], (PD[1] - F[1]) / sn);
-    const br = [Cf[0] - offR, Cf[1]], tr = dir === 'TOP' ? [br[0], PD[1]] : [br[0], br[1] + hyp];
+    const br = [Cf[0] - offR, Cf[1]], tr = dir === 'TOP' ? [br[0], PD[1]] : [br[0], br[1] + Math.min(hyp, Hp)];      // T207: duong lo THAN do tu duoi khong dai qua cao tam (truoc: = canh dung phai 755,7 > H -> net do lo len tren)
     const Mref = [A[0] - gHs * sn, A[1] + gHs * cs];
     out.verts = [nm('A', A), nm('B', B), nm('C', Cf), nm('D', PD), nm('E', E), nm('F', F)];
     ref(A, Mref, gs); ref(Mref, F, gs); ref(F, [F[0], PD[1]]); ref(E, [F[0], PD[1]]);
@@ -3290,6 +3292,14 @@ function geom6(v) {
     add(F, E, above(F, E, 60), '010-ok', gs + ' H', 1);
     add(E, PD, above(E, PD, 60), '010-ok', gs + ' H', 1);
     label([(A[0] + Cf[0]) / 2, (A[1] + PD[1]) / 2], nh);
+  }
+  // T207: GOC PHU tam co phan mo rong = goc delta giua CANH DUNG (A-F) va duong vuong goc canh xien (A-Mref kieu D / F-Mref kieu T), NGOAI tam
+  {
+    const dd = Math.round(delta * 18000 / Math.PI) / 100;
+    if (dd > 0.01 && dd < 89.99) {
+      if (up) { const Mr = P(A, [cs, -sn], -gCs), u = V2.sub(Mr, F), l = Math.hypot(u[0], u[1]) || 1; out.phuSub = { c: F, a: [F[0], F[1] - 100], b: [F[0] + u[0] / l * 100, F[1] + u[1] / l * 100], val: dd }; }
+      else out.phuSub = { c: A, a: [A[0], A[1] + 100], b: [A[0] - sn * 100, A[1] + cs * 100], val: dd };
+    }
   }
   if (sn > 1e-9 && cs > 1e-9) out.sl = { a: A, b: out.verts[1].p };      // T202: canh xien nua trai (goc phu 90-alpha)
   out.flip = huongT;      // lisp: tam GOC nghieng trai -> lat guong (CTHL-ReadRow: mir)
@@ -3351,6 +3361,7 @@ function gocTokens(mode, v) {
 // CAD: them 1 token "PHU:x/y/g1/g2" vao cot GocDo (cung dinh dang T22); lisp CTK-GocDoDraw ve du da co dim alpha.
 var GOCPHU = false;
 function gocPhuList(S) {
+  if (S.phuSub) return [S.phuSub];      // T207: tam co phan mo rong: CHI goc delta (vd 29,14) ngoai tam, thay 90-delta cu
   const out = [], vs = S.verts || [], isAl = d => d.kind === 'goc' && d.tag !== 'gocphu' && (d.src === 'C H' || d.src === 'C2 H2') && d.c && d.a;
   const al = (S.dims || []).filter(isAl);
   al.forEach(d => {
@@ -4039,6 +4050,7 @@ function geom(mode, v) {
       const r = geom6(v);
       S.verts = r.verts; S.holes = r.holes; S.axes = r.axes; S.refs = r.refs; S.dims = r.dims;
       if (r.sl) S.sl = r.sl;      // T202
+      if (r.phuSub) S.phuSub = r.phuSub;      // T207
       if (r.flip) flip = true;
     }
     if (S.dims && S.dims.length) chainTotals(S.dims, S.holes.map(h => [h.x, h.y]), S.dims.xtot);   // T29: dim tong chuoi dim day (truoc lat guong)
@@ -4080,6 +4092,7 @@ function geom(mode, v) {
       S.verts = S.verts.map(p => nm(p.n, fx(p.p)));
       S.holes.forEach(h => { h.x = X - h.x; });
       if (S.sl) S.sl = { a: fx(S.sl.a), b: fx(S.sl.b) };
+      if (S.phuSub) S.phuSub = { c: fx(S.phuSub.c), a: fx(S.phuSub.a), b: fx(S.phuSub.b), val: S.phuSub.val };      // T207
       if (S.cut) S.cut = { a: fx(S.cut.a), b: fx(S.cut.b) };      // T147
       if (S.frameBox) S.frameBox = Object.assign({}, S.frameBox, { xL: X - S.frameBox.xR, xR: X - S.frameBox.xL });      // T167: khung phoi net dut cung phai lat guong (tong phoi tam nghieng trai)
       S.axes = S.axes.map(l => Object.assign({}, l, { a: fx(l.a), b: fx(l.b) }));
@@ -4369,7 +4382,7 @@ function setMode(m, keepVals) {
     el.addEventListener('input', live); el.addEventListener('change', live); el.addEventListener('input', () => { DIRTY = true; });
     el.addEventListener('change', () => { const f = M.fields.find(q => 'f_' + q.k === el.id); if (f) { const n = fixComma(f.type, el.value); if (n !== el.value.trim()) { el.value = n; live(); } } });
     if (el.id === 'f_CutP3') el.addEventListener('change', () => { const n = normCut(el.value); if (n !== el.value) { el.value = n; live(); } });
-    el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (ev.ctrlKey || i === ins.length - 1 || el.id === 'f_SoLuong') savePanel(); else if (KBF.on) { const nx = ins.slice(i + 1).find(x => x.tagName === 'INPUT' && !x.closest('details:not([open])')); if (nx) goField(nx); else savePanel(); } else { const n = ins.slice(i + 1).find(x => x.offsetParent !== null); (n || ins[0]).focus(); setTimeout(() => keepVisible(n || ins[0]), 60); } } });
+    el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (ev.ctrlKey || i === ins.length - 1 || el.id === 'f_SoLuong') savePanel(); else if (KBF.on) { const nx = ins.slice(i + 1).find(x => x.tagName === 'INPUT' && !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); if (nx) goField(nx); else savePanel(); } else { const n = ins.slice(i + 1).find(x => x.offsetParent !== null); (n || ins[0]).focus(); setTimeout(() => keepVisible(n || ins[0]), 60); } } });
   });
   if (old) { const keep = {}; for (const f of M.fields) if (old[f.k] !== undefined) keep[f.k] = old[f.k]; fillForm(keep); }
   live();
@@ -4396,10 +4409,15 @@ function xgLayout() {
     wH.style.display = ''; lab(wL, esc(F0('CanhXien').label)); lab(wC, esc(F0('C').label) + ' *'); eC.placeholder = 'vd ' + F0('C').ex; const hn = $('xgH'); if (hn) hn.remove();
   }
 }
+// T207: the "tam co phan mo rong" (Mode 6 + GocHSub): AN HAN o C (hinh suy tu GocHSub/GocCSub; C bi bo qua o web + CAD)
+function subLayout() {
+  const eC = $('f_C'); if (!eC || cur !== '6') return;
+  eC.parentNode.style.display = curShape() === 'gocnghi' ? 'none' : '';
+}
 function F0(k) { return MODES[cur].fields.find(f => f.k === k) || {}; }
 document.addEventListener('change', e => { if (e.target && e.target.id === 'f_C' && cur === '1' && curShape() === 'xiengoc') { const t = e.target.value.trim().replace(',', '.'); if (/^\d+(\.\d+)?$/.test(t)) { e.target.value = 'V' + t; live(); } } });
 function live() {
-  xgLayout();
+  xgLayout(); subLayout();
   const v = readForm(), r =validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3], shape: SHAPE });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
   for (const f of MODES[cur].fields) {
     const el = $('f_' + f.k), e = $('e_' + f.k); if (!el) continue;
@@ -6149,7 +6167,7 @@ function keysFor(el) {
   }
 }
 function formFocus() { const a = document.activeElement; return a && a.tagName === 'INPUT' && a.closest && a.closest('#form') ? a : null; }
-function navInputs() { return [...$('form').querySelectorAll('input')].filter(x => !x.closest('details:not([open])')); }
+function navInputs() { return [...$('form').querySelectorAll('input')].filter(x => !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); }      // T207: bo o bi an (C o the phan mo rong)
 function clearFcur() { document.querySelectorAll('#form .fcur,#form .hasf').forEach(x => x.classList.remove('fcur', 'hasf')); }
 function setFcur(el) {
   clearFcur();
@@ -10181,7 +10199,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261026074242';
+var CTK_BUILD = '20261026082220';
 (function () {
   function chk() {
     try {
