@@ -2797,14 +2797,14 @@ const RX = {
   num: /^\d+(\.\d+)?$/,
   int: /^[1-9]\d*$/,
   list: /^\d+(\.\d+)?(-\d+(\.\d+)?)*$/,
-  groups: /^(V?\d+(\.\d+)?(\/\d+(\.\d+)?)*\/?)?(-(V?\d+(\.\d+)?(\/\d+(\.\d+)?)*\/?)?)*$/i,   // T11: cho phep dau / thua cuoi nhom (chi canh bao VANG)
+  groups: /^([VA]?\d+(\.\d+)?(\/\d+(\.\d+)?)*\/?)?(-([VA]?\d+(\.\d+)?(\/\d+(\.\d+)?)*\/?)?)*$/i,      // T229: A105 = nhu V (do doc truc)   // T11: cho phep dau / thua cuoi nhom (chi canh bao VANG)
   // T48: HoleGroups Mode 1 them so T (lo tren cach MEP TREN) o CUOI nhom: 73/T30, 73/145/T30, T30, 73/T100/T30
   groupsT: /^((V?\d+(\.\d+)?(\/\d+(\.\d+)?)*(\/T\d+(\.\d+)?)*|T\d+(\.\d+)?(\/T\d+(\.\d+)?)*)\/?)?(-((V?\d+(\.\d+)?(\/\d+(\.\d+)?)*(\/T\d+(\.\d+)?)*|T\d+(\.\d+)?(\/T\d+(\.\d+)?)*)\/?)?)*$/i,
   c1: /^(\d+(\.\d+)?|[GV]\d+(\.\d+)?)$/i,          // T59: V36 = goc voi phuong DUNG (do)
   day: /^(N\d+(\.\d+)?|D[LX]\d+(\.\d+)?[\/xX*×]\d+(\.\d+)?|\d+(\.\d+)?)(\+(N\d+(\.\d+)?|D[LX]\d+(\.\d+)?[\/xX*×]\d+(\.\d+)?|\d+(\.\d+)?))*$/i,
-  end: /^(0|[XCT]-?\d+(\.\d+)?|V|-?\d+(\.\d+)?)$/i,
+  end: /^(0|[XCT]-?\d+(\.\d+)?|G\d+(\.\d+)?(\/\d+(\.\d+)?)?|V|-?\d+(\.\d+)?)$/i,      // T229: G59.2 / G59.2/120 = goc trong tai goc day
   h5: /^(\d+(\.\d+)?|(\?|P?\d+(\.\d+)?)\/(\?|P?\d+(\.\d+)?))$/i,
-  kl: /^(\d+(\.\d+)?|\?|@[Pp]?\d+(\.\d+)?)(-(\d+(\.\d+)?|\?|@[Pp]?\d+(\.\d+)?))*$/,   // T218: @P1765 = cach dau PHAI
+  kl: /^(\d+(\.\d+)?|\?|@[Pp]?[Dd]?\d+(\.\d+)?)(-(\d+(\.\d+)?|\?|@[Pp]?[Dd]?\d+(\.\d+)?))*$/,      // T229: @D60 / @PD95 = chan truc doc DAY   // T218: @P1765 = cach dau PHAI
   lophu: /^(-|\d+(\.\d+)?@[Pp-]?\d+(\.\d+)?\/[TtBb]?\d+(\.\d+)?(-\d+(\.\d+)?@[Pp-]?\d+(\.\d+)?\/[TtBb]?\d+(\.\d+)?)*)$/,
 };
 // ---- Cot CutP3 (sua goc) = cu phap THAT cua CTK-ParseCutStr (lisp 04-dim-chung-CutP3):
@@ -2882,7 +2882,8 @@ const COMMA_TYPES = ['num', 'num0', 'c1'];
 function fixComma(type, x) { x = String(x == null ? '' : x).trim(); return COMMA_TYPES.includes(type) ? x.replace(/^([GV]?\d+),(\d+)$/i, '$1.$2') : x; }
 function normVals(mode, v) { let o = Object.assign({}, v); for (const f of MODES[mode].fields) if (o[f.k] != null) o[f.k] = fixComma(f.type, o[f.k]);
   if (mode === '3' && m3NQ(o)) o = m3Geo(o);      // T143: CSV xuat SO THAT (lisp khong doc "?")
-  if (mode === '5') { o.Day = m5DayN(o.Day); if (o.Tren != null) o.Tren = m5DayN(o.Tren); }      // T221: ngang x chenh -> dai/ngang (CAD khong doi)
+  // T221 cu: doi ngang x chenh -> dai/ngang cho CAD. T227: BO - lisp doc duoc DX395x309 (T221) va can biet so tho ghi
+  //   la NGANG x CHENH de khong dim dai doc tu tinh (anh Dampt: "tho cho gi dim nay"). m5DayN giu lai (khong con goi o day).
   if (mode === '5' && /\?/.test(String(o.H == null ? '' : o.H))) o = m5Geo(o);      // T219: H "?" -> CSV ghi so cao da tinh
   return o; }
 const HUONG = [['', 'Nghiêng phải'], ['T', 'Nghiêng trái']];
@@ -2991,6 +2992,8 @@ MODES['3'].fields.push(F('Cat', 'Cắt đôi băng – @2148 (dọc đáy từ t
 MODES['1'].fields.push(F('Cat', 'Cắt đôi băng – @2148 (dọc đáy từ trái) | G3 (qua cột lỗ 3) | G2.5 (giữa cột 2–3) | thêm V = cắt đứng; ;S2/S1 = tên tấm trái/phải (bấm "✂ Cắt đôi")', 'text', { sec: 'Cắt đôi băng', ex: 'G3;S2/S1' }));
 // T150: Mode 5 - cot Tren = canh tren TU DO (chieu nghi: doan ngang / bac rieng o tren) - lisp 17 tim theo TEN, 16 ve
 MODES['5'].cols.push('Tren');
+MODES['5'].cols.push('TruLo');      // T229: truc lo theo canh TRAI (mac dinh, o trong) / PHAI (TruPhai) - tam Nhat Minh
+MODES['5'].fields.splice(MODES['5'].fields.findIndex(f => f.k === 'Lo') + 1, 0, F('TruLo', 'Trục lỗ chạy song song cạnh nào (tấm 2 cạnh xiên khác góc, vd Nhật Minh) – mặc định TRÁI; khách đổi ý chọn PHẢI, KHÔNG phải sửa số', 'sel', { opts: [['', 'Cạnh TRÁI (mặc định)'], ['TruPhai', 'Cạnh PHẢI']] }));
 MODES['5'].fields.push(F('Tren', 'Cạnh trên tự do (chỉ khi trên có đoạn ngang/bậc riêng): đo từ góc trên-TRÁI sang phải, vd N540+DL150/0 – đoạn cuối tự nối về góc trên-phải', 'day', { sec: 'Cạnh trên tự do', ex: 'N540+DL150/0' }));
 
 // T157: cot CatGoc (CUOI dong, moi mode) - cat goc X/Y kieu lenh CHA tai dinh: "p1:X30/Y50" cach "-" (cham dinh -> "Cắt góc X/Y"). Lisp tim theo TEN (T158).
@@ -3038,6 +3041,9 @@ const SHAPES = [
     pic: '<path d="M6 52 L68 52 L94 12 L32 12 Z"/><circle cx="22" cy="44" r="2"/><circle cx="34" cy="26" r="2"/><circle cx="62" cy="44" r="2"/><circle cx="74" cy="26" r="2"/>' },      // T55: binh hanh
   { id: 'gocnghi', mode: '6', name: 'Tấm cầu thang có phần mở rộng (trên/dưới)', sub: 'kiểu 45/…/45', sec: 'Tấm góc',      // T42: truoc la "Tam goc chieu nghi"; T55 (C4): bo chu "sub"
     pic: '<path d="M6 54 L44 54 L94 32 L94 8 L44 30 L6 30 Z"/><path d="M44 30 L44 54" stroke-dasharray="3 3"/><circle cx="18" cy="46" r="2"/><circle cx="34" cy="46" r="2"/><circle cx="60" cy="40" r="2"/><circle cx="80" cy="32" r="2"/>' },
+  // T229: tam Nhat Minh = tu giac 2 canh xien KHAC goc (goc ghi o day: 59,2 / 120), truc lo song song canh TRAI (hoac PHAI - o "Truc lo"), chan truc do doc day, lo do doc truc
+  { id: 'nhatminh', mode: '5', name: 'Nhật Minh – 2 cạnh xiên', sub: 'ghi góc + trục lỗ',
+    pic: '<path d="M10 52 L58 52 L90 12 L34 12 Z"/><path d="M22 52 L46 14 M46 52 L70 14" stroke-dasharray="3 3"/><circle cx="29" cy="41" r="2"/><circle cx="36" cy="30" r="2"/><circle cx="53" cy="41" r="2"/><circle cx="60" cy="30" r="2"/>' },
   { id: 'tudo', mode: '5', name: 'Vẽ tự do', sub: 'đi vòng từng cạnh',
     pic: '<path d="M6 52 L36 52 L58 40 L94 40 L94 14 L60 8 L30 14 L6 26 Z"/><circle cx="20" cy="44" r="2"/><circle cx="74" cy="32" r="2"/>' },
 ];
@@ -3059,6 +3065,7 @@ function shapeOf(mode, v) {
     return 'thuong';
   }
   if (mode === '6') return has('GocHSub') ? 'gocnghi' : 'thuong6';     // T42: Mode 6 thuong = the rieng "do 45 / … / 45"
+  if (mode === '5' && isNM5(v)) return 'nhatminh';      // T229
   return { '2': 'haidau', '3': 'cheo', '4': 'thang', '5': 'tudo' }[mode] || null;
 }
 // T42: moi hinh dung 1 mode (Mode 1 chuoi day / Mode 6 thuong la 2 the rieng)
@@ -3189,8 +3196,10 @@ function m5Seg(tk) {      // T221: token doc (da UPPER) -> [ngang, +-chenh]
 // o Day dang trong -> khung cac doan theo hinh mau (QMAU.tudo: doc len + ngang), so rong
 function d5Toks(v) { const t = d5Parse((v || {}).Day); return t.length ? t : d5Parse(QMAU.tudo.Day).map(x => ({ k: x.k, a: '', b: '' })); }
 // so duong lo cua tam Mode 5 dang nhap: max(so nhom Lo, so khoang - 1); ca 2 o trong -> theo hinh mau
+function isNM5(v) { v = v || {}; return /^G\d/i.test(String(v.DauTrai == null ? '' : v.DauTrai).trim()) || /^G\d/i.test(String(v.DauPhai == null ? '' : v.DauPhai).trim()); }      // T229
 function q5n(v) {
   v = v || {}; const kl = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), lo = String(v.Lo == null ? '' : v.Lo).trim();
+  if (isNM5(v)) return Math.max(grpToks(lo).length, kl === '' ? 0 : kl.split('-').length, 1);      // T229: tam Nhat Minh - moi khoang = 1 duong lo (khong co so toi dau phai)
   if (kl === '' && lo === '') return grpToks(QMAU.tudo.Lo).length;
   return Math.max(grpToks(lo).length, kl === '' ? 0 : kl.split('-').length - 1, 1);
 }
@@ -3226,7 +3235,7 @@ function qSet(mode, v, m, val) {
   if (m.t < 0) return m.pre && val !== '' ? m.pre + val : val;      // T59: go 36 -> o C = V36
   if (m.s < 0) {
     const t = listToks(mode, m.k, v[m.k]);
-    if (mode === '5' && m.k === 'KhoangLo') { const n = q5n(v); if (t.length < n) while (t.length < n + 1) t.push(''); }      // T75: giu du so khoang (dau trai, giua, dau phai) -> khong mat duong lo
+    if (mode === '5' && m.k === 'KhoangLo') { const n = q5n(v); if (t.length < n) while (t.length < (isNM5(v) ? n : n + 1)) t.push(''); }      // T75: giu du so khoang (dau trai, giua, dau phai) -> khong mat duong lo
     while (t.length <= m.t) t.push('');
     t[m.t] = val; return t.every(x => x === '') && t.length === qdn(mode) ? '' : t.join('-');
   }
@@ -3435,6 +3444,7 @@ const QMAU = {
   gocnghi: { H: '665', A: '445', C: '0', D: '18', Offset55: '55', KhoanCheo1: '100', KhoanCheo2: '410', GocHSub: '535', GocCSub: '340', GocALeft: '310', GocOffset: '45', GocKC1: '70', GocKC2: '410' },
   gocnghiD: { H: '675', A: '795', C: '0', D: '18', Offset55: '60', KhoanCheo1: '110', KhoanCheo2: '420', GocHSub: '492', GocCSub: '368', GocALeft: '110', GocOffset: '55', GocKC1: '50', GocKC2: '420' },
   haidau: { W: '2726', CutP1X: '0', CutP1Y: '0', AList: '163-68-850-78-869-79', H1: '995', C1: '580', H2: '1055', C2: '600', D: '20', HoleYList: '60-186-71-218-70-239' },      // T42: MauNhapCSV-CT-Mode2 tam S3 (2 dau cao 995 / 1055)
+  nhatminh: { H: 'P1190/P1130', Day: 'N435', DauTrai: 'G59.2', DauPhai: 'G120', D: '24', KhoangLo: '@D60-@PD95', Lo: 'A105-A125' },      // T229: tam (13) anh Nhat Minh
   tudo: { H: '770', Day: 'DL1500/1200+N600', DauTrai: '0', DauPhai: '0', D: '22', KhoangLo: '110-?-200', Lo: '30/130-30/130' },      // T44: T21-test-tong / MauNhapCSV Mode 5 tam T08c-L5 (doan doc DL roi doan ngang N); truoc T42: PKV4
   // T44: tam giac bac = tam TG2 trong MauNhapCSV-CT-Mode1 (465-465 / 725 / TG 1825 / buoc 140 / lo them T1370/257); TG_Phia la o chon -> nam trong SHX (form_ui)
   tamgiac: { AList: '310-310-310', H: '725', C: '0', D: '22', HoleGroups: '60/145-60/145', TG_CanhTren: '1825', TG_Buoc: '140', TG_LoThem: 'T1370/257' },      // T46: 3 doan (tong 930 = TG2) / 2 duong lo 60/145 (TG2 goc: 465-465 / 30/70)
@@ -3443,7 +3453,7 @@ const QMAU = {
     GapFirstHoles: '1067', GapSecondHoles: '1067', HeightRight: '37', KC2Right: '420', D: '16' },
 };
 const QMAU_NGUON = { xiengoc: 'Sổ Mạnh OD ảnh 38d5a72d tấm 1 (1250 / 36° / 250-895-170 / 100-140, cạnh trên 1315)', thuong: 'số chọn lại T44 (900 / 300 / 300-500-500-300 / lỗ 60/145)', thuong6: 'Dongthuong.jpg', catgoc: 'T46: như thẻ chuỗi đáy + cắt 200 / cộng dưới 60', gapkhuc: 'T46: MauNhapCSV-CT-Mode1 tấm S4A (lỗ 60/145)', chunhat: 'T46: như thẻ chuỗi đáy, C = 0',
-  cheo: 'BL① 68ab3f48', thang: 'MINH CHÂU ⑪ 63d17075 (T55: cạnh trên = đáy 1152 cho ra bình hành)', haidau: 'MauNhapCSV-CT-Mode2 tấm S3', tudo: 'MauNhapCSV-CT-Mode5 / T21 tấm T08c-L5', tamgiac: 'MauNhapCSV-CT-Mode1 tấm TG2 (T46: 3 đoạn, lỗ 60/145)', gocnghi: 'MauNhapCSV-CT-Mode6 tấm C1', gocnghiD: 'MauNhapCSV-CT-Mode6 tấm S0' };
+  cheo: 'BL① 68ab3f48', thang: 'MINH CHÂU ⑪ 63d17075 (T55: cạnh trên = đáy 1152 cho ra bình hành)', haidau: 'MauNhapCSV-CT-Mode2 tấm S3', nhatminh: 'T228/T229: ảnh góc Nhật Minh tấm ⑬ (435 / 1190 / 1130 / 59,2° / 120° / chân trục 60 + 95 / lỗ 105 + 125)', tudo: 'MauNhapCSV-CT-Mode5 / T21 tấm T08c-L5', tamgiac: 'MauNhapCSV-CT-Mode1 tấm TG2 (T46: 3 đoạn, lỗ 60/145)', gocnghi: 'MauNhapCSV-CT-Mode6 tấm C1', gocnghiD: 'MauNhapCSV-CT-Mode6 tấm S0' };
 function qMauKey(mode, shp, v) { if (shp === 'thuong' && mode === '6') return 'thuong6'; if (shp === 'gocnghi' && /^D/i.test(String((v || {}).GocKieu || '').trim())) return 'gocnghiD'; return shp; }
 function qGhost(mode, shp, v) {
   const vd = Object.assign({}, v), M = MODES[mode], G = QMAU[qMauKey(mode, shp, v)] || {}, sh = SHAPE_BY[shp] || {}, gf = {};
@@ -3489,7 +3499,7 @@ function qGhost(mode, shp, v) {
       }
     }
     fillGrp('HoleHeights', m3NQ(v) === 1 ? n : n + 1, '30/130');      // T143: co "?" -> AKnownList da gom doan cuoi
-  } else if (mode === '5') {
+  } else if (mode === '5' && shp !== 'nhatminh' && !isNM5(v)) {
     // T75: tung so con trong -> so mau (doan day, khoang, lo); o da du so (CSV cu) -> giu nguyen, khong ve khac truoc
     const sd = d5Parse(G.Day || 'DL1500/1200+N600'), dt = d5Parse(v.Day);
     if (dt.length && dt.some(x => x.a === '' || (x.k !== 'N' && x.b === ''))) {
@@ -3528,6 +3538,7 @@ const QFALL = {
   tamgiac: [['H', 'L'], ['TG_CanhTren', 'T'], ['AList', 'B'], ['HoleGroups', 'R'], ['D', 'TR']],
   haidau: [['H1', 'L'], ['C1', 'TL'], ['W', 'B'], ['H2', 'R'], ['C2', 'TR'], ['AList', 'B'], ['HoleYList', 'R'], ['D', 'T']],
   tudo: [['H', 'L'], ['Day', 'B'], ['DauTrai', 'BL'], ['DauPhai', 'BR'], ['KhoangLo', 'B'], ['Lo', 'R'], ['D', 'T']],
+  nhatminh: [['H', 'L'], ['Day', 'B'], ['DauTrai', 'BL'], ['DauPhai', 'BR'], ['KhoangLo', 'B'], ['Lo', 'R'], ['D', 'T']],      // T229
   gocnghi: [['H', 'L'], ['A', 'B'], ['Offset55', 'BL'], ['KhoanCheo1', 'R'], ['KhoanCheo2', 'R'], ['GocHSub', 'R'], ['GocCSub', 'TR'], ['GocALeft', 'BL'], ['GocOffset', 'BL'], ['GocKC1', 'L'], ['GocKC2', 'L'], ['D', 'T']],      // T42: them offset + lo phan sub (truoc chi la so mau an)
 };
 const fLabel = (mode, k) => { const f = MODES[mode].fields.find(x => x.k === k); return f ? f.label : k; };
@@ -3669,7 +3680,7 @@ function qMarks0(mode, shp, v) {
       return res;
     }
   }
-  if (mode === '5') {
+  if (mode === '5' && shp !== 'nhatminh' && !isNM5(v)) {
     // T75: VE TU DO - di 1 vong nhu tho ghi so: H -> tung doan day trai -> phai (ngang: dai | doc: canh doc + hinh chieu ngang)
     //   -> moi duong lo: khoang toi duong lo + lo dau (vuong goc canh duoi) + khoang lo -> khoang toi dau phai. Moi buoc 1 so, hl = canh sang.
     const flip = /^T/i.test(String(vd.Huong || '').trim()), dt = d5Parse(vd.Day), nB = dt.length;
@@ -4653,6 +4664,17 @@ function m3RefMark(o, out) {
   });
 }
 // 1 dim thang (Mode 2/4): a, b = 2 diem do; pt = diem dat duong dim cua lisp (cho biet phia + do lech)
+// T226: doan dim (duong dim + 2 chan dim) va kiem tra 2 doan cat nhau / song song sat nhau (< 30) -> dim lo phu tranh dim chinh
+function dimSegs(d) { const o = d.off, A = d.a, B = d.b, n = d.n, a2 = [A[0] + n[0] * o, A[1] + n[1] * o], b2 = [B[0] + n[0] * o, B[1] + n[1] * o]; return [[a2, b2], [A, a2], [B, b2]]; }
+function segConflict(p, q, r, s) {
+  const dx = q[0] - p[0], dy = q[1] - p[1], ex = s[0] - r[0], ey = s[1] - r[1], L1 = Math.hypot(dx, dy), L2 = Math.hypot(ex, ey);
+  if (L1 < 1e-6 || L2 < 1e-6) return false;
+  const cr = dx * ey - dy * ex;
+  if (Math.abs(cr) > 1e-6 * L1 * L2) { const t = ((r[0] - p[0]) * ey - (r[1] - p[1]) * ex) / cr, u = ((r[0] - p[0]) * dy - (r[1] - p[1]) * dx) / cr, e1 = 0.5 / L1, e2 = 0.5 / L2; return t > e1 && t < 1 - e1 && u > e2 && u < 1 - e2; }
+  const nx = -dy / L1, ny = dx / L1, g = Math.abs((r[0] - p[0]) * nx + (r[1] - p[1]) * ny); if (g < 0.5 || g >= 30) return false;
+  const ux = dx / L1, uy = dy / L1, t1 = (r[0] - p[0]) * ux + (r[1] - p[1]) * uy, t2 = (s[0] - p[0]) * ux + (s[1] - p[1]) * uy;
+  return Math.min(t1, t2) < L1 - 1 && Math.max(t1, t2) > 1;
+}
 function dimAdd(out, a, b, pt, st, src, pri, txt) {
   const L = V2.dist(a, b); if (L < 1e-6) return null;
   const t = V2.u(a, b); let n = [-t[1], t[0]], off = V2.dot(V2.sub(pt, a), n);
@@ -4819,7 +4841,7 @@ function chainTotals(dims, cens, xtot) {
   }
   const recs = dims.map(rec).filter(r => r);
   const atHole = r => (cens || []).some(q => V2.dist(q, r.pLo) < 0.5 || V2.dist(q, r.pHi) < 0.5);
-  const bot = recs.filter(r => Math.abs(r.u[1]) <= Math.abs(r.u[0]) + 1e-9 && r.c < r.m - 1 && !atHole(r)).sort((a, b) =>
+  const bot = recs.filter(r => Math.abs(r.u[1]) <= Math.abs(r.u[0]) + 1e-9 && r.c < r.m - 1 && !atHole(r) && !r.d.noTot).sort((a, b) =>      // T230: noTot (lisp *CTK-NoTot*)
     Math.abs(ang(a) - ang(b)) > 1e-3 ? ang(a) - ang(b) : Math.abs(a.c - b.c) > 1 ? b.c - a.c : a.lo - b.lo);
   const chains = []; let ch = [];
   bot.forEach(r => {
@@ -4976,10 +4998,22 @@ function holeDimAdd(out, a, b, len, perp, pref, src, pri) {
   return dimAdd(out, a, b, V2.add(mid2(a, b), n, perp), len < 80 + 1e-6 ? '010-ok' : '012', src, pri);
 }
 // nhan ten tam "Ten-SoLo⌀D+n⌀phi" (lo phi khac D dem rieng, theo thu tu gap dau tien - nhu lisp)
+// T227 (anh Dampt 27/10): thong ke lo TUONG MINH - cong cac nhom CUNG phi (0⌀24 + 6⌀24 -> 6⌀24; 6⌀24 + 6⌀24 -> 12⌀24),
+//   bo nhom 0 lo, khac phi liet ke tung phi theo thu tu gap dau tien (6⌀24+2⌀30). Lisp: CTK-GrpMerge / CTK-GrpStr (04).
+function lblBuild(name, g, tail, sep) {
+  const mg = [];
+  g.forEach(([d, n]) => { if (!(n > 0)) return; const k = mg.find(x => +x[0] === +d); if (k) k[1] += n; else mg.push([String(d), n]); });
+  return (mg.length ? name + (sep || '-') + mg.map(x => x[1] + '⌀' + x[0]).join('+') : name) + (tail || '');
+}
+// tach nhan "Ten-6⌀24+2⌀30 SL=2" / "F1 - 4⌀18" (Mode 6) -> {name, sep, g: [[phi, n]..], tail}
+function lblGroups(t) {
+  const j = t.indexOf(' SL='), head = j >= 0 ? t.slice(0, j) : t, tail = j >= 0 ? t.slice(j) : '';
+  const m = /(\s*-\s*)(\d+⌀[\d.]+(?:\+\d+⌀[\d.]+)*)$/.exec(head);
+  if (!m) return { name: head, sep: '-', g: [], tail };
+  return { name: head.slice(0, m.index), sep: m[1], g: m[2].split('+').map(s => { const q = s.split('⌀'); return [q[1], +q[0]]; }), tail };
+}
 function holeLabel(name, nMain, D, extra) {
-  let s = (nMain <= 0 && !extra.length) ? name : name + '-' + nMain + '⌀' + Math.round(D);      // T125: khong lo -> chi ten
-  extra.forEach(e => { s += '+' + e[1] + '⌀' + e[0]; });
-  return s;
+  return lblBuild(name, [[String(Math.round(D)), nMain]].concat(extra.map(e => [e[0], e[1]])), '');      // T125: khong lo -> chi ten
 }
 // T08c: dim DUONG KINH lo (vla-AddDimDiametric: 2 diem day cung qua tam theo huong 45 do, chu cach 40 phia diem dau)
 //   lisp: CTK-TGDiam (TG, 012) / CTK5-Diam (Mode 5 lo phu, 010-ok). kind 'dk': c = tam, a = diem day phia chu, b = diem doi dien.
@@ -5122,16 +5156,18 @@ function geom5(v, m, rev) {
   if (H <= 0) H = 600;
   // Day (CTK5-ParseDay)
   const dayS = String(v.Day == null ? '' : v.Day).trim() || 'N1000';
-  let segs = [];
+  let segs = [], segXF = [];      // T227: segXF[k] = doan doc ghi NGANG x CHENH (so tho = ngang + chenh; dai doc tu tinh). Lisp: *C5XF*
+  const xfOf = tk => /^D[LX]/.test(tk) && /[X×*]/.test(tk.slice(2));
   dayS.split('+').forEach(t0 => {
     const tk = up(t0);
     if (tk === '') return;
+    segXF.push(xfOf(tk));
     if (/^D[LX]/.test(tk)) {
       segs.push(m5Seg(tk));      // T221: DX395x309 (ngang x chenh) hoac DX501.5/395 (dai doc/ngang)
     } else if (/^N/.test(tk)) segs.push([lAtof(tk.slice(1)), 0]);
     else segs.push([lAtof(tk), 0]);
   });
-  if (!segs.length) segs = [[1000, 0]];
+  if (!segs.length) { segs = [[1000, 0]]; segXF = [false]; }
   // 2 dau (CTK5-ParseEnd; T<tong canh tren>; V = vuong goc doan day ke ben)
   const eL = up(v.DauTrai) || '0', eR = up(v.DauPhai) || '0';
   const span = segs.reduce((s, g) => s + g[0], 0);
@@ -5147,6 +5183,16 @@ function geom5(v, m, rev) {
   if (cR === null) cR = lAtof(eR.slice(1)) - span + cL;
   if (eL === 'V') { let q = U(segs[0][0], segs[0][1]); q = [-q[1], q[0]]; if (q[1] > 1e-6) cL = (hl !== null ? hl : H) * q[0] / q[1]; }
   if (eR === 'V') { let q = U(segs[segs.length - 1][0], segs[segs.length - 1][1]); q = [-q[1], q[0]]; if (q[1] > 1e-6) cR = (hr !== null ? hr : H) * q[0] / q[1]; }
+  // T229 (tam Nhat Minh): dau 'G59.2' (DauTrai) / 'G120' (DauPhai) / 'G59.2/120' (DauTrai) = GOC TRONG tai goc day (do). Dung voi H 'P1190/P1130'.
+  //   Lisp: 16 (c5ga / c5gb). TruLo = TruPhai: duong lo song song canh PHAI (mac dinh canh TRAI). Lisp: c5tr.
+  let gA = null, gB = null;
+  { const mg = /^G(\d+(?:\.\d+)?)(?:\/(\d+(?:\.\d+)?))?$/.exec(eL), mh = /^G(\d+(?:\.\d+)?)$/.exec(eR);
+    if (mg) { gA = +mg[1]; if (mg[2] != null) gB = +mg[2]; }
+    if (mh) gB = +mh[1]; }
+  const cotG = a => { const r = a * Math.PI / 180; return Math.sin(r) > 1e-9 ? Math.cos(r) / Math.sin(r) : null; };
+  if (gA !== null && cotG(gA) !== null) cL = cotG(gA) * (hl !== null ? hl : H);
+  if (gB !== null && cotG(gB) !== null) cR = -cotG(gB) * (hr !== null ? hr : H);
+  const c5nm = gA !== null || gB !== null, c5tr = /^(P|TRUP)/i.test(String(v.TruLo == null ? '' : v.TruLo).trim());
   const D = lNum(v, 'D', 22);
   const klStr = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), loStr = String(v.Lo == null ? '' : v.Lo).trim(), lpStr = String(v.LoPhu == null ? '' : v.LoPhu).trim();
   // --- 1. canh day, 2 dau, canh tren ---
@@ -5190,12 +5236,13 @@ function geom5(v, m, rev) {
   // T150 (ThucTX S2/S6): o Tren = canh tren TU DO - cac doan tu goc tren-TRAI (ban ve cuoi) sang phai, cu phap nhu Day
   //   (N / DL / DX, bac dung DL150/0); doan cuoi tu noi ve goc tren-phai. rev: tinh tu TR sang trai (truoc khi lat). Lisp: 16 (TREN:).
   let c5Tren = 0;
-  const trS = String(v.Tren == null ? '' : v.Tren).trim();
+  const trS = String(v.Tren == null ? '' : v.Tren).trim(), trXF = [];
   if (trS !== '') {
     const tsg = [];
     trS.split('+').forEach(t0 => {
       const tk = up(t0);
       if (tk === '') return;
+      trXF.push(xfOf(tk));
       if (/^D[LX]/.test(tk)) tsg.push(m5Seg(tk));      // T221
       else if (/^N/.test(tk)) tsg.push([lAtof(tk.slice(1)), 0]);
       else tsg.push([lAtof(tk), 0]);
@@ -5237,15 +5284,23 @@ function geom5(v, m, rev) {
   const atP = tk => /^@P/i.test(tk || '');      // T218: @P1765 = cach dau PHAI (vuong goc dau tam), dim tinh tu dau phai
   const num5 = tk => atP(tk) ? lAtof(tk.slice(2)) : /^@/.test(tk) ? lAtof(tk.slice(1)) : lAtof(tk);
   const dirH = Math.abs(cL) <= 1e-9 ? [0, 1] : dL, dirHR = Math.abs(cR) <= 1e-9 ? [0, 1] : dR;
-  const vflags = loStr !== '' ? loStr.split('-').map(gs => /^V/.test(up(gs))) : [];
-  const groups5 = lGroups(loStr.replace(/[Vv]/g, '')), nL = groups5.length;
+  const vflags = loStr !== '' ? loStr.split('-').map(gs => /^[VA]/.test(up(gs))) : [];      // T229: A105 = nhu V105
+  const groups5 = lGroups(loStr.replace(/[VvAa]/g, '')), nL = groups5.length;
   const toks = klStr !== '' ? klStr.split('-').map(t => t.trim()) : [];
   const hasR = nL > 0 && toks.length > nL;
   let s = Array(nL).fill(null), q = null, i = 0, flagIdx = null, flagR = false;
+  // T230 (anh Dampt 27/10, 9A "150 | 700"): so TRAN ngay sau "@"/"@P" (hoac sau 1 so tran nhu vay) = KHOANG NGANG tu duong lo truoc
+  //   (cung moc trai/phai voi "@" goc) -> dim hien dung khoang tho ghi (700), khong doi sang so cong don (850). Lisp: 16 (c5ch).
+  const chn = Array(toks.length).fill(null);      // chn[i] = 'L' / 'R' (moc cua "@" goc) neu tok i la khoang ngang noi tiep
+  const atH = tk => /^@/.test(tk || '') && !/^@P?D/i.test(tk);
+  for (let j = 1; j < toks.length; j++) if (/^\d/.test(toks[j]) && (atH(toks[j - 1]) || chn[j - 1])) chn[j] = chn[j - 1] || (atP(toks[j - 1]) ? 'R' : 'L');
   while (i < nL && q === null && toks[i] !== undefined) {
     const tok = toks[i];
     if (tok === '?') q = i;
+    else if (/^@PD\d|^@PD\./i.test(tok)) s[i] = tot - lAtof(tok.slice(3));      // T229: @PD95 = chan truc cach goc PHAI 95 doc day
+    else if (/^@D\d|^@D\./i.test(tok)) s[i] = lAtof(tok.slice(2));            // T229: @D60 = chan truc cach goc TRAI 60 doc day
     else if (i === 0 || /^@/.test(tok)) s[i] = solve(atP(tok) ? fnR : fnL, num5(tok));
+    else if (chn[i] && s[i - 1] !== null) { const fn = chn[i] === 'R' ? fnR : fnL; s[i] = solve(fn, fn(s[i - 1]) + (chn[i] === 'R' ? -1 : 1) * lAtof(tok)); }
     else if (s[i - 1] !== null) s[i] = s[i - 1] + lAtof(tok);
     i++;
   }
@@ -5280,7 +5335,7 @@ function geom5(v, m, rev) {
   groups5.forEach((grp, gi) => {
     if (s[gi] === null) { out.warn.push('Đường lỗ thứ ' + (gi + 1) + ' không tính được vị trí – xem lại KhoangLo.'); return; }
     const foot = F(s[gi]);
-    const dH = ((eL === 'V' || eR === 'V') && n > 1 && s[gi] >= tot - Ls[n - 1] - 1e-6) ? dirHR : dirH;
+    const dH = (c5tr || ((eL === 'V' || eR === 'V') && n > 1 && s[gi] >= tot - Ls[n - 1] - 1e-6)) ? dirHR : dirH;      // T229: c5tr = truc theo canh PHAI
     const ln = linePoly(foot, dH);
     if (!ln.length) { out.warn.push('Đường lỗ thứ ' + (gi + 1) + ' nằm NGOÀI tấm – xem lại KhoangLo.'); return; }
     const E = ln[0], X = ln[ln.length - 1], eu = U(E.b[0] - E.a[0], E.b[1] - E.a[1]);
@@ -5293,7 +5348,7 @@ function geom5(v, m, rev) {
       if (!prev && !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01) perpL.push({ a: E.a, b: E.b, v: k, h });
       hs.push(h); prev = h;
     });
-    lines5.push({ i: gi, hs, E: E.p, s: s[gi], X: X.p, pq: !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01 });      // T52: pq = lo dau do VUONG GOC canh duoi
+    lines5.push({ i: gi, hs, E: E.p, ea: E.a, eb: E.b, s: s[gi], X: X.p, pq: !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01 });      // T52: pq = lo dau do VUONG GOC canh duoi
   });
   // --- 13. lo phu "phi@[P]x/[T|B]y" (T224): x tu mep TRAI (mac dinh) hoac PHAI (P hoac dau -); y tu mep TREN (mac dinh = T) hoac DAY (B) ---
   //   (mep trai/phai theo huong tho nhin: Huong T lat guong -> P tinh tu dau doi dien truoc khi lat)
@@ -5304,7 +5359,7 @@ function geom5(v, m, rev) {
     if (at < 0) return;
     const ph = lAtof(lp.slice(0, at)), d1s = lp.slice(at + 1).split('/');
     let s0 = d1s[0].trim(), s1 = d1s.length > 1 ? d1s[1].trim() : '';
-    const fromR = /^(P|-)/i.test(s0), yb = /^B/i.test(s1);
+    const fromR = /^(P|-)/i.test(s0), yb = /^B/i.test(s1), tb = /^[TB]/i.test(s1);      // T227: tb = tho ghi ro T/B
     s0 = s0.replace(/^(P|-)/i, ''); s1 = s1.replace(/^[TB]/i, '');
     const d1 = lAtof(s0), d2 = s1 === '' ? 0 : lAtof(s1), useR = fromR !== rev;
     let fA, fB, nInL;
@@ -5312,11 +5367,15 @@ function geom5(v, m, rev) {
     else { fA = [B0, TL, dL]; fB = topMid.length ? topMid[0] : TR; nInL = [dL[1], -dL[0]]; }
     const uT = U(fB[0] - fA[1][0], fB[1] - fA[1][1]), nInT = useR ? [-uT[1], uT[0]] : [uT[1], -uT[0]];
     const kb = useR ? n - 1 : 0, bb = { p: Bp[kb], u: Us[kb], nUp: [-Us[kb][1], Us[kb][0]] };
-    const a = P(fA[0], nInL, d1), b = yb ? P(bb.p, bb.nUp, d2) : P(fA[1], nInT, d2), h = V2.inters(a, P(a, fA[2], 100), b, P(b, yb ? bb.u : uT, 100));
+    // T227 (mau_2A/3A: 37 + 100 tu goc tren, 25 + 630 tu goc duoi): y DO DOC CANH DAU TAM tu GOC tren (T) / goc duoi (B) cua dau lam moc X
+    //   (nhu tho do bang thuoc doc theo tru), x VUONG GOC canh dau. Tam hcn: giong T224. Lisp: 16 (muc 13).
+    //   CHI khi tho ghi ro T/B; khong ghi (vd 16@150/50 mau cu T18/L5/TG) -> giu cach cu T224 (y vuong goc canh tren).
+    const cor = yb ? fA[0] : fA[1], a0 = P(fA[0], nInL, d1), b0 = P(fA[1], nInT, d2);
+    const h = tb ? P(P(cor, fA[2], yb ? d2 : -d2), nInL, d1) : V2.inters(a0, P(a0, fA[2], 100), b0, P(b0, uT, 100));
     if (h) {
       out.holes.push({ x: h[0], y: h[1], d: ph, src: 'LoPhu', axis: li });
       const hc = String(Math.floor(ph + 0.5)), e = holeD.find(q => q[0] === hc); if (e) e[1]++; else holeD.push([hc, 1]);
-      lpDims.push({ h, ph, fA, uT, nInT, nInL, yb, bb, useR });
+      lpDims.push({ h, ph, fA, uT, nInT, nInL, yb, bb, useR, cor, d2, tb });
     }
   });
   // ==========================================================================
@@ -5373,11 +5432,29 @@ function geom5(v, m, rev) {
   const small = !isRect && (bx2 - bx1) * (by2 - by1) < 800000;                                                       // *CTK5-SmallArea*
   const stS = small ? '010-ok' : '012', hStyle = (mr || by2 - by1 > H + 0.5) ? '012' : '020-ok';
   const sameG = (g, h) => g.length === h.length && g.every((x, j) => Math.abs(x - h[j]) <= 1e-6);
-  const leftHoleDims = Math.abs(cL) <= 1e-6 && !hasSlope && nL > 0 && groups5.every(g => sameG(g, groups5[0]));
+  const leftHoleDims = !c5nm && Math.abs(cL) <= 1e-6 && !hasSlope && nL > 0 && groups5.every(g => sameG(g, groups5[0]));
   const bottomSpans = Math.abs((Bn[0] - B0[0]) - (bx2 - bx1)) <= 0.5;
   const topSpans = !topMid.length && Math.abs((TR[0] - TL[0]) - (bx2 - bx1)) <= 0.5;
   // dim lo tren duong lo (CTK5-HoleDim: nhu CTHL-ApplyHoleDimStyle, tam nho -> 010-ok)
-  const holeDim = (a, b, perp) => { const d = holeDimAdd(dims, a, b, V2.dist(a, b), perp, false, 'Lo', 2); if (d && small && d.st === '012') { d.st = '010-ok'; d.text = fmtDim(d.val, '010-ok'); } return d; };
+  // T227: c5bh = tam "tho cho gi dim nay" (muc 7a); tinh truoc de dim cum lo dat ben PHAI duong lo (mau_3A: 100/100 + 200). Lisp: 16.
+  const c5bh = Math.abs(cL) <= 1e-6 && Math.abs(cR) <= 1e-6 && !c5L0 && !c5N2 && toks.every((t, j) => /^@/.test(t) || chn[j]) &&
+    segs.some((g, k) => segXF[k] && Math.abs(g[1]) > 1e-6);
+  // T230 (mau_9a.PNG): tam "tho cho gi dim nay" co day GAY KHUC (8A/9A/9B: N801+DX..+N415) -> GIU khung xoay (1459x3249) VA them
+  //   tong ngang 2525 + tong cao 2075 (muc 10); khong dim hinh chieu doan doc (1309 = 2525 - 801 - 415). Lisp: 16 (c5gk).
+  const c5gk = c5bh && n > 1 && !!mr;
+  // T230 (anh Dampt 27/10): BEN dim cum lo theo HUONG NGHIENG canh day tai chan duong lo: day doc XUONG ve phai (mau_3A) -> ben PHAI,
+  //   doc LEN ve phai (nghieng nguoc) -> ben TRAI (phia nhieu cho trong, xa canh xien); day ngang -> phia xa dau tam hon;
+  //   phia chon ma dim (cach truc 130, ngang chan truc + 5) ra NGOAI kinh (de canh xien / qua dau tam) -> doi phia kia (neu phia kia trong kinh).
+  //   Lisp: 16 (CTK5-ClSide).
+  const inPoly = (x, y) => { let c = false; for (let k = 0, j = poly.length - 1; k < poly.length; j = k++) { const a = poly[k], b = poly[j];
+    if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+  const clSide = L => {
+    const ex = L.eb[0] - L.ea[0], ey = L.eb[1] - L.ea[1], x = L.E[0], y = L.E[1] + 5;
+    const r = Math.abs(ex) > 1e-6 && Math.abs(ey / ex) > 1e-3 ? (ey / ex < 0) : (bx2 - x >= x - bx1);
+    const ok = rr => inPoly(x + (rr ? 130 : -130), y);
+    return !ok(r) && ok(!r) ? !r : r;
+  };
+  const holeDim = (a, b, perp, pr) => { const d = holeDimAdd(dims, a, b, V2.dist(a, b), perp, !!pr, 'Lo', 2); if (d && small && d.st === '012') { d.st = '010-ok'; d.text = fmtDim(d.val, '010-ok'); } return d; };
   const refMark = d => { if (d) { d.ref = 1; d.qs = 'calc'; } };      // T52: dim QUY DOI (tho khong ghi) -> kieu tham khao (xam)
   // --- 5. dim lo tren tung duong lo ---
   let holeCnt = 0;
@@ -5385,9 +5462,13 @@ function geom5(v, m, rev) {
     holeCnt += L.hs.length;
     if (leftHoleDims) return;
     // T52: lo dau do VUONG GOC canh duoi (tho ghi 30) -> dim doc duong lo canh -> lo dau (37) + tong (167) la so QUY DOI -> tham khao
-    L.hs.forEach((h, j) => { const d = holeDim(j ? L.hs[j - 1] : L.E, h, 45); if (!j && L.pq) refMark(d); });
-    if (L.hs.length > 1) { const d = holeDim(L.E, L.hs[L.hs.length - 1], 105); if (L.pq) refMark(d); }
+    const slp = Math.abs(L.eb[0] - L.ea[0]) > 1e-6 && Math.abs((L.eb[1] - L.ea[1]) / (L.eb[0] - L.ea[0])) > 1e-3;
+    const pr = (c5bh || slp) && !c5nm ? clSide(L) : false;      // T230: ben theo huong nghieng (T227 cu: c5bh -> luon PHAI)
+    L.hs.forEach((h, j) => { const d = holeDim(j ? L.hs[j - 1] : L.E, h, 45, pr); if (!j && L.pq) refMark(d); });
+    if (L.hs.length > 1 && !c5nm) { const d = holeDim(L.E, L.hs[L.hs.length - 1], 105, pr); if (L.pq) refMark(d); }      // T229: tam Nhat Minh - tho chi ghi tung khoang
   });
+  // T229: tam Nhat Minh (c5nm) khong qua cac muc dim 6-12 (dim tu tinh) - xem muc 12b "tho ghi gi dim nay"
+  if (!c5nm) {
   // --- 6. lo dau do vuong goc canh duoi: 1 dim cho ca nhom (cung canh, cung so) ---
   const done = [], eq2 = (p, q) => Math.abs(p[0] - q[0]) <= 0.01 && Math.abs(p[1] - q[1]) <= 0.01;
   perpL.forEach(pe => {
@@ -5407,18 +5488,61 @@ function geom5(v, m, rev) {
   // --- 7. day ngang + duong lo dung giong nhau: dim lo 1 LAN o mep trai ---
   if (leftHoleDims && lines5.length) {
     const xL = B0[0], LL = lines5[lines5.length - 1], yB = LL.E[1];
-    LL.hs.forEach(hp => out.refs.push({ a: hp, b: [xL, hp[1]], src: 'Lo' }));
+    LL.hs.forEach(hp => out.refs.push({ a: [Bn[0], hp[1]], b: [xL, hp[1]], src: 'Lo' }));      // T230 (mau_1A): net dut ngang qua hang lo tu mep TRAI toi mep PHAI
     let pv = [xL, yB];
     LL.hs.forEach(hp => { const qq = [xL, hp[1]]; rotV(pv, qq, xL - 25, stS, 'Lo', 2); pv = qq; });
     if (LL.hs.length > 1) rotV([xL, yB], [xL, LL.hs[LL.hs.length - 1][1]], xL - 80, stS, 'Lo', 2);
   }
+  // --- 7a. T227 (anh Dampt 27/10, mau_1A/2A/3A.PNG): "THO CHO GI DIM NAY" - tam co doan doc ghi NGANG x CHENH (DX395x309), 2 dau dung,
+  //   KhoangLo toan "@" (hoac trong): KHONG dim so tu tinh (dai doc day, chuoi doc doc, cong don doc doc); vi tri duong lo "@" dim NGANG
+  //   o DUOI day khung (by1), tang 60/115/170.. theo khoang cach tang dan, moi phia (moc trai / moc phai) 1 cot tang; net dut chan duong lo
+  //   / goc dau tam xuong day khung. Lisp: 16 (c5bh, muc 7a).
+  const c5row = segs.some(sg => Math.abs(sg[1]) > 1e-6 && Math.abs(sg[0]) > 0.5 && (mr || Math.abs(sg[0] - (bx2 - bx1)) > 0.5));
+  let c5nt = 0;
+  if (c5bh) {
+    const at = [], ch = [], tierOf = {};
+    lines5.forEach(L => { const tok = toks[L.i]; if (tok && /^@/.test(tok)) { const sd = atP(tok) ? !rev : rev, an = sd ? Bn : B0; at.push({ sd, an, ft: L.E, d: Math.abs(an[0] - L.E[0]), i: L.i }); }
+      else if (tok && chn[L.i]) ch.push(L); });      // T230: khoang ngang noi tiep (9A: 700)
+    at.sort((p, q) => p.d - q.d);
+    let kL = 0, kR = 0; const seen = [];
+    // T230 (mau_9a.PNG: 150/1380 duoi day, 700/2130 TRONG tam tren cum lo): 1 phia co > 3 dim "@" -> dim thu 2, 4.. dat NGANG
+    //   tren lo cao nhat cua duong lo do + 120 (khong chong tang duoi day). <= 3 (mau_3A) -> tat ca duoi day nhu T227.
+    const nSd = sd => at.filter(t => t.sd === sd).length, rk = { true: 0, false: 0 };
+    at.forEach(it => {
+      const k = it.sd ? kR : kL, r = rk[it.sd]++;
+      if (it.ft[1] - by1 > 0.5) out.refs.push({ a: it.ft, b: [it.ft[0], by1], src: 'KhoangLo' });
+      if (!seen.includes(it.sd) && it.an[1] - by1 > 0.5) out.refs.push({ a: it.an, b: [it.an[0], by1], src: 'KhoangLo' });
+      seen.push(it.sd);
+      const Lx = lines5.find(M => M.i === it.i);
+      if (n > 1 && nSd(it.sd) > 3 && r % 2 === 1 && Lx) {      // chi day GAY KHUC (9A); 3B/7B (1 doan doc) giu duoi day (tranh dim khung xoay)
+        const yd = Math.max(it.ft[1], ...Lx.hs.map(h => h[1])) + 120, dd = add([it.an[0], yd], [it.ft[0], yd], [it.an[0], yd], stS, 'KhoangLo', 1);
+        if (dd) dd.noTot = 1; tierOf[it.i] = 0; return;
+      }
+      const dd = rotH([it.an[0], by1], [it.ft[0], by1], by1 - (60 + 55 * k), stS, 'KhoangLo', 1); if (dd) dd.noTot = 1;      // T230
+      tierOf[it.i] = k;
+      if (it.sd) kR++; else kL++;
+    });
+    // T230: khoang noi tiep: dim tu chan duong lo TRUOC toi chan duong lo nay, CUNG TANG voi "@" goc (chuoi 150 | 700 nhu tho ghi)
+    ch.forEach(L => { const P0 = lines5.find(M => M.i === L.i - 1); if (!P0) return; const k = tierOf[L.i - 1] || 0; tierOf[L.i] = k;
+      if (L.E[1] - by1 > 0.5) out.refs.push({ a: L.E, b: [L.E[0], by1], src: 'KhoangLo' });
+      const dd = rotH([P0.E[0], by1], [L.E[0], by1], by1 - (60 + 55 * k), stS, 'KhoangLo', 1); if (dd) dd.noTot = 1; });
+    c5nt = Math.max(kL, kR);
+    // T230 (mau_3A): net dut NGANG o day khung (by1) tu mep trai toi mep phai - noi chan cac net dut doc (lop phu, mau nhat)
+    if (at.length || ch.length) out.refs.push({ a: [bx1, by1], b: [bx2, by1], src: 'KhoangLo' });
+  }
+  const c5py = c5nt > 0 ? 60 + 55 * c5nt : 130;
   // --- 8. chuoi dim doc canh day (doan ngang ngoai 80, doan doc ngoai 60) ---
   let sl = [0, tot]; if (c5sQ !== null) sl.push(c5sQ);
   let acc = 0; Ls.forEach(x => { acc += x; sl.push(acc); });
   lines5.forEach(L => { if (L.s >= -0.01 && L.s <= tot + 0.01) sl.push(L.s); });
   sl.sort((x, y) => x - y);
   sl = sl.reduce((r, x) => { if (!r.length || x - r[r.length - 1] > 0.5) r.push(x); return r; }, []);
-  for (let k = 0; k < sl.length - 1; k++) {
+  // T227: c5bh -> chi dim tung doan NGANG (so tho, vd N415); doan doc: ngang (hinh chieu) + chenh ve o duoi
+  if (c5bh) segs.forEach((sg, k) => {
+    const a = Bp[k], b = Bp[k + 1];
+    if (Math.abs(sg[1]) <= 1e-6 && Math.abs(sg[0]) > 0.5) edgeDim(a, b, (c5row && Math.abs(a[1] - by1) <= 0.5 && Math.abs(b[1] - by1) <= 0.5) ? c5py : 80, stS, 'Day', 1);
+  });
+  for (let k = 0; !c5bh && k < sl.length - 1; k++) {
     const a = F(sl[k]), b = F(sl[k + 1]), d = edgeDim(a, b, Math.abs(a[1] - b[1]) <= 0.01 ? 80 : 60, stS, 'Day KhoangLo', 1);
     if (d && flagIdx !== null && s[flagIdx - 1] != null && s[flagIdx] != null &&
         sl[k] >= (rev ? s[flagIdx] : s[flagIdx - 1]) - 0.5 && sl[k + 1] <= (rev ? s[flagIdx - 1] : s[flagIdx]) + 0.5) markKT(d);
@@ -5429,7 +5553,7 @@ function geom5(v, m, rev) {
     let a0 = 0;
     segs.forEach((sg, k) => {
       const a1 = a0 + Ls[k];
-      if (Math.abs(sg[1]) > 1e-6 && Math.abs(sg[0]) > 0.5) {
+      if (!c5bh && Math.abs(sg[1]) > 1e-6 && Math.abs(sg[0]) > 0.5) {      // T227: c5bh -> khong cong don doc doc (tu tinh)
         const upS = sg[1] > 0, cs = lines5.filter(L => L.s > a0 + 0.5 && L.s < a1 - 0.5).map(L => L.s).sort((x, y) => upS ? x - y : y - x);
         const lo = F(upS ? a0 : a1);
         cs.slice(1).forEach((sv, j) => { const off = 60 + 55 * (j + 1); if (upS) edgeDim(lo, F(sv), off, stS, 'Day KhoangLo', 2); else edgeDim(F(sv), lo, off, stS, 'Day KhoangLo', 2); });
@@ -5439,7 +5563,7 @@ function geom5(v, m, rev) {
   }
   // T56 (anh Dampt B4, PKV7 "965"): day gap khuc - doan NGANG co duong lo chia doan -> dim tong doan do (tu diem gap khuc toi het
   //   dau tam = tong cac doan chuoi 765 + 200), dat ngoai chuoi nhu canh tren (chainTotals: xtot). Bo doan bi sua goc (K / D / L).
-  if (n > 1) {
+  if (n > 1 && !c5bh) {      // T227: c5bh -> doan ngang da dim nguyen doan (so tho)
     let a0 = 0; const xt = [];
     segs.forEach((sg, k) => {
       const a1 = a0 + Ls[k];
@@ -5453,11 +5577,14 @@ function geom5(v, m, rev) {
   if (!bottomSpans && !hasSlope && sl.length > 2) rotH(B0, Bn, B0[1] - 120, '012', 'Day', 1);
   segs.forEach((sg, k) => {      // T143: khung xoay (mr) -> dim phoi la dim xoay, khong co dim ngang -> van ghi hinh chieu (DL1505/1220 1 doan)
     // T150 (ThucTX S1): hang dim = DUOI day khung (by1 - 130), khong theo doan (doan sau bac -> dim nam trong kinh)
-    if (Math.abs(sg[1]) > 1e-6 && (mr || Math.abs(sg[0] - (bx2 - bx1)) > 0.5)) rotH(Bp[k],Bp[k + 1], Math.min(by1, Bp[k][1], Bp[k + 1][1]) - 130, stS, 'Day', 1);
+    if (!c5gk && Math.abs(sg[1]) > 1e-6 && (mr || Math.abs(sg[0] - (bx2 - bx1)) > 0.5)) rotH(Bp[k],Bp[k + 1], Math.min(by1, Bp[k][1], Bp[k + 1][1]) - c5py, stS, 'Day', 1);      // T227: duoi cac tang "@"
   });
   // --- 9. canh tren + lech c + khoang "@" tu dau trai ---
   // T150: co o Tren -> chi dim cac doan tho ghi, bo doan tu noi ve goc tren-phai
-  if (!topSpans) { const mt = [TL].concat(topMid, [TR]); for (let k = 0; k < mt.length - 1; k++) if (!c5Tren || (rev ? k >= mt.length - 1 - c5Tren : k < c5Tren)) edgeDim(mt[k + 1], mt[k], 40, stS, c5Tren ? 'Tren' : 'H DauTrai DauPhai', 1); }
+  // T227: doan Tren ghi NGANG x CHENH (DX1490x973) -> dim NGANG (so tho) phia tren, khong dim dai doc tu tinh
+  if (!topSpans) { const mt = [TL].concat(topMid, [TR]); for (let k = 0; k < mt.length - 1; k++) if (!c5Tren || (rev ? k >= mt.length - 1 - c5Tren : k < c5Tren)) {
+    if (c5Tren && trXF[rev ? mt.length - 2 - k : k] && Math.abs(mt[k + 1][1] - mt[k][1]) > 0.5) rotH(mt[k], mt[k + 1], Math.max(mt[k][1], mt[k + 1][1]) + 40, stS, 'Tren', 1);
+    else edgeDim(mt[k + 1], mt[k], 40, stS, c5Tren ? 'Tren' : 'H DauTrai DauPhai', 1); } }
   // T222: canh TREN tu do (o Tren) co doan doc -> dim CHENH CAO treo TREN dinh thap (ngoai kinh), ben ngoai dinh do (x -/+ 60)
   if (c5Tren) {
     const mt = [TL].concat(topMid, [TR]);
@@ -5471,13 +5598,13 @@ function geom5(v, m, rev) {
   if (Math.abs(cL) > 0.5) topDim([B0[0], TL[1]], TL, 40, stS, 'DauTrai', 1);
   if (cR < -0.5) topDim(TR, [Bn[0], TR[1]], 40, stS, 'DauPhai', 1);
   let nAt = 0;
-  lines5.forEach(L => { const tok = toks[L.i]; if (tok && /^@/.test(tok)) { topDim(L.X, [(atP(tok) ? (rev ? TL : TR) : (rev ? TR : TL))[0], L.X[1]], 45 + 40 * nAt, stS, 'KhoangLo', 2); nAt++; } });
+  lines5.forEach(L => { const tok = toks[L.i]; if (tok && /^@/.test(tok) && !c5bh) { topDim(L.X, [(atP(tok) ? (rev ? TL : TR) : (rev ? TR : TL))[0], L.X[1]], 45 + 40 * nAt, stS, 'KhoangLo', 2); nAt++; } });
   // --- 10. kich thuoc phoi (020-ok) ---
   const fS = 'Day H DauTrai DauPhai';
   if (!mr) {
-    if (bottomSpans) rotH([bx1, by1], [bx2, by1], by1 - (hasSlope ? 95 : 210), '020-ok', fS, 1);
+    if (bottomSpans) rotH([bx1, by1], [bx2, by1], by1 - (c5nt > 0 ? c5py + 80 : hasSlope ? 95 : 210), '020-ok', fS, 1);      // T227: duoi tang "@"
     else if (topSpans) rotH([bx1, by2], [bx2, by2], by2 + 93 + 40 * nAt, '020-ok', fS, 1);
-    else rotH([bx1, by1], [bx2, by1], by1 - 210, '020-ok', fS, 1);
+    else rotH([bx1, by1], [bx2, by1], by1 - (c5nt > 0 ? c5py + 80 : 210), '020-ok', fS, 1);
     if (by2 - by1 > H + 0.5) rotV([bx1, by1], [bx1, by2], bx1 - 150, '020-ok', fS, 1);
   } else {
     // CTK5-DrawRotFull: canh DAI dim phia TREN, canh NGAN dim phia TRAI (cach 150)
@@ -5488,6 +5615,10 @@ function geom5(v, m, rev) {
     add(bb[0], bb[1], P(bb[0], bb[2], 150), '020-ok', fS, 1);
     bb = sh[0][2][0] < sh[1][2][0] ? sh[0] : sh[1];
     add(bb[0], bb[1], P(bb[0], bb[2], 150), '020-ok', fS, 1);
+    if (c5gk) {      // T230 (mau_9a.PNG): them tong ngang 2525 (duoi tang "@") + tong cao 2075 (ngoai cung ben trai)
+      rotH([bx1, by1], [bx2, by1], by1 - (c5nt > 0 ? c5py + 80 : 210), '012', fS, 1);
+      rotV([bx1, by1], [bx1, by2], bx1 - 150, '012', fS, 1);
+    }
   }
   // --- 11. hai dau tam ---
   if (c5L0) { /* da cong trai: dau trai cu khong con */ }
@@ -5499,6 +5630,12 @@ function geom5(v, m, rev) {
   // T150 (ThucTX.dxf S1/S3/S7/S6 dau phai, S2 dau trai): dau DUNG ma chan dau cao hon day khung -> dim DUNG tu day khung len chan dau
   if (!c5L0 && Math.abs(cL) <= 1e-6 && B0[1] - by1 > 0.5) rotV([B0[0], by1], B0, B0[0] - 100, stS, 'Day H', 1);
   if (!c5N2 && c5sQ === null && Math.abs(cR) <= 1e-6 && Bn[1] - by1 > 0.5) rotV([Bn[0], by1], Bn, Bn[0] + 100, stS, 'Day H', 1);
+  // T227 (mau_2A.PNG): khung ngang-doc, canh tren song song day doc -> dau THAP tren: dim chenh tu dinh tren dau do len dinh khung (by2),
+  //   cung cot dim H dau do (cach 100) -> 2 phia doi xung (trai 1220+309, phai 309+1220). Lisp: 16 (T227).
+  if (c5bh && !mr && !c5Tren) {
+    if (by2 - TR[1] > 0.5) rotV(TR, [TR[0], by2], TR[0] + 100, stS, 'Day H', 1);
+    if (by2 - TL[1] > 0.5) rotV(TL, [TL[0], by2], TL[0] - 100, stS, 'Day H', 1);
+  }
   // T222 (anh Dampt 26/10): dim CHENH CAO cua tung doan DOC (so tho ghi "309" trong DX395x309) - dim dung o phia THOANG:
   //   doan xuong (cao o TRAI) -> treo duoi dinh cao, ben TRAI dinh do; doan len (cao o PHAI) -> ben PHAI dinh cao (x -/+ 60; dinh la dau tam -> 200, ne dim H/dim dau).
   //   Doan da co dim dung dau tam (T150: day khung -> chan dau cao) = chinh la chenh cao -> khong ve lai (CAD ve bu khi lisp bo dim do vi khung xoay). Lisp: 16 (T222).
@@ -5527,20 +5664,71 @@ function geom5(v, m, rev) {
     if (k === 0 && !(tok && /^@/.test(tok)) && Math.abs(V2.dot(eA[1], eA[2])) > 0.01) offDim(L.E, eA, L.hs[L.hs.length - 1], false);
     if (hasR && k === lines5.length - 1 && Math.abs(V2.dot(eB[1], eB[2])) > 0.01) offDim(L.E, eB, L.hs[L.hs.length - 1], flagR);
   });
+  }      // het if (!c5nm) muc 6-12
+  // --- 12b. T229 (tam Nhat Minh, anh Dampt 27/10): THO GHI GI DIM NAY. Dim: tong DAY (ngang, duoi day) + chan truc lo doc day
+  //   (@D60 tu goc TRAI, @PD95 tu goc PHAI; khoang giua tho khong ghi -> khong dim) + dai canh trai / phai (H P...) + 2 goc trong (59,2 / 120 nhu tho ghi)
+  //   + khoang lo DOC TRUC (105 / 100 / 100 - dim o muc 5). KHONG dim canh tren, khong dim phoi. Lisp: 16 (muc 12b).
+  if (c5nm) {
+    const y0 = B0[1];
+    lines5.forEach(L => {
+      const tok = toks[L.i] || '';
+      if (/^@PD/i.test(tok)) rotH(L.E, Bn, y0 - 60, stS, 'KhoangLo', 1);
+      else if (/^@D/i.test(tok)) rotH(B0, L.E, y0 - 60, stS, 'KhoangLo', 1);
+    });
+    rotH(B0, Bn, y0 - 130, '020-ok', 'Day', 1);
+    edgeDim(TL, B0, 60, stS, 'H DauTrai', 1);
+    edgeDim(Bn, TR, 60, stS, 'H DauPhai', 1);
+    const rad = g => g * Math.PI / 180, ray = (c, g, Ln) => [c[0] + Math.cos(rad(g)) * Ln, c[1] + Math.sin(rad(g)) * Ln];
+    const angTxt = a => String(Math.round(a * 100) / 100).replace('.', ',') + '°';
+    const angDim = (c, g1, g2, val, src) => {
+      if (Math.abs(val - 90) < 0.005) dims.push({ kind: 'vuong', c, a: ray(c, g1, 60), b: ray(c, g2, 60), off: 0, st: '010-ok', val: 90, text: '', src, pri: 1, tag: '' });
+      else dims.push({ kind: 'goc', c, a: ray(c, g1, 100), b: ray(c, g2, 100), off: 170, st: '010-ok', val: Math.round(val * 100) / 100, text: angTxt(val), src, pri: 1, tag: '' });
+    };
+    if (gA !== null) angDim(B0, 0, Math.atan2(dL[1], dL[0]) * 180 / Math.PI, gA, 'DauTrai');
+    if (gB !== null) angDim(Bn, Math.atan2(dR[1], dR[0]) * 180 / Math.PI, 180, gB, 'DauPhai');
+  }
   // --- 13b. dim lo phu: toi dau tam, toi canh tren (010-ok) + dim DUONG KINH (CTK5-Diam) ---
   // T224: dim vi tri lo phu RA NGOAI tam. X: tu mep trai/phai toi lo (so tho ghi), duong dim vuot ra phia gan nhat (tren/duoi) cua tam.
   //   Y: tu mep tren/day toi lo, duong dim ra phia mep trai/phai cung phia voi moc X. Cach bien tam: phia tren 60, con lai 230
   //   (ne dim khac nam sat canh: day, tong, chieu cao); nhieu dim cung phia xep chong +55 (CAD cung cong thuc, CTK5-LpExt).
-  const lpCnt = {};
+  // T226: vi tri duong dim lo phu = QUET: thu cac cach (phia gan nhat / phia kia, cach bien tang dan moi 15) va chon cach it cat/chong dim da co
+  //   nhat (dim chinh + dim lo phu truoc do), uu tien cach bien gan. CAD cung quy tac (CTK5-LpPlace, nhat ky dim *C5DimLog*).
   const lpRaw = (h, o) => lpOutline.reduce((m, v) => Math.max(m, V2.dot(sub(v, h), o)), 0);
-  const lpPos = (h, o) => { const key = Math.round(o[0] * 100) + ',' + Math.round(o[1] * 100), k = lpCnt[key] || 0; lpCnt[key] = k + 1; return lpRaw(h, o) + (o[1] > 0.5 ? 60 : 230) + 55 * k; };
+  const lpAdd = (ref, h, dirs) => {
+    const raw0 = lpRaw(h, dirs[0]);
+    if (raw0 + (dirs[0][1] > 0.5 ? 60 : 230) > 450) return add(ref, h, P(mid2(ref, h), dirs.inner, dirs.innerK), '010-ok', 'LoPhu', 2);      // ra ngoai qua xa (>450, canh xien dung) -> dat trong nhu cu
+    let best = null;
+    const segsAll = dims.filter(d => d.n && d.kind !== 'nhan' && d.kind !== 'dk').map(dimSegs);
+    dirs.forEach((o, di) => {
+      const raw = lpRaw(h, o); if (di > 0 && raw + 60 > 450) return;
+      for (let off = raw + 40; off <= raw + 450; off += 15) {
+        const tmp = [], dd = dimAdd(tmp, ref, h, P(h, o, off), '010-ok', 'LoPhu', 2); if (!dd) return;
+        const sg = dimSegs(dd); let c = 0;
+        segsAll.forEach(S => S.forEach(s2 => sg.forEach(s1 => { if (segConflict(s1[0], s1[1], s2[0], s2[1])) c++; })));
+        const sc = c * 100000 + (off - raw) + di * 100;
+        if (!best || sc < best.sc) best = { sc, pt: P(h, o, off) };
+        if (c === 0) break;
+      }
+    });
+    return add(ref, h, best ? best.pt : P(h, dirs[0], raw0 + 230), '010-ok', 'LoPhu', 2);
+  };
+  // T227: X (so tho 25/37): canh dau -> lo, duong dim SAT LO (duoi lo 30; lo sat goc duoi -> tren). Y (so tho 100/980/630): goc -> chan lo
+  //   tren canh dau, doc canh dau, ra NGOAI tam (quet tranh dim chinh nhu T226). Lisp: 16 (muc 13).
   lpDims.forEach(q => {
-    let ref = proj(q.h, q.fA[0], q.fA[1]);
-    const eu = q.fA[2], dn = [-eu[0], -eu[1]], oX = lpRaw(q.h, eu) <= lpRaw(q.h, dn) ? eu : dn;
-    add(ref, q.h, lpRaw(q.h, oX) + (oX[1] > 0.5 ? 60 : 230) > 450 ? P(mid2(ref, q.h), q.nInT, 55) : P(q.h, oX, lpPos(q.h, oX)), '010-ok', 'LoPhu', 2);      // ra ngoai qua xa (>450, canh xien dung) -> dat trong nhu cu
-    ref = q.yb ? proj(q.h, q.bb.p, P(q.bb.p, q.bb.u, 100)) : proj(q.h, q.fA[1], P(q.fA[1], q.uT, 100));
-    const oY = q.yb ? (q.useR ? q.bb.u : [-q.bb.u[0], -q.bb.u[1]]) : [-q.uT[0], -q.uT[1]];
-    add(ref, q.h, lpRaw(q.h, oY) + (oY[1] > 0.5 ? 60 : 230) > 450 ? P(mid2(ref, q.h), q.nInL, -55) : P(q.h, oY, lpPos(q.h, oY)), '010-ok', 'LoPhu', 2);
+    if (!q.tb) {      // cach cu T224/T226 (khong ghi T/B)
+      let ref = proj(q.h, q.fA[0], q.fA[1]);
+      const eu = q.fA[2], dn = [-eu[0], -eu[1]], oX = lpRaw(q.h, eu) <= lpRaw(q.h, dn) ? eu : dn;
+      const dX = [oX, [-oX[0], -oX[1]]]; dX.inner = q.nInT; dX.innerK = 55;
+      lpAdd(ref, q.h, dX);
+      ref = proj(q.h, q.fA[1], P(q.fA[1], q.uT, 100));
+      const oY = [-q.uT[0], -q.uT[1]], dY = [oY, [-oY[0], -oY[1]]]; dY.inner = q.nInL; dY.innerK = -55;
+      lpAdd(ref, q.h, dY);
+      diamDim(dims, q.h, q.ph, '010-ok', 'LoPhu');
+      return;
+    }
+    const refE = proj(q.h, q.fA[0], q.fA[1]), eu = q.fA[2], yd = (q.yb && q.d2 < 60) ? eu : [-eu[0], -eu[1]];
+    if (V2.dist(refE, q.h) > 0.5) add(refE, q.h, P(mid2(refE, q.h), yd, 30), '010-ok', 'LoPhu', 2);
+    if (V2.dist(q.cor, refE) > 0.5) { const oX = [-q.nInL[0], -q.nInL[1]], dY = [oX, q.nInL]; dY.inner = q.nInL; dY.innerK = -55; lpAdd(q.cor, refE, dY); }
     diamDim(dims, q.h, q.ph, '010-ok', 'LoPhu');
   });
   // --- 14. nhan ---
@@ -6061,17 +6249,10 @@ function ltApply(S, str, D) {
   // nhan tam (= CTK-LtLabel): cung D nhan -> cong vao so dau; khac -> "+n⌀d" (truoc " SL=")
   const lb = S.dims.find(x => x.kind === 'nhan');
   if (lb && cnt.length) {
-    const md = /⌀(\d+(\.\d+)?)/.exec(lb.text), D0 = md ? +md[1] : D;
-    let n0 = 0, ex = '', t = lb.text;
-    if (!md) {      // T125: nhan chi co ten (tam khong lo) -> dung lai "-n⌀D" tu cac lo tu do (lo cung D truoc)
-      const c2 = cnt.slice().sort((p, q) => (Math.abs(q[0] - D0) <= 0.01) - (Math.abs(p[0] - D0) <= 0.01));
-      const j0 = t.indexOf(' SL='), suf = '-' + c2[0][1] + '⌀' + ltNum(c2[0][0]) + c2.slice(1).map(c => '+' + c[1] + '⌀' + ltNum(c[0])).join('');
-      lb.text = j0 >= 0 ? t.slice(0, j0) + suf + t.slice(j0) : t + suf; return warn;
-    }
-    cnt.forEach(([d, n]) => { if (Math.abs(d - D0) <= 0.01) n0 += n; else ex += '+' + n + '⌀' + ltNum(d); });
-    if (n0) t = t.replace(/(\d+)⌀/, (m, x) => (+x + n0) + '⌀');
-    if (ex) { const j = t.indexOf(' SL='); t = j >= 0 ? t.slice(0, j) + ex + t.slice(j) : t + ex; }
-    lb.text = t;
+    // T227: gop theo phi (lblBuild) - cung phi cong vao nhom san co, khac phi them nhom; T125: nhan chi co ten -> lo cung D truoc
+    const pg = lblGroups(lb.text), D0 = D;
+    const c2 = pg.g.length ? cnt : cnt.slice().sort((p, q) => (Math.abs(q[0] - D0) <= 0.01) - (Math.abs(p[0] - D0) <= 0.01));
+    lb.text = lblBuild(pg.name, pg.g.concat(c2.map(([d, n]) => [ltNum(d), n])), pg.tail, pg.sep);
   }
   return warn;
 }
@@ -6602,7 +6783,7 @@ const SHX = { tamgiac: { TG_Phia: 'P' } }, _SHT = {};   // T44: cat goc + tam gi
 const SHDIM = {
   thuong: ['H', 'AList'], thuong6: ['H', 'Offset55', 'A'], catgoc: ['H', 'AList', 'CutP3'], gapkhuc: ['H', 'AList', 'DistBaseList'], chunhat: ['H', 'AList'],
   tamgiac: ['H', 'TG_CanhTren', 'AList', 'TG_Buoc'], haidau: ['H1', 'H2', 'W'], cheo: ['DiagLen H', 'Total', 'H'], thang: ['H', 'BottomEdge', 'TopEdge'],
-  gocnghi: ['H', 'GocHSub GocCSub', 'A', 'Offset55'], tudo: ['H', 'Day']
+  gocnghi: ['H', 'GocHSub GocCSub', 'A', 'Offset55'], tudo: ['H', 'Day'], nhatminh: ['Day', 'H DauTrai', 'H DauPhai']
 };
 const SHPEN = '<path d="M91.5 3.5 L96.5 8.5 L88.5 16.5 L86 17 L86.5 14.5 Z" style="fill:#fff;stroke:#1f4e79;stroke-width:.8"/><path d="M91.5 3.5 L93.3 1.7 L98.3 6.7 L96.5 8.5" style="fill:#c0392b;stroke:#1f4e79;stroke-width:.6"/>';   // but chi nho (Mode 5)
 function shThumb(id, left, gk) {
@@ -7746,8 +7927,12 @@ const PV_MIN_FONT = 9;      // T126 (T130: KHONG con dung de thu nho chu - giu t
 //   chu tam = trung diem doan do, cach duong dim ~0,9 x cao chu (DIMGAP 12 + 15 = 27/30), cung chuoi = cung duong dim -> so thang hang;
 //   duong dim cach canh kinh >= PV_G0 mm-CAD (= 1,2 x cao chu 30); dim hep: chu van o giua (tran qua gion), mui ten dao ra ngoai (CAD DIMTIX=1).
 const PV_G0 = 36;
-const PV_TOTAL_SCALE = 1.25, PV_TOTAL_WEIGHT = 800, PV_TOTAL_COL = '#0f5a30';      // T138: dim kich thuoc tong: chu to 1,25x, dam 800, mau dam hon
+const PV_TOTAL_SCALE = 1.6667, PV_TOTAL_WEIGHT = 800, PV_TOTAL_COL = '#1e7a46';      // T138: dim kich thuoc tong: chu to 1,25x, dam 800; T227: cung mau 30,122,70 nhu moi dim (anh Dampt)
 const pvIsTotal = d => !!d && (d.st === '020-ok' || d.st === '015-ok');
+// T230 (anh Dampt 27/10): co chu dim theo KIEU nhu CAD (DIMSCALE = so trong ten, DIMTXT chung 2,5 -> chu thuc 012 = 30, 010-ok = 25,
+//   015-ok = 37,5, 020-ok = 50). Web: ti le so voi 012 (co chung fD). 010-ok dim ngan < 80 (lo) CAD tang x1,25 (CTHL-ApplyHoleDimStyle).
+const PV_ST_SC = { '012': 1, '010-ok': 25 / 30, '015-ok': 37.5 / 30, '020-ok': PV_TOTAL_SCALE };      // T230: dim tong 020-ok = 50/30
+const pvSc = d => !d ? 1 : (PV_ST_SC[d.st] || 1) * (d.st === '010-ok' && +d.val < 80 ? 1.25 : 1);
 const PV_MANY = 12;      // T195: chuoi dim > PV_MANY dim (vd hang tram lo vi buoc lo dang go do) -> che do xep nhanh
 let PV_OV = 0;      // T132: so cap chu con de nhau sau khi da giam co chung toi san (hinh qua nho) -> renderPV ghi chu 'bam Phong to'
 let PV_FMIN = PV_MIN_FONT;      // T130: san co chu chung (renderPV dat theo opt.fmin: anh/PDF phong 2,4 -> nho hon)
@@ -7771,7 +7956,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
   const L = lin.map(d => {
     const A = [d.a[0] * k, -d.a[1] * k], B = [d.b[0] * k, -d.b[1] * k], len = Math.hypot(B[0] - A[0], B[1] - A[1]);
     const nm = d.n, Lm = dot(d.a, nm) + (d.off || 0), E = Math.max(...poly.map(p => dot(p, nm)));
-    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0 * (pvIsTotal(d) ? PV_TOTAL_SCALE : 1)) * sc : (Lm - (d.off || 0)) * k + (d.off || 0) * sc;      // P: toa do duong dim theo n (px, he mm*k)
+    const gap = Lm - E, P = gap > 0.5 ? E * k + Math.max(gap, G0 * pvSc(d)) * sc : (Lm - (d.off || 0)) * k + (d.off || 0) * sc;      // P: toa do duong dim theo n (px, he mm*k)
     // T122: dim TRONG tam (lo...) - do lech lisp cung gian theo co chu (sc) nhu dim ngoai vien -> khoang tang / chu giu dung ti le CAD, chu 2 tang khong de nhau
     return { d, A, B, len, P, lv: gap };
   }).filter(x => x.len >= 0.5);
@@ -7817,7 +8002,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     return p; };
   // T130: BO thu nho chu tung dim (T124/T126) - anh Dampt 18/10: co chu khong deu, so khong thang hang. Moi dim = fs; chu cung chuoi chat nhau -> bam Phong to.
   const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], dn = x.nn || d.n, n = [dn[0], -dn[1]];      // T130: chuoi dung chung 1 phap tuyen (dim cung chuoi song song tuyet doi)
-    const f0 = fz(d) * (pvIsTotal(d) ? PV_TOTAL_SCALE : 1), f = f0;      // T138: dim TONG (020-ok/015-ok) = PV_TOTAL_SCALE x co chung
+    const f0 = fz(d) * pvSc(d), f = f0;      // T138: dim TONG (020-ok/015-ok) = PV_TOTAL_SCALE x co chung
     const W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, dn) * k;      // T130: tam chu cach duong dim 0,5f+2 ~ 0,9 x cao chu (CAD: DIMGAP 12 + nua chu 15 = 27/30) - giong nhau moi dim
     const at = o => { const D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o], m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2]; return { D1, D2, m }; };
     return { t, n, f, f0, W, Hh, ho, o0, at, short: len < W + 16, tout: false }; };
@@ -7837,7 +8022,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
       let cr = 0; if (e) for (const it of items.concat(res.slice(ix + 1))) if (it.D1 && it.ck !== ck) {      // + dim CHUA dat (vi tri CAD)
         const sa = [[D1, D2], [A, D1], [B, D2]], sb = [[it.D1, it.D2], [it.A, it.D1], [it.B, it.D2]];      // T130: tang nhich (e != 0) khong duoc cat dim da dat (do-tham-my: cat nhau)
         for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (!(i && j) && xSeg(sa[i][0], sa[i][1], sb[j][0], sb[j][1])) cr++; }
-      return { sc: tt * 100 + edgePen(tb, m, len, W > len, pvIsTotal(d) ? PV_TOTAL_SCALE : 1) * 2000 + cr * 60 + lt * 20 + tl * 3 + Math.abs(e) * 12 + (e < 0 ? 6 : 0), o, D1, D2, lb, tb, tc, g };      // T130: + phat chu de / sat canh kinh
+      return { sc: tt * 100 + edgePen(tb, m, len, W > len, pvSc(d)) * 2000 + cr * 60 + lt * 20 + tl * 3 + Math.abs(e) * 12 + (e < 0 ? 6 : 0), o, D1, D2, lb, tb, tc, g };      // T130: + phat chu de / sat canh kinh
     };
     const chE = {};       // T126: tang chung cua tung chuoi (chon 1 lan theo TONG diem ca chuoi)
     const ES = [0, 1, -1, 2, -2, 3, 4, -3, 5, 6, -4, 7, 8, -5, 9, 10, -6, 11, 12, -7, -8, 13, 14, -9, -10, 15, 16], ESo = ES.filter(e => e >= 0);      // T130: tang thu (am = vao phia trong: CHI dim trong tam (lo) sat canh kinh)
@@ -8558,7 +8743,7 @@ const CUTCAP = { '/': 'nối', '@': 'lỗ', L: 'trái', G: 'trên', D: 'dưới'
 function keysFor(el) {
   const k = el.id.replace('f_', ''), f = MODES[cur].fields.find(x => x.k === k) || {};
   if (k === 'TG_LoThem') return ['T', 'X', 'H', '/', '@', '-', '.'];
-  if (k === 'Lo') return ['-', '/', '.', 'V'];                         // Mode 5: V = do doc
+  if (k === 'Lo') return cur === '5' && /^G\d/i.test(String((readForm() || {}).DauTrai || '').trim()) ? ['-', '/', '.', 'A', 'V'] : ['-', '/', '.', 'V'];                         // Mode 5: V = do doc; T229: A = do doc truc (tam Nhat Minh)
   if (k === 'HoleGroups' && cur === '1') return ['-', '/', 'T', '.'];  // T48: T30 = lo tren cach mep tren
   if (cur === '3' && (k === 'OffsetLeft' || k === 'Total')) return ['?', '.'];      // T143: ? = app tu tinh
   if (cur === '3' && k === 'AKnownList') return ['-', '?', '.'];
@@ -8568,9 +8753,9 @@ function keysFor(el) {
     case 'groups': return ['-', '/', '.'];
     case 'c1': return ['G', '.'];
     case 'day': return ['N', 'DL', 'DX', '+', '/', '.'];
-    case 'end': return ['X', 'C', 'T', 'V', '-', '.'];
+    case 'end': return ['X', 'C', 'T', 'V', 'G', '-', '.'];      // T229: G59.2 = goc trong tai goc day (tam Nhat Minh)
     case 'h5': return ['/', '?', 'P', '.'];
-    case 'kl': return ['-', '?', '@', '@P', '.'];
+    case 'kl': return ['-', '?', '@', '@P', '@D', '@PD', '.'];      // T229: @D60 / @PD95 = chan truc doc day (tam Nhat Minh)
     case 'lophu': return ['@', '@P', '/', 'T', 'B', '-', '.'];
     case 'cut': return ['/', '@', 'L', 'G', 'D', 'K', 'MT'];
     default: return [];                                                // int, text: chi con nut dieu huong
@@ -12658,7 +12843,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261026165339';
+var CTK_BUILD = '20261027134010';
 (function () {
   function chk() {
     try {
