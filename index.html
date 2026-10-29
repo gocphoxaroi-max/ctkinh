@@ -2941,6 +2941,7 @@ function normVals(mode, v) { let o = Object.assign({}, v); for (const f of MODES
   if (mode === '3' && m3NQ(o)) o = m3Geo(o);      // T143: CSV xuat SO THAT (lisp khong doc "?")
   // T221 cu: doi ngang x chenh -> dai/ngang cho CAD. T227: BO - lisp doc duoc DX395x309 (T221) va can biet so tho ghi
   //   la NGANG x CHENH de khong dim dai doc tu tinh (anh Dampt: "tho cho gi dim nay"). m5DayN giu lai (khong con goi o day).
+  if (mode === '5') ['Day', 'Tren'].forEach(k => { if (o[k] != null) o[k] = String(o[k]).replace(/[×*]/g, 'x'); });      // T283: web nhan x / X / × / *, lisp CTK5-ParseDay chi hieu X -> CSV ghi x
   if (mode === '5' && /\?/.test(String(o.H == null ? '' : o.H))) o = m5Geo(o);      // T219: H "?" -> CSV ghi so cao da tinh
   return o; }
 const HUONG = [['', 'Nghiêng phải'], ['T', 'Nghiêng trái']];
@@ -7457,6 +7458,7 @@ function setMode(m, keepVals) {
   const lastIn = ins.filter(x => x.tagName === 'INPUT').pop(); if (lastIn) lastIn.setAttribute('enterkeyhint', 'done');
   ins.forEach((el, i) => {
     el.addEventListener('input', live); el.addEventListener('change', live); el.addEventListener('input', () => { DIRTY = true; });
+    if (el.id === 'f_Day' || el.id === 'f_Tren') el.addEventListener('input', () => { if (KBF.on && KBF.el === el) updateBar(el, true); });      // T283: phim phu doi theo cho dang go (x sau so ngang doan doc)
     el.addEventListener('change', () => { const f = M.fields.find(q => 'f_' + q.k === el.id); if (f) { const n = fixComma(f.type, el.value); if (n !== el.value.trim()) { el.value = n; live(); } } });
     if (el.id === 'f_CutP3') el.addEventListener('change', () => { const n = normCut(el.value); if (n !== el.value) { el.value = n; live(); } });
     el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (ev.ctrlKey || i === ins.length - 1 || el.id === 'f_SoLuong') savePanel(); else if (KBF.on) { const nx = ins.slice(i + 1).find(x => x.tagName === 'INPUT' && !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); if (nx) goField(nx); else savePanel(); } else { const n = ins.slice(i + 1).find(x => x.offsetParent !== null); (n || ins[0]).focus(); setTimeout(() => keepVisible(n || ins[0]), 60); } } });
@@ -9392,7 +9394,13 @@ function keysFor(el) {
     case 'list': return ['-', '.'];
     case 'groups': return ['-', '/', '.'];
     case 'c1': return ['G', '.'];
-    case 'day': return ['N', 'DL', 'DX', '+', '/', '.'];
+    case 'day': {      // T283: thieu phim x (DX2050x395 = ngang x chenh cao) -> co x; thu tu phim theo cho dang go (3 phim dau hien ngay, con lai o nut ⋯)
+      let s = String(el.value || ''); const c = el.selectionStart; if (c != null) s = s.slice(0, c);
+      const last = s.split('+').pop().trim().toUpperCase();
+      if (/^D[LX]\d+(\.\d*)?$/.test(last)) return ['x', '+', '/', 'DL', 'DX', 'N', '.'];      // vua go so NGANG doan doc -> x (roi chenh cao)
+      if (last !== '' && !/^D[LX]?$/.test(last)) return ['+', 'DL', 'DX', 'N', 'x', '/', '.'];  // xong 1 doan -> + noi doan
+      return ['DL', 'DX', 'N', '+', 'x', '/', '.'];
+    }
     case 'end': return ['X', 'C', 'T', 'V', 'G', '-', '.'];      // T229: G59.2 = goc trong tai goc day (tam Nhat Minh)
     case 'h5': return ['/', '?', 'P', '.'];
     case 'kl': return ['-', '?', '@', '@P', '@D', '@PD', '.'];      // T229: @D60 / @PD95 = chan truc doc day (tam Nhat Minh)
@@ -13535,7 +13543,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029110453';
+var CTK_BUILD = '20261029134927';
 (function () {
   function chk() {
     try {
