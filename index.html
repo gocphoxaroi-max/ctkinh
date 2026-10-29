@@ -128,13 +128,13 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
 .drailh,.drailchip,.dpin{display:none}
 .dtool{transition:opacity .2s}
 @media(min-width:900px){
-  .dtool{opacity:.45}.dtool:hover,.dtool:focus-within,.dtool.pinned{opacity:1}
+  .dtool{opacity:.7}.dpane.rail-peek .dtool,.dtool:hover,.dtool:focus-within,.dtool.pinned{opacity:1}
   .dtool .dpin{display:flex;min-height:34px;font-size:10px}.dtool .dpin.on{background:#1f4e79;border-color:#1f4e79;color:#fff}
 }
 @media(max-width:899px){
   .dtool{position:absolute;right:0;top:0;bottom:0;width:62px;z-index:6;transform:translateX(105%);visibility:hidden;pointer-events:none;box-shadow:-3px 0 10px rgba(0,0,0,.18);transition:transform .2s ease,visibility 0s .2s}
   #dpPv.rail-open .dtool{transform:none;visibility:visible;pointer-events:auto;transition:transform .2s ease,visibility 0s}
-  .drailh{display:flex;align-items:center;justify-content:center;position:absolute;right:0;top:50%;margin-top:-30px;width:28px;height:60px;padding:0;font-size:24px;line-height:1;border:1px solid #b9c6d3;border-right:0;border-radius:10px 0 0 10px;background:rgba(238,242,246,.6);color:#1f4e79;opacity:.45;z-index:4;touch-action:manipulation}
+  .drailh{display:flex;align-items:center;justify-content:center;position:absolute;right:0;top:50%;margin-top:-42px;width:36px;height:84px;padding:0;font-size:24px;line-height:1;border:1px solid #b9c6d3;border-right:0;border-radius:10px 0 0 10px;background:rgba(238,242,246,.6);color:#1f4e79;opacity:.9;z-index:4;touch-action:manipulation;min-width:36px}
   .drailh:active{opacity:1}
   #dpPv.rail-open .drailh{display:none}
   .drailchip{position:absolute;right:30px;top:6px;z-index:4;min-height:30px;padding:2px 10px;border-radius:15px;border:0;background:#d35400;color:#fff;font-size:13px;font-weight:bold;touch-action:manipulation}
@@ -143,6 +143,18 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
   body.kbf .drailh,body.kbf .drailchip,.dock.qtyp .drailh{display:none !important}
 }
 @media (prefers-reduced-motion:reduce){.dtool{transition:none !important}}
+/* T282: xem truoc tam khong can bam Sua */
+.tpvbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.tpvbar[hidden]{display:none}.tpvbar button{min-height:44px;padding:6px 14px;font-size:15px}
+.pcck{width:24px;height:24px;margin:0 2px 0 0;flex:0 0 auto}
+.tpv{position:fixed;inset:0;background:#0d1620;z-index:53;display:flex;flex-direction:column}.tpv[hidden]{display:none}
+.tpv .tbar{display:flex;align-items:center;gap:6px;padding:6px;background:#1f4e79;color:#fff}.tpv .tbar b{flex:1;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpv .tbar button{min-width:44px;min-height:44px;font-size:16px;border-radius:8px;border:0;background:#2f6aa3;color:#fff;padding:0 10px}
+.tpv .tbar button[hidden]{display:none}
+.tpv .tbody{flex:1;overflow:auto;background:#fff;-webkit-overflow-scrolling:touch}
+.tpv .tone{width:100%;height:100%;display:block}
+.tpv .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;padding:8px}
+.tpv .tcell{border:1px solid #cfd8e3;border-radius:10px;background:#fafbfc;cursor:pointer;padding:4px}.tpv .tcell b{display:block;font-size:14px;color:#1f4e79}
+.tpv .tcell svg{width:100%;height:auto;display:block}
 .dpane .pvnote{position:absolute;left:6px;right:6px;bottom:3px;margin:0;font-size:12px;background:#ffffffcc;pointer-events:none}
 /* --- T34: cham "?" tren hinh de ghi so --- */
 .dock.qon .dinfo{display:none}
@@ -459,6 +471,7 @@ body.ks #edCard,body.ks #listCard,body.ks .bbar:not(.ksb){display:none}
   <section class="card" id="listCard">
     <h2>3. Danh sách tấm</h2>
     <div class="sum" id="sum"></div>
+    <div class="tpvbar" id="tpvbar" hidden><button type="button" onclick="tpvOpen(null,true)">Xem tất cả (lưới)</button><button type="button" id="tpvSelB" onclick="tpvOpen(Array.from(TSEL).sort((a,b)=>a-b),true)" hidden>Xem gộp đã chọn</button></div>
     <div class="plist" id="list" style="margin-top:8px"></div>
   </section>
   <section class="card" id="ksApp"><div class="edhead"><h2>2. Nhập tấm kính sơn</h2></div><div id="ksEd"></div></section>
@@ -506,6 +519,7 @@ body.ks #edCard,body.ks #listCard,body.ks .bbar:not(.ksb){display:none}
   <button class="vnav l" id="vl" onclick="vGo(-1)">‹</button><button class="vnav r" id="vr" onclick="vGo(1)">›</button>
   <div class="vhint">Chụm/mở 2 ngón để phóng to · chạm đúp để phóng/thu · vuốt ngang để đổi hình</div>
 </div>
+<div class="tpv" id="tpv" hidden><div class="tbar"><button type="button" id="tpvPrev" onclick="tpvStep(-1)" aria-label="Tấm trước">◀</button><button type="button" id="tpvNext" onclick="tpvStep(1)" aria-label="Tấm sau">▶</button><b id="tpvCap"></b><button type="button" id="tpvGridB" onclick="tpvToggleGrid()">Lưới</button><button type="button" id="tpvEdit" onclick="tpvEdit()">Sửa</button><button type="button" onclick="tpvClose()" aria-label="Đóng">✕</button></div><div class="tbody" id="tpvBody"></div></div>
 <div class="pfs" id="pfs" hidden>
   <div class="vbar"><b id="pfcap"></b><button id="pfRot" onclick="pfToggleRot()" title="Xoay hình 90° (xoay điện thoại ngang để đọc)">↻</button><button onclick="pfZoom(0.7)" title="Thu nhỏ">−</button><button onclick="pfZoom(1.4)" title="Phóng to">+</button><button onclick="closePF()" title="Đóng">✕</button></div>
   <div class="pfstage" id="pfstage"></div>
@@ -9326,7 +9340,7 @@ function railOpen() {
   p.classList.add('rail-open'); railTimer();
 }
 function railClose() { const p = $('dpPv'); if (p) p.classList.remove('rail-open'); clearTimeout(_railT); }
-function railTimer() { clearTimeout(_railT); _railT = setTimeout(railClose, 4000); }
+function railTimer() { clearTimeout(_railT); _railT = setTimeout(railClose, 6000); }      // T282: 6 giay
 function railPin() {
   const d = $('dtool'), on = !d.classList.contains('pinned');
   d.classList.toggle('pinned', on); $('dpinB').classList.toggle('on', on);
@@ -9349,10 +9363,15 @@ function updRailChip() {
   try { if (localStorage.getItem('ctk_railpin') === '1') { d.classList.add('pinned'); $('dpinB').classList.add('on'); } } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('button'); if (!b || b.id === 'dpinB') return;
-    setTimeout(() => { updRailChip(); railClose(); }, 150);
+    setTimeout(updRailChip, 150); railTimer();      // T282: dung xong KHONG dong ngay - giu mo them vai giay de dung tiep, roi tu thu (tab luon con)
   });
   d.addEventListener('pointerdown', railTimer);
   if (pv) pv.addEventListener('pointerdown', railClose);
+  // T282: chong ket o trang thai an: tab luon co mat; co hoat dong (cuon / chuot / doi the) -> dai hien nhanh
+  const peek = () => { const p = $('dpPv'); if (!p) return; p.classList.add('rail-peek'); clearTimeout(peek.t); peek.t = setTimeout(() => p.classList.remove('rail-peek'), 1800); };
+  window.addEventListener('scroll', peek, { passive: true }); document.addEventListener('pointermove', ev => { if (ev.pointerType === 'mouse') peek(); }, { passive: true });
+  const dt = document.querySelector('.dtabs'); if (dt) dt.addEventListener('click', () => { if (!document.body.classList.contains('kbf')) railOpen(); });
+  setInterval(() => { if (document.body.classList.contains('kbf') && !KBF.on) document.body.classList.remove('kbf'); }, 1500);      // lop kbf ket (ban phim phu da tat)
   setInterval(updRailChip, 600);      // nhan cong cu dang bat luon dung (khong can moc vao tung ham)
 })();
 
@@ -9682,6 +9701,45 @@ function startNew() {
   if (t && !isNarrow()) { t.focus(); t.select(); }
   if (snap0) toastUndo('Đã xoá phần đang nhập dở', () => restoreSnap(snap0));
 }
+// ---------- T282: xem truoc tam ngay tu danh sach (khong can bam Sua), luoi nhieu tam, mui ten truoc/sau ----------
+const TSEL = new Set(); const TPV = { ids: [], k: 0, grid: false, on: false };
+function tpvSel(i, on) { if (on) TSEL.add(i); else TSEL.delete(i); tpvBar(); }
+function tpvBar() { const b = $('tpvbar'); if (!b) return; b.hidden = S.panels.length < 2; const sb = $('tpvSelB'); if (sb) { sb.hidden = TSEL.size < 2; sb.textContent = 'Xem gộp ' + TSEL.size + ' tấm đã chọn'; } }
+function tpvSvg(p, W, H, big) {
+  try {
+    const R = renderPV(p.mode, p.v, W, H, big ? { full: true, dims: true, dimLv: 'du', fs: 13, padTop: 8 } : { full: true, dims: false, fs: 11, padTop: 4 });
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" ' + (big ? 'class="tone" preserveAspectRatio="xMidYMid meet"' : '') + '><rect width="' + W + '" height="' + H + '" fill="#fff"/>' + R.svg + '</svg>';
+  } catch (e) { return '<div style="padding:20px;color:#a33">Không vẽ được: ' + esc(e.message) + '</div>'; }
+}
+function tpvOpen(ids, grid) {
+  if (!S.panels.length) return;
+  if (!ids) ids = S.panels.map((_, i) => i);
+  ids = ids.filter(i => S.panels[i]); if (!ids.length) return;
+  TPV.ids = ids; TPV.k = 0; TPV.grid = !!grid && ids.length > 1; TPV.on = true; $('tpv').hidden = false; document.body.style.overflow = 'hidden';
+  try { history.pushState({ tpv: 1 }, ''); } catch (e) {}
+  tpvDraw();
+}
+function tpvClose(fromPop) { if (!TPV.on) return; TPV.on = false; $('tpv').hidden = true; document.body.style.overflow = ''; if (!fromPop) { try { if (history.state && history.state.tpv) history.back(); } catch (e) {} } }
+window.addEventListener('popstate', () => tpvClose(true));
+function tpvStep(d) { const n = TPV.ids.length; if (n < 2) return; TPV.k = (TPV.k + d + n) % n; TPV.grid = false; tpvDraw(); }
+function tpvToggleGrid() { TPV.grid = !TPV.grid; tpvDraw(); }
+function tpvEdit() { const i = TPV.ids[TPV.k]; tpvClose(); editPanel(i); }
+function tpvPick(k) { TPV.k = k; TPV.grid = false; tpvDraw(); }
+function tpvDraw() {
+  if (!TPV.on) return;
+  const body = $('tpvBody'), n = TPV.ids.length;
+  $('tpvPrev').hidden = $('tpvNext').hidden = n < 2 || TPV.grid; $('tpvGridB').hidden = n < 2; $('tpvGridB').textContent = TPV.grid ? '1 tấm' : 'Lưới'; $('tpvEdit').hidden = TPV.grid;
+  if (TPV.grid) {
+    $('tpvCap').textContent = 'Xem ' + n + ' tấm – chạm 1 tấm để xem lớn';
+    body.innerHTML = '<div class="tgrid">' + TPV.ids.map((i, k) => { const p = S.panels[i]; return '<div class="tcell" onclick="tpvPick(' + k + ')"><b>' + (i + 1) + '. ' + esc(p.v.TenTam) + '</b>' + tpvSvg(p, 300, 220, false) + '</div>'; }).join('') + '</div>';
+  } else {
+    const i = TPV.ids[TPV.k], p = S.panels[i], W = Math.max(280, body.clientWidth || innerWidth), H = Math.max(240, body.clientHeight || innerHeight - 70);
+    $('tpvCap').textContent = (n > 1 ? (TPV.k + 1) + '/' + n + ' · ' : '') + p.v.TenTam + ' – ' + shapeLabel(p);
+    body.innerHTML = tpvSvg(p, W, H, true);
+  }
+}
+window.addEventListener('keydown', ev => { if (!TPV.on) return; if (ev.key === 'Escape') tpvClose(); else if (ev.key === 'ArrowLeft') tpvStep(-1); else if (ev.key === 'ArrowRight') tpvStep(1); });
+window.addEventListener('resize', () => { if (TPV.on) tpvDraw(); });
 function editPanel(i) {
   editIdx = i; const p = S.panels[i]; setMode(p.mode, false); fillForm(p.v); DIRTY = false; SHAPE = shapeOf(p.mode, p.v); markMode();
   $('bCancel').hidden = false; $('bSaveT').textContent = 'Lưu sửa'; $('edTitle').textContent = '2. Sửa tấm ' + p.v.TenTam; renderList(); navUpd();
@@ -9690,8 +9748,8 @@ function editPanel(i) {
 function cancelEdit() { startNew(); renderList(); }
 function freeName(n) { const has = x => S.panels.some(p => (p.v.TenTam || '').toUpperCase() === x.toUpperCase()); let k = nextName(n), g = 0; while (has(k) && g++ < 500) k = nextName(k); return k; }
 function dupPanel(i) { const p = S.panels[i]; const c = { mode: p.mode, v: Object.assign({}, p.v, { TenTam: freeName(p.v.TenTam) }) }; S.panels.splice(i + 1, 0, c); save(); renderList(); toast('Đã nhân bản thành ' + c.v.TenTam); }
-function delPanel(i) { if (!confirm('Xoá tấm ' + S.panels[i].v.TenTam + '?')) return; S.panels.splice(i, 1); if (editIdx === i) startNew(); else if (editIdx > i) editIdx--; save(); renderList(); }
-function movePanel(i, d) { const j = i + d; if (j < 0 || j >= S.panels.length) return; [S.panels[i], S.panels[j]] = [S.panels[j], S.panels[i]]; if (editIdx === i) editIdx = j; else if (editIdx === j) editIdx = i; save(); renderList(); }
+function delPanel(i) { TSEL.clear(); if (!confirm('Xoá tấm ' + S.panels[i].v.TenTam + '?')) return; S.panels.splice(i, 1); if (editIdx === i) startNew(); else if (editIdx > i) editIdx--; save(); renderList(); }
+function movePanel(i, d) { TSEL.clear(); const j = i + d; if (j < 0 || j >= S.panels.length) return; [S.panels[i], S.panels[j]] = [S.panels[j], S.panels[i]]; if (editIdx === i) editIdx = j; else if (editIdx === j) editIdx = i; save(); renderList(); }
 function summary(p) {
   const v = p.v;
   switch (p.mode) {
@@ -9706,17 +9764,17 @@ function summary(p) {
 }
 function shapeLabel(p) { const id = shapeOf(p.mode, p.v); return id ? SHAPE_BY[id].name : shortName(p.mode).replace(/\s*\(.*$/, ''); }   // T12
 function renderList() {
-  let n = 0, q = 0;
+  let n = 0, q = 0; TSEL.forEach(k => { if (k >= S.panels.length) TSEL.delete(k); });
   $('list').innerHTML = S.panels.map((p, i) => {
     const r = validate(p.mode, p.v, { panels: S.panels, idx: i, loaiKinh: S.info[3] }), ne = Object.keys(r.err).length, sl = parseInt(p.v.SoLuong) || 1; n++; q += sl;
     const nw = r.warn.length + r.yellow.length, st = ne ? '<span class="st-bad">✗ ' + ne + ' lỗi</span>' : (r.red.length ? '<span class="st-bad"><span class="dot r"></span>ĐỎ ' + r.red.length + '</span>' : (nw ? '<span class="st-w"><span class="dot y"></span>vàng ' + nw + '</span>' : '<span class="st-ok">✓</span>'));     // T11: chấm đỏ / vàng
-    return '<div class="pc' + (i === editIdx ? ' sel' : '') + '"><div class="pch" onclick="editPanel(' + i + ')"><span class="no">' + (i + 1) + '.</span><b>' + esc(p.v.TenTam) + '</b><span class="chip">' + esc(shapeLabel(p)) + '</span>' + (sl > 1 ? '<span class="qty">× ' + sl + '</span>' : '') + '<span class="st">' + st + '</span></div>' +
-      '<div class="pcs" onclick="editPanel(' + i + ')">' + esc(summary(p)) + '</div>' +
-      '<div class="pca"><button onclick="editPanel(' + i + ')">Sửa</button><button onclick="dupPanel(' + i + ')">Nhân bản</button><button onclick="movePanel(' + i + ',-1)" title="Lên">↑</button><button onclick="movePanel(' + i + ',1)" title="Xuống">↓</button><button class="warn" onclick="delPanel(' + i + ')">Xoá</button></div></div>';
+    return '<div class="pc' + (i === editIdx ? ' sel' : '') + '"><div class="pch" onclick="tpvOpen([' + i + '])"><input type="checkbox" class="pcck" aria-label="Chọn tấm xem gộp" ' + (TSEL.has(i) ? 'checked ' : '') + 'onclick="event.stopPropagation();tpvSel(' + i + ',this.checked)"><span class="no">' + (i + 1) + '.</span><b>' + esc(p.v.TenTam) + '</b><span class="chip">' + esc(shapeLabel(p)) + '</span>' + (sl > 1 ? '<span class="qty">× ' + sl + '</span>' : '') + '<span class="st">' + st + '</span></div>' +
+      '<div class="pcs" onclick="tpvOpen([' + i + '])">' + esc(summary(p)) + '</div>' +
+      '<div class="pca"><button onclick="tpvOpen([' + i + '])">Xem</button><button onclick="editPanel(' + i + ')">Sửa</button><button onclick="dupPanel(' + i + ')">Nhân bản</button><button onclick="movePanel(' + i + ',-1)" title="Lên">↑</button><button onclick="movePanel(' + i + ',1)" title="Xuống">↓</button><button class="warn" onclick="delPanel(' + i + ')">Xoá</button></div></div>';
   }).join('') || '<div class="empty">Chưa có tấm nào – nhập ở mục 2 rồi bấm “Lưu tấm”.</div>';
   const sm = summarizePanels(S.panels);
   $('sum').textContent = n ? ('Tổng: ' + n + ' dòng tấm · ' + q + ' tấm (tính số lượng)' + (sm.bad.length ? ' · ' + sm.bad.length + ' tấm lỗi' : '') + (sm.red.length ? ' · ' + sm.red.length + ' tấm ĐỎ' : '') + (sm.yellow.length ? ' · ' + sm.yellow.length + ' tấm vàng' : '')) : '';
-  $('bCnt').textContent = n + ' tấm'; navUpd();
+  $('bCnt').textContent = n + ' tấm'; tpvBar(); navUpd();
 }
 function infoSummary() { const s = [S.info[2], S.info[3]].filter(Boolean).join(' · '); $('infoSum').textContent = s ? '– ' + s : ''; }
 function readInfo() {
@@ -13477,7 +13535,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029093914';
+var CTK_BUILD = '20261029110453';
 (function () {
   function chk() {
     try {
