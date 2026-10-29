@@ -9101,10 +9101,10 @@ function renderPV(mode, v, W, H, opt) {
       let best = null;
       [0, 28, -28, 56, -56, 84, -84, 120, -120, 180].forEach((deg, di) => {
         const ca = Math.cos(deg * Math.PI / 180), sa = Math.sin(deg * Math.PI / 180), dp = [dp0[0] * ca - dp0[1] * sa, dp0[0] * sa + dp0[1] * ca];
-        [30, 46, 64, 84].forEach((L0, li) => {
+        [16, 24, 34, 48, 66].forEach((L0, li) => {
           const T = [M[0] + dp[0] * L0, M[1] + dp[1] * L0], tc = [T[0] + dp[0] * tw, T[1] + dp[1] * tw * 0.35 + (Math.abs(dp[0]) < 0.5 ? dp[1] * 6 : 0)];
           const bx = [tc[0], tc[1], tw + 1, fz * 0.7 + 3];
-          let sc = di * 3 + li * 2 + (inPoly(tc) ? 40 : 0) + (inPoly(T) ? 20 : 0);
+          let sc = di * 3 + li * 5 + (inPoly(tc) ? 40 : 0) + (inPoly(T) ? 20 : 0);
           obT.forEach(o => { if (Math.abs(o[0] - bx[0]) < o[2] + bx[2] && Math.abs(o[1] - bx[1]) < o[3] + bx[3]) sc += 200; });
           placed.forEach(o => { if (Math.abs(o[0] - bx[0]) < o[2] + bx[2] && Math.abs(o[1] - bx[1]) < o[3] + bx[3]) sc += 200; });
           obC.forEach(o => { if (Math.hypot(o[0] - tc[0], o[1] - tc[1]) < o[2] + bx[2] * 0.8 || Math.hypot(o[0] - T[0], o[1] - T[1]) < o[2]) sc += 200; });
@@ -13464,7 +13464,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029091239';
+var CTK_BUILD = '20261029092747';
 (function () {
   function chk() {
     try {
