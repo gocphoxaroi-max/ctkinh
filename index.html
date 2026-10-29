@@ -4165,7 +4165,7 @@ function validate(mode, v, ctx) {
     (geom(mode, v).shape.cgWarn || []).forEach(t => warn.push(t));
   }
   if ((mode === '3' || mode === '1') && String(v.Cat || '').trim() && !err.Cat) {      // T147: cat doi bang (T160: + Mode 1)
-    const kh = ['DistBaseList', 'GocDo', 'BoGoc', 'LoTuDo', 'CatGoc', 'TG_CanhTren'].filter(k => String(v[k] || '').trim());
+    const kh = ['DistBaseList', 'GocDo', 'LoTuDo', 'CatGoc', 'TG_CanhTren'].filter(k => String(v[k] || '').trim());
     if (kh.length) err.Cat = 'Băng cắt đôi chưa dùng chung với ' + kh.join(', ') + ' – bỏ các ô đó hoặc bỏ cắt';
     else if (!Object.keys(err).length) { const ce = geom(mode, v).shape.catErr; if (ce) err.Cat = ce; }
   }
@@ -6395,6 +6395,15 @@ function boFillets(verts, str) {
 }
 function boApply(S, str) {
   const r = boFillets(S.verts, str);
+  // T277: bang cat doi - cho ghep phang, KHONG bo goc: cung (2 diem tiep tuyen + dinh) phai nam han 1 phia duong cat (cach >= 0,5 mm)
+  if (S.cut && S.cut.a && S.cut.b && r.out.length) {
+    const A = S.cut.a, B = S.cut.b, ln = V2.dist(A, B) || 1, sd = p => ((B[0] - A[0]) * (p[1] - A[1]) - (B[1] - A[1]) * (p[0] - A[0])) / ln;
+    r.out = r.out.filter(f => {
+      const s0 = sd(f.p), ok = [f.t1, f.t2].every(t => sd(t) * s0 > 0 && Math.abs(sd(t)) > 0.5);
+      if (!ok) r.warn.push('Bo góc ' + f.n + ': sát đường cắt đôi (chỗ ghép phẳng, không bo được) – bỏ qua.');
+      return ok;
+    });
+  }
   if (r.out.length) S.fillets = r.out;
   return r.warn;
 }
@@ -13424,7 +13433,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029081406';
+var CTK_BUILD = '20261029083300';
 (function () {
   function chk() {
     try {
