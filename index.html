@@ -9080,13 +9080,44 @@ function renderPV(mode, v, W, H, opt) {
       tx(it.tc, it.ang, it.f, qs ? dc : (pvIsTotal(dd) && col === dc && !dd.qon ? PV_TOTAL_COL : col), dd.text, pvIsTotal(dd) ? 'T' : qs === 'q' && !dd.qon ? false : thin || dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
   }
   // T38: dim ban kinh "R.." o moi cung bo: mui ten cham giua cung, chu phia trong tam
-  if (fil) fil.forEach(f => {
-    const du = unit(f.p[0] - f.c[0], f.p[1] - f.c[1]), m = [f.c[0] + du[0] * f.r, f.c[1] + du[1] * f.r];
-    const M = [m[0] * k, -m[1] * k], dp = [du[0], -du[1]], L = Math.max(26, Math.min(f.r * k, 46));
-    const T = [M[0] - dp[0] * L, M[1] - dp[1] * L], txt = 'R' + (+f.r.toFixed(2));
-    const tc = [T[0] - dp[0] * (txt.length * 3.4 + 4), T[1] - dp[1] * 9];
-    s += '<g class="dm" stroke="' + FILC + '" stroke-width="0.9" fill="none" data-field="BoGoc"><path d="M' + Q(T) + ' L' + Q(M) + '"/>' + arrow(M, dp, FILC) + tx(tc, 0, E.l.f || fs, FILC, txt) + '</g>';      // T130: cung co chu chung ban ve
-  });
+  // T278: chu R thu ra NGOAI tam, tranh dim co san (chu, duong dim, lo, cung goc): thu nhieu huong/chieu dai, chon cho it dinh nhat
+  if (fil) {
+    const obT = [], obS = [], obC = [], ppf = g.poly.map(p => [p[0] * k, -p[1] * k]);
+    L.items.forEach(it => {
+      const dd = it.d, c = it.tc || it.c; if (!dd) return;
+      if (c && dd.text != null) { const tw = String(dd.text).length * (it.f || 10) * 0.6 + 6, th = (it.f || 10) + 6, ca = Math.abs(Math.cos((it.ang || 0) * Math.PI / 180)), sa = Math.sqrt(1 - ca * ca); obT.push([c[0], c[1], (ca * tw + sa * th) / 2, (sa * tw + ca * th) / 2]); }
+      if (dd.kind === 'goc' && it.C) obC.push([it.C[0], it.C[1], it.r + 2]);
+      if (it.A && it.B && it.D1 && it.D2) { obS.push([it.A, it.D1], [it.B, it.D2], [it.D1, it.D2]); }
+      if (it.ld) for (let i = 0; i + 1 < it.ld.length; i++) obS.push([it.ld[i], it.ld[i + 1]]);
+    });
+    g.holes.forEach((p, i) => obC.push([p[0] * k, -p[1] * k, Math.max(((sh.holes[i] && sh.holes[i].d) || d) / 2 * k, 2.5) + 2]));
+    const inPoly = p => { let c = false; for (let i = 0, j = ppf.length - 1; i < ppf.length; j = i++) if ((ppf[i][1] > p[1]) !== (ppf[j][1] > p[1]) && p[0] < (ppf[j][0] - ppf[i][0]) * (p[1] - ppf[i][1]) / (ppf[j][1] - ppf[i][1]) + ppf[i][0]) c = !c; return c; };
+    const segHit = (a, b, bx) => { for (let i = 0; i <= 12; i++) { const t = i / 12, x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t; if (Math.abs(x - bx[0]) < bx[2] && Math.abs(y - bx[1]) < bx[3]) return true; } return false; };
+    const segCut = (a, b, c, e) => { const o = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); return o(a, b, c) * o(a, b, e) < 0 && o(c, e, a) * o(c, e, b) < 0; };
+    const placed = [];
+    fil.forEach(f => {
+      const du = unit(f.p[0] - f.c[0], f.p[1] - f.c[1]), m = [f.c[0] + du[0] * f.r, f.c[1] + du[1] * f.r];
+      const M = [m[0] * k, -m[1] * k], dp0 = [du[0], -du[1]], txt = 'R' + (+f.r.toFixed(2)), tw = txt.length * 3.4 + 4, fz = E.l.f || fs;
+      let best = null;
+      [0, 28, -28, 56, -56, 84, -84, 120, -120, 180].forEach((deg, di) => {
+        const ca = Math.cos(deg * Math.PI / 180), sa = Math.sin(deg * Math.PI / 180), dp = [dp0[0] * ca - dp0[1] * sa, dp0[0] * sa + dp0[1] * ca];
+        [30, 46, 64, 84].forEach((L0, li) => {
+          const T = [M[0] + dp[0] * L0, M[1] + dp[1] * L0], tc = [T[0] + dp[0] * tw, T[1] + dp[1] * tw * 0.35 + (Math.abs(dp[0]) < 0.5 ? dp[1] * 6 : 0)];
+          const bx = [tc[0], tc[1], tw + 1, fz * 0.7 + 3];
+          let sc = di * 3 + li * 2 + (inPoly(tc) ? 40 : 0) + (inPoly(T) ? 20 : 0);
+          obT.forEach(o => { if (Math.abs(o[0] - bx[0]) < o[2] + bx[2] && Math.abs(o[1] - bx[1]) < o[3] + bx[3]) sc += 200; });
+          placed.forEach(o => { if (Math.abs(o[0] - bx[0]) < o[2] + bx[2] && Math.abs(o[1] - bx[1]) < o[3] + bx[3]) sc += 200; });
+          obC.forEach(o => { if (Math.hypot(o[0] - tc[0], o[1] - tc[1]) < o[2] + bx[2] * 0.8 || Math.hypot(o[0] - T[0], o[1] - T[1]) < o[2]) sc += 200; });
+          obS.forEach(o => { if (segHit(o[0], o[1], bx) || segCut(M, T, o[0], o[1])) sc += 120; });
+          obT.forEach(o => { if (segHit(M, T, [o[0], o[1], o[2], o[3]])) sc += 150; });
+          if (!best || sc < best.sc) best = { sc, T, tc, dp, bx };
+        });
+      });
+      placed.push(best.bx);
+      const dpa = [-best.dp[0], -best.dp[1]];      // mui ten cham cung tu ngoai vao
+      s += '<g class="dm" stroke="' + FILC + '" stroke-width="0.9" fill="none" data-field="BoGoc"><path d="M' + Q(best.T) + ' L' + Q(M) + '"/>' + arrow(M, dpa, FILC) + tx(best.tc, 0, fz, FILC, txt) + '</g>';      // T130: cung co chu chung ban ve
+    });
+  }
   // T22: che do "Do goc" - cham o moi dinh (cam = da chon, xam = lisp da tu ve goc o dinh nay)
   const dots = [];
   if (opt.pick === 'lt') {      // T49: che do "+ Lỗ tự do" - cham tim o moi dinh (moc) + vong tim quanh lo tu do (cham de sua / xoa)
@@ -13433,7 +13464,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029084356';
+var CTK_BUILD = '20261029091239';
 (function () {
   function chk() {
     try {
