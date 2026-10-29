@@ -1,5 +1,5 @@
-/* Service worker app Tho Ve Kinh (T178). 20261029092747 duoc dang-web.py thay bang moc build. */
-var VER = '20261029092747';
+/* Service worker app Tho Ve Kinh (T178). 20261029093914 duoc dang-web.py thay bang moc build. */
+var VER = '20261029093914';
 var CACHE = 'ctk-' + VER;
 var PRE = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png", "./mau/Mau-dim-nho.csv", "./mau/MauNhapCSV-CT-Mode1.csv", "./mau/MauNhapCSV-CT-Mode6(CTKinh).csv", "./mau/MauNhapCSV-CongTrinh(NhieuMode).csv", "./mau/T147-thu.csv", "./mau/T21-test-tong.csv", "./mau/T38-thu.csv", "./mau/T48-thu.csv", "./mau/T49-thu.csv", "./mau/T52-thu.csv", "./mau/T56-thu.csv", "./mau/T57-thu.csv", "./mau/T59-thu.csv", "./mau/T62-thu.csv", "./mau/ThucTX2-thu.csv", "./mau/ThucTX3-thu.csv", "./tk/firebase-app.js", "./tk/firebase-auth.js", "./tk/firebase-firestore-lite.js"];
 self.addEventListener('install', function (e) {

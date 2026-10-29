@@ -9784,6 +9784,7 @@ function qrRects(x, y, mod) {      // vector: gop cac o den lien nhau trong 1 ha
 }
 const qrSize = mod => qrMat().length * mod;
 const chanText = () => qbOn() ? 'Vẽ bằng ' + APP_NAME + ' – ' + APP_SLOGAN : 'Vẽ bằng CTKinh';
+const chanLink = () => chanText() + (qbOn() ? '  ·  ' + APP_LINK_SHOW : '');      // T279: khau hieu + link (chan trang PDF/anh tung tam)
 const QB_MODP = 3, QB_MODI = 4, QB_HP = 120, QB_HI = 160;      // PDF/khung: o 3 px = 0,45 mm (1 px = 0,15 mm) · anh xem tren man hinh: o 4 px
 function qbFoot(W, H, mod, hh) { return qbOn() ? '<rect x="' + (W - 30 - qrSize(mod) - 12) + '" y="' + (H - hh + 4) + '" width="' + (qrSize(mod) + 24) + '" height="' + (qrSize(mod) + 16) + '" fill="#fff"/>' + qrRects(W - 30 - qrSize(mod), H - hh + 12, mod) : ''; }
 // hop chon "Gioi thieu cho tho khac": chia se / sao chep link / ma QR lon
@@ -9879,7 +9880,7 @@ function imgRatio(it) {      // ti le rong/cao tam + cho dim, gioi han 0.45..2.2
 function buildImgSvgs(items, info, group) {
   const s = group === 'pdf' ? PDF_S : ANH_S, pages = [], F = 'font-family="Arial,sans-serif"';
   const head = [imgDateStr(info[0]), info[1], info[2], info[3]].filter(Boolean).join('  ·  ');
-  const QH = qbOn() ? QB_HI : 0, foot = (H, W) => '<text x="30" y="' + (H - 20) + '" ' + F + ' font-size="28" fill="#555">' + esc(chanText()) + '</text>' + qbFoot(W, H, QB_MODI, QH);
+  const QH = qbOn() ? QB_HI : 0, foot = (H, W) => '<text x="30" y="' + (H - 20) + '" ' + F + ' font-size="28" fill="#555">' + esc(chanLink()) + '</text>' + qbFoot(W, H, QB_MODI, QH);
   const cap = (it, x, y, w, fz) => { const v = it.v, sl = parseInt(v.SoLuong) || 1;
     return '<text x="' + x + '" y="' + y + '" ' + F + ' font-size="' + fz + '" font-weight="bold" fill="#000">' + esc((v.TenTam || 'Tấm') + (sl > 1 ? '  x' + sl : '')) + '</text>' +
       '<text x="' + (x + w) + '" y="' + y + '" text-anchor="end" ' + F + ' font-size="' + (fz - 6) + '" fill="#000">Mode ' + it.mode + (parseFloat(v.D) > 0 ? ' · ⌀' + parseFloat(v.D) : '') + '</text>'; };
@@ -9893,7 +9894,7 @@ function buildImgSvgs(items, info, group) {
       let o = open(W, H) + '<text x="' + M + '" y="50" ' + F + ' font-size="30" fill="#000">' + esc(head) + '</text>';
       o += cap(it, M, 110, W - 2 * M, 42) + '<line x1="' + M + '" y1="126" x2="' + (W - M) + '" y2="126" stroke="#000" stroke-width="2"/>';
       o += inner(it, M, hdrH, W - 2 * M, H - hdrH - ftH);
-      o += '<text x="' + M + '" y="' + (H - 24) + '" ' + F + ' font-size="24" fill="#555">' + esc(chanText()) + '</text>' +
+      o += '<text x="' + M + '" y="' + (H - 24) + '" ' + F + ' font-size="24" fill="#555">' + esc(chanLink()) + '</text>' +
         '<text x="' + (W - xr) + '" y="' + (H - 24) + '" text-anchor="end" ' + F + ' font-size="24" fill="#555">trang ' + (i + 1) + '/' + items.length + '</text>' + qbFoot(W - M + 30, H, QB_MODP, ftH) + '</svg>';
       pages.push({ svg: o, W, H });
     });
@@ -9934,22 +9935,21 @@ function buildImgSvgs(items, info, group) {
 // T60 -> T67: PDF / anh kieu ban ve – KHUNG DONG: trang (khung) keo to/nho duoc, tam tu xep lai cho vua; khoi chu thong tin keo tha (hit goc phai tren / duoi).
 // Don vi px trang: 1 px = 0,15 mm (A4 ngang 1980 x 1400, A3 ngang 2800 x 1980). PDF: trang dung kich thuoc khung (pdfBuild doc W/H). Chu dim 12 * SHEET_S = 18 px = 2,7 mm.
 const SHEET_S = 1.5;
-const KH_M = 36, KH_G = 16, KH_CH = 44, KB_W = 1000, KB_H = 144, KH_KEY = 'ctk_khung';
+const KH_M = 36, KH_G = 16, KH_CH = 44, KB_H = 80, KH_KEY = 'ctk_khung';
+const kbW = k => k.W - 2 * KH_M;      // T279: khung ten = dai 2 dong SAT DAY, tran het chieu rong (giong CAD T232: 297 x 12 mm = 1980 x 80 px)
 const KH_DEF = { W: 1980, H: 1400, goc: 'br', ix: 40, iy: 40, hmin: 360 };
 const KH_LIM = { W: [1100, 4000], H: [760, 2800], hmin: [250, 900] };
 function khFix(k) {
   const c = (v, a, d) => { v = Math.round(+v); return isFinite(v) ? Math.min(a[1], Math.max(a[0], v)) : d; };
-  const o = { W: c(k.W, KH_LIM.W, 1980), H: c(k.H, KH_LIM.H, 1400), hmin: c(k.hmin, KH_LIM.hmin, 360), goc: /^(tr|br|tl|bl)$/.test(k.goc) ? k.goc : '' };
-  o.ix = Math.min(o.W - KH_M - KB_W, Math.max(KH_M, Math.round(+k.ix) || KH_M));
-  o.iy = Math.min(o.H - KH_M - KB_H, Math.max(KH_M, Math.round(+k.iy) || KH_M));
+  const o = { W: c(k.W, KH_LIM.W, 1980), H: c(k.H, KH_LIM.H, 1400), hmin: c(k.hmin, KH_LIM.hmin, 360), goc: 'br' };
+  o.ix = KH_M; o.iy = o.H - KH_M - KB_H;
   return o;
 }
 function khLoad() { try { const o = JSON.parse(localStorage.getItem(KH_KEY) || 'null'); if (o && typeof o === 'object') return khFix(Object.assign({}, KH_DEF, o)); } catch (e) {} return khFix(KH_DEF); }
 function khSave() { try { localStorage.setItem(KH_KEY, JSON.stringify(KHUNG)); } catch (e) {} }      // Safari co the xoa localStorage -> mat thi ve mac dinh A4 ngang
 let KHUNG = khLoad();
 function khInfoXY(k) {
-  const r = k.W - KH_M - KB_W, b = k.H - KH_M - KB_H;
-  return k.goc === 'tr' ? [r, KH_M] : k.goc === 'br' ? [r, b] : k.goc === 'tl' ? [KH_M, KH_M] : k.goc === 'bl' ? [KH_M, b] : [k.ix, k.iy];
+  return [KH_M, k.H - KH_M - KB_H];
 }
 function khGiay(k) {      // ten kho giay gan dung + co chu dim khi in vua 1 to A4
   const tn = [[1980, 1400, 'A4 ngang'], [1400, 1980, 'A4 dọc'], [2800, 1980, 'A3 ngang'], [1980, 2800, 'A3 dọc']].find(a => Math.abs(a[0] - k.W) < 40 && Math.abs(a[1] - k.H) < 40);
@@ -9958,8 +9958,8 @@ function khGiay(k) {      // ten kho giay gan dung + co chu dim khi in vua 1 to 
 }
 // xep tam vao cac trang: ke tung hang (shelf), ne khoi chu thong tin. Tra { W, H, ix, iy, groups: [{a, b, Ht, p:[{x,y,w}]}] } (x, y tinh tu goc vung ve M, M)
 function khLayout(items, k) {
-  const M = KH_M, G = KH_G, CH = KH_CH, AW = k.W - 2 * M, AH = k.H - 2 * M, xy = khInfoXY(k), rs = items.map(imgRatio);
-  const ob = { x0: xy[0] - M - G, y0: xy[1] - M - G, x1: xy[0] - M + KB_W + G, y1: xy[1] - M + KB_H + G };
+  const M = KH_M, G = KH_G, CH = KH_CH, AW = k.W - 2 * M, AH = k.H - 2 * M - KB_H - G, xy = khInfoXY(k), rs = items.map(imgRatio);
+  const ob = { x0: xy[0] - M - G, y0: xy[1] - M - G, x1: xy[0] - M + kbW(k) + G, y1: xy[1] - M + KB_H + G };
   const fit = (a, b, Ht, noOb) => {
     const pos = []; let x = 0, y = 0;
     for (let i = a; i < b; i++) {
@@ -10008,18 +10008,42 @@ function khTam(it, x, y, w, Ht, lite) {
   const R = renderPV(it.mode, it.v, Math.round(w / s), Math.round(Ht / s), { full: true, dims: true, fs: ANH_FS, padTop: 4, fmin: 4 });      // T130: anh phong 2,4 -> san 4 px he bo cuc ~ 9,6 px anh
   return o + '<svg x="' + x + '" y="' + (y + CH) + '" width="' + w + '" height="' + Ht + '" viewBox="0 0 ' + Math.round(w / s) + ' ' + Math.round(Ht / s) + '">' + R.svg + '</svg>';
 }
-// khoi chu thong tin (khung ten): Ngay / Dai ly / Khach / Loai kinh / Trang x/n / Tong tam-lo / Ve bang CTKinh
-function khInfo(bx, by, info, pg, nPg, nT, totT, totL) {
-  const F = 'font-family="Arial,sans-serif"', bw = KB_W, h = 36, T = (x, y, t, b, c) => '<text x="' + x + '" y="' + y + '" ' + F + ' font-size="24"' + (b ? ' font-weight="bold"' : '') + ' fill="' + (c || '#000') + '">' + esc(t) + '</text>';
-  const qb = qbOn(), cw = qb ? 880 : bw, L = (y) => '<line x1="' + bx + '" y1="' + (by + y) + '" x2="' + (bx + cw) + '" y2="' + (by + y) + '" stroke="#000" stroke-width="1"/>';
-  return '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + KB_H + '" fill="#fff" stroke="#000" stroke-width="2"/>' + L(h) + L(2 * h) + L(3 * h) +
-    '<line x1="' + (bx + 500) + '" y1="' + by + '" x2="' + (bx + 500) + '" y2="' + (by + 3 * h) + '" stroke="#000" stroke-width="1"/>' +
-    T(bx + 12, by + 27, 'Ngày: ' + imgDateStr(info[0])) + T(bx + 512, by + 27, 'Đại lý: ' + khCut(info[1], 24)) +
-    T(bx + 12, by + 63, 'Khách: ' + khCut(info[2], 24)) + T(bx + 512, by + 63, 'Loại kính: ' + khCut(info[3], 22)) +
-    T(bx + 12, by + 99, 'Trang ' + pg + '/' + nPg + ' · ' + nT + ' tấm', true) + T(bx + 512, by + 99, 'Tổng: ' + totT + ' tấm / ' + totL + ' lỗ', true) +
-    T(bx + 12, by + 135, chanText(), false, '#555') +
-    (qb ? '<line x1="' + (bx + cw) + '" y1="' + by + '" x2="' + (bx + cw) + '" y2="' + (by + KB_H) + '" stroke="#000" stroke-width="1"/>' + qrRects(bx + cw + Math.round((bw - cw - qrSize(QB_MODP)) / 2), by + Math.round((KB_H - qrSize(QB_MODP)) / 2), QB_MODP) +
-      '<text x="' + (bx + 512) + '" y="' + (by + 135) + '" ' + F + ' font-size="20" fill="#555">' + esc(APP_LINK_SHOW) + '</text>' : '');
+// T279: khung ten WEB = dai 2 dong SAT DAY, tran het chieu rong, cung nhom o/thu tu voi CAD (09-khung-ten.lsp T232):
+// dong 1 Ngay ve | Dai ly | Khach hang | Loai kinh ; dong 2 Lo khoan | Tong tam/lo | Trang | Ti le in | khau hieu + link ; o QR cuoi dai. 1 px = 0,15 mm.
+const KB_COLS = [['Ngày vẽ', 0, 40, 1], ['Đại lý', 40, 100, 1], ['Khách hàng', 100, 200, 1], ['Loại kính', 200, 286.2, 1],
+  ['Lỗ khoan', 0, 110, 2], ['Tổng tấm/lỗ', 110, 146, 2], ['Trang', 146, 180, 2], ['Tỉ lệ in', 180, 220, 2]];      // [nhan, x-trai, x-phai (mm CAD), dong]
+function khInfo(bx, by, info, pg, nPg, vals, w) {
+  const F = 'font-family="Arial,sans-serif"', h = KB_H, rh = h / 2, qb = qbOn(), qw = qb ? Math.round(10.8 / 0.15) : 0;      // o QR 72 px = 10,8 mm
+  const f = (w - qw) / 286.2, X = mm => bx + Math.round(mm * f), ln = (x1, y1, x2, y2) => '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#000" stroke-width="1"/>';
+  const val = [imgDateStr(info[0]), info[1], info[2], info[3], vals.lo, vals.tong, pg + '/' + nPg + ' · ' + vals.nT + ' tấm', vals.tl];
+  let o = '<rect x="' + bx + '" y="' + by + '" width="' + w + '" height="' + h + '" fill="#fff" stroke="#000" stroke-width="2"/>' + ln(bx, by + rh, bx + w, by + rh);
+  KB_COLS.forEach((c, i) => {
+    const x0 = X(c[1]), x1 = X(c[2]), top = by + (c[3] === 1 ? 0 : rh), lw = Math.round(c[0].length * 7.2 + 12), mx = Math.max(4, Math.floor((x1 - x0 - lw - 8) / 8.6));
+    if (c[1] > 0) o += ln(x0, top, x0, top + rh);
+    o += '<text x="' + (x0 + 6) + '" y="' + (top + rh / 2 + 5) + '" ' + F + ' font-size="13" fill="#555">' + esc(c[0]) + '</text>' +
+      '<text x="' + (x0 + 6 + lw) + '" y="' + (top + rh / 2 + 6) + '" ' + F + ' font-size="16" font-weight="bold" fill="#000">' + esc(khCut(val[i], mx)) + '</text>';
+  });
+  o += ln(X(220), by + rh, X(220), by + h);      // o khau hieu (dong duoi), nhu CAD
+  o += '<text x="' + (X(220) + 6) + '" y="' + (by + rh + (qb ? 18 : 26)) + '" ' + F + ' font-size="' + (qb ? 14 : 16) + '" fill="#555">' + esc(chanText()) + '</text>';
+  if (qb) o += '<text x="' + (X(220) + 6) + '" y="' + (by + rh + 36) + '" ' + F + ' font-size="14" fill="#555">' + esc(APP_LINK_SHOW) + '</text>' +
+    ln(bx + w - qw, by, bx + w - qw, by + h) + qrRects(bx + w - qw + Math.round((qw - qrSize(2)) / 2), by + Math.round((h - qrSize(2)) / 2), 2);
+  return o;
+}
+// T279: so lieu o cua dai khung ten cho 1 trang: lo khoan theo duong kinh, tong tam/lo, ti le in (~ 1:x, tam co ti le nho nhat trong trang)
+function khVals(items, gr, totT, totL, lite) {
+  const dc = {}; let r = 1;
+  for (let i = gr.a; i < gr.b; i++) {
+    const it = items[i], sl = parseInt(it.v.SoLuong) || 1, q = gr.p[i - gr.a];
+    try {
+      const g = geom(it.mode, it.v); g.holes.forEach(hh => { const d = hh.d > 0 ? hh.d : parseFloat(it.v.D) || 0; dc[d] = (dc[d] || 0) + sl; });
+      let k;      // px trang / mm that: chinh xac = k cua renderPV (khong ve nhanh); keo khung (lite) = uoc luong theo o
+      if (!lite) k = renderPV(it.mode, it.v, Math.round(q.w / SHEET_S), Math.round(gr.Ht / SHEET_S), { full: true, dims: true, fs: ANH_FS, padTop: 4, fmin: 4 }).k * SHEET_S;
+      else { const xs = g.poly.map(p => p[0]), ys = g.poly.map(p => p[1]), gw = Math.max(...xs) - Math.min(...xs) || 1, gh = Math.max(...ys) - Math.min(...ys) || 1; k = Math.min(q.w / gw, gr.Ht / gh) * 0.8; }
+      if (isFinite(k) && k > 0) r = Math.max(r, 1 / (k * 0.15));
+    } catch (e) {}
+  }
+  const lo = Object.keys(dc).map(Number).sort((a, b) => a - b).map(d => '⌀' + d + '×' + dc[d]).join('; ');
+  return { lo: lo || '0', tong: totT + '/' + totL, nT: gr.b - gr.a, tl: '1:' + r.toFixed(1) };
 }
 // opt: { k: khung (mac dinh KHUNG), lite: true = chi vien tam, only: so trang can ve (0..) }
 function buildSheetSvgs(items, info, opt) {
@@ -10030,7 +10054,7 @@ function buildSheetSvgs(items, info, opt) {
     if (opt.only != null && opt.only !== gi) { pages.push(null); return; }
     let o = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>';
     for (let i = gr.a; i < gr.b; i++) { const q = gr.p[i - gr.a]; o += khTam(items[i], M + q.x, M + q.y, q.w, gr.Ht, opt.lite); }
-    o += khInfo(Lo.ix, Lo.iy, info, gi + 1, Lo.groups.length, gr.b - gr.a, totT, totL) + '</svg>';
+    o += khInfo(Lo.ix, Lo.iy, info, gi + 1, Lo.groups.length, khVals(items, gr, totT, totL, opt.lite), kbW(k)) + '</svg>';
     pages.push({ svg: o, W, H, nT: gr.b - gr.a });
   });
   return pages;
@@ -10046,7 +10070,7 @@ function khOpen() {
   $('ksheet').classList.add('on');
   khCtl(); khDraw(false);
 }
-function khDesc() { const g = khGiay(KHUNG); return '(' + g.ten + ', ' + g.mm + ', khung tên ' + ({ tr: 'phải trên', br: 'phải dưới', tl: 'trái trên', bl: 'trái dưới' }[KHUNG.goc] || 'tự do') + ')'; }
+function khDesc() { const g = khGiay(KHUNG); return '(' + g.ten + ', ' + g.mm + ', dải khung tên sát đáy)'; }
 function khClose() { khSave(); $('ksheet').classList.remove('on'); const e = document.getElementById('khDesc'); if (e) e.textContent = khDesc(); }
 function khCtl() {
   $('kct').innerHTML = '<button onclick="khPage(-1)" aria-label="Trang trước">‹</button><button onclick="khPage(1)" aria-label="Trang sau">›</button>' +
@@ -10070,15 +10094,10 @@ function khDraw(lite) {
   let pageSvg = '';
   if (lite || !KS.full) { const p = buildSheetSvgs(KS.items, S.info, { lite, only: KS.pg })[KS.pg]; pageSvg = p ? p.svg : ''; if (!lite) KS.full = pageSvg; }
   else pageSvg = KS.full;
-  const [ix, iy] = khInfoXY(k), d = KS.drag, sn = d && d.t === 'info';
+  
   let o = '<svg x="0" y="0" width="' + k.W + '" height="' + k.H + '" viewBox="0 0 ' + k.W + ' ' + k.H + '">' + pageSvg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</svg>';
   o = '<rect x="6" y="6" width="' + k.W + '" height="' + k.H + '" fill="#9aa6b3"/>' + o;      // bong trang
   o += '<rect x="0" y="0" width="' + k.W + '" height="' + k.H + '" fill="none" stroke="#1f4e9c" stroke-width="' + (3 * px) + '" stroke-dasharray="' + (10 * px) + ' ' + (6 * px) + '"/>';
-  if (sn) [['tr', k.W - KH_M - KB_W, KH_M], ['br', k.W - KH_M - KB_W, k.H - KH_M - KB_H]].forEach(c => {      // goi y 2 goc phai khi dang keo khoi chu
-    o += '<rect x="' + c[1] + '" y="' + c[2] + '" width="' + KB_W + '" height="' + KB_H + '" fill="#f59e0b" fill-opacity=".18" stroke="#f59e0b" stroke-width="' + (3 * px) + '" stroke-dasharray="' + (8 * px) + ' ' + (5 * px) + '"/>'; });
-  // khoi chu: vung cham ca khoi + bieu tuong di chuyen
-  o += '<g data-h="info" style="cursor:move"><rect x="' + ix + '" y="' + iy + '" width="' + KB_W + '" height="' + KB_H + '" fill="#1f4e9c" fill-opacity="' + (sn ? '.16' : '.06') + '" stroke="#1f4e9c" stroke-width="' + (3 * px) + '"/>' +
-    '<circle cx="' + (ix + KB_W / 2) + '" cy="' + iy + '" r="' + R + '" fill="#1f4e9c"/><text x="' + (ix + KB_W / 2) + '" y="' + (iy + R * 0.38) + '" text-anchor="middle" font-size="' + (R * 1.15) + '" fill="#fff" font-family="Arial,sans-serif">✥</text></g>';
   // tay nam keo khung: goc phai-duoi (ca 2 chieu), canh phai, canh duoi
   const hd = (t, x, y, ch) => '<g data-h="' + t + '" style="cursor:' + (t === 'se' ? 'nwse' : t === 'e' ? 'ew' : 'ns') + '-resize"><circle cx="' + x + '" cy="' + y + '" r="' + R + '" fill="#f59e0b" stroke="#fff" stroke-width="' + (3 * px) + '"/>' +
     '<text x="' + x + '" y="' + (y + R * 0.4) + '" text-anchor="middle" font-size="' + (R * 1.1) + '" fill="#fff" font-family="Arial,sans-serif" font-weight="bold">' + ch + '</text></g>';
@@ -10087,7 +10106,7 @@ function khDraw(lite) {
   const g = khGiay(k), gr = Lo.groups[KS.pg];
   const st = $('kst'); st.className = 'kst' + (g.nho ? ' w' : '');
   st.textContent = 'Khung ' + g.mm + ' (' + g.ten + ') · trang ' + (KS.pg + 1) + '/' + nPg + ' · ' + (gr ? gr.b - gr.a : 0) + ' tấm/trang · ' + KS.items.length + ' tấm' +
-    ' · in vừa A4: chữ dim ≈ ' + g.dim + ' mm' + (g.nho ? ' (nhỏ, khó đọc)' : '') + ' · kéo nút cam để đổi cỡ khung, kéo ✥ để dời khung tên';
+    ' · in vừa A4: chữ dim ≈ ' + g.dim + ' mm' + (g.nho ? ' (nhỏ, khó đọc)' : '') + ' · kéo nút cam để đổi cỡ khung';
 }
 function khPt(e) { const m = KS.drag.m, pt = $('ksvg').createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const p = pt.matrixTransform(m); return [p.x, p.y]; }
 function khDown(e) {
@@ -10109,18 +10128,12 @@ function khMove(e) {
   else {
     const W = d.t === 's' ? k0.W : k0.W + dx, H = d.t === 'e' ? k0.H : k0.H + dy;
     const k = khFix(Object.assign({}, k0, { W, H }));
-    if (!k0.goc) { k.ix = Math.min(k.W - KH_M - KB_W, k0.ix); k.iy = Math.min(k.H - KH_M - KB_H, k0.iy); }      // khoi chu tu do: giu cho, khong lot ra ngoai
     KHUNG = k;
   }
   if (!KS.raf) KS.raf = requestAnimationFrame(() => { KS.raf = 0; KS.full = ''; khDraw(true); });
 }
 function khUp(e) {
   const d = KS.drag; if (!d || e.pointerId !== d.id) return;
-  if (d.t === 'info') {      // hit goc: 2 goc phai uu tien (vung hut rong), 2 goc trai hut hep
-    const k = KHUNG, r = k.W - KH_M - KB_W, b = k.H - KH_M - KB_H, far = 0.22 * Math.min(k.W, k.H), near = 90;
-    const c = [['tr', r, KH_M, far], ['br', r, b, far], ['tl', KH_M, KH_M, near], ['bl', KH_M, b, near]].map(a => [a[0], Math.hypot(k.ix - a[1], k.iy - a[2]), a[3]]).filter(a => a[1] <= a[2]).sort((a, b2) => a[1] - b2[1]);
-    if (c.length) KHUNG = khFix(Object.assign({}, k, { goc: c[0][0] }));
-  }
   KS.drag = null; if (KS.raf) { cancelAnimationFrame(KS.raf); KS.raf = 0; }
   KS.vb = null; KS.full = ''; khSave(); khDraw(false);
 }
@@ -13464,7 +13477,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029092747';
+var CTK_BUILD = '20261029093914';
 (function () {
   function chk() {
     try {
