@@ -412,8 +412,12 @@ body:not(.cua) #cuaApp,body:not(.cua) #cuaKb{display:none}
 body.cua #infoCard,body.cua #edCard,body.cua #listCard,body.cua #ksApp,body.cua #ksListCard,body.cua .bbar,body.cua header>button:not(#shareBtn){display:none}
 body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 .cuadock{position:sticky;top:var(--hh,52px);z-index:15;background:#fff;border:1px solid #c9d6e3;border-radius:12px;box-shadow:0 4px 12px #0002;padding:4px;margin-bottom:8px}
-#cuaPv svg{display:block;width:100%;height:38vh;height:38svh;min-height:220px;touch-action:manipulation}
-.cuanote{font-size:13px;color:#7a5b00;padding:0 6px}.cuanote:empty{display:none}.cuazrow{display:flex;align-items:center;gap:8px;padding:2px 4px}.cuazrow button{min-height:40px;padding:4px 12px;font-size:15px}.cuazrow small{color:#5b6772;font-size:12px}
+#cuaPv{overflow:hidden;-webkit-overflow-scrolling:touch}#cuaPv svg{display:block;touch-action:manipulation}#cuaPv.zoom{overflow:auto}#cuaPv.off{display:none}
+.cuabar{display:flex;align-items:center;gap:6px;padding:0 0 4px}.cuabar button{min-height:44px;padding:4px 10px;font-size:15px;border-radius:10px;white-space:nowrap}
+.cuabar .cupv{flex:1 1 auto;background:#1f4e79;border-color:#1f4e79;color:#fff;font-weight:bold}.cuabar .cupdf{flex:1 1 auto;font-weight:bold;color:#1f4e79}.cuabar .cuic{flex:none;min-width:44px;padding:0 6px;font-size:18px}
+.cuanote{font-size:12px;color:#7a5b00;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cuanote:empty{display:none}.cuadock.kb .cuanote{display:none}
+#cuaApp .cuaf input{scroll-margin-top:calc(var(--hh,52px) + var(--cuadh,220px) + 10px);scroll-margin-bottom:72px}
+.cuatt{margin-top:10px}.cuatt .cuaw2{grid-column:1 / -1}
 .cuaf label{display:block;font-size:13px;color:#34495e;margin:2px 0}
 .cuarow{margin-bottom:8px}.kssw button.act{background:#1f4e79;color:#fff}
 .cuag{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -525,7 +529,8 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
   <!-- T285: CUA LUA 5 TAM (lenh CLU lisp) - giai doan 1: nhap, tinh, bang + hinh xem truoc -->
   <section class="card" id="cuaApp">
     <div class="edhead"><h2>Cửa lùa 5 tấm <small>(lệnh CLU)</small></h2></div>
-    <div class="cuadock"><div id="cuaPv"></div><div class="cuanote" id="cuaNote"></div><div class="cuazrow"><button type="button" id="cu_zoom" onclick="cuaZoom()">Phóng ×1</button><small>Phóng to rồi kéo ngón tay để xem dim nhỏ</small></div></div>
+    <!-- T290: khoi ghim gon nhu Mode 1-6 (T289): 1 hang nut + menu ⋯ + hinh; Xem truoc = toan man hinh (phong/keo); Xuat PDF/anh co khung ten -->
+    <div class="cuadock" id="cuaDock"><div class="cuabar" id="cuaBar"><button type="button" class="cupv" onclick="cuaFull()" title="Xem hình lớn toàn màn hình (chụm 2 ngón để phóng, kéo để di chuyển)">⤢ Xem trước</button><button type="button" class="cupdf" onclick="cuaXuat('pdf')" title="Xuất bản vẽ PDF A4 ngang có khung tên">⇩ Xuất PDF</button><button type="button" class="cuic" id="cu_minB" onclick="cuaMin()" title="Thu gọn / mở khung hình" aria-label="Thu gọn khung hình">▴</button><button type="button" class="cuic" id="cu_more" onclick="cuaMenu()" title="Thêm: cỡ khung, phóng, dim, xuất ảnh" aria-label="Thêm: cỡ khung, phóng, dim, xuất ảnh" aria-haspopup="menu">⋯</button></div><div id="cuaPv"></div><div class="cuanote" id="cuaNote"></div></div>
     <div class="cuaf">
       <div class="cuarow"><label>Nẹp kính</label><div class="kssw" id="cu_nep"><button type="button" data-v="U" onclick="cuaNep('U')">Nẹp U</button><button type="button" data-v="S" onclick="cuaNep('S')">Nẹp S</button></div></div>
       <div class="cuag">
@@ -539,8 +544,13 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
         <div><label for="cu_bp">Bạo tường phải</label><input id="cu_bp" class="cun" placeholder="0"></div>
         <div id="cu_cnW" hidden><label for="cu_cn">Chân nhện: tâm cách mép trên (nhiều chân: 150 700)</label><input id="cu_cn" class="cun" placeholder="150" data-list="1"></div>
       </div>
-      <label class="cuachk"><input type="checkbox" id="cu_dimkt" onchange="cuaInput()" checked> Hiện dim kích thước (rộng/cao từng tấm, thông thuỷ, khảo sát, bạo)</label>
-      <label class="cuachk"><input type="checkbox" id="cu_dimlo" onchange="cuaInput()"> Hiện dim lỗ khoan (chuỗi cộng dồn, kẹp, chân nhện, ray HS: 515/437/78/32/Ø)</label>
+      <div class="cuag cuatt">
+        <div><label for="cu_kh">Khách / công trình</label><input id="cu_kh" class="cut" placeholder="TQG-Tài Yến"></div>
+        <div><label for="cu_kt">Ký hiệu cửa</label><input id="cu_kt" class="cut" placeholder="B2"></div>
+        <div class="cuaw2"><label for="cu_lk">Loại kính (in trên bản vẽ + khung tên)</label><input id="cu_lk" class="cut" placeholder="CL 12mm – Trong"></div>
+      </div>
+      <!-- T290: cong tac dim gom vao menu ⋯ (giu o an de code/kiem tra cu dung duoc) -->
+      <div hidden><input type="checkbox" id="cu_dimkt" onchange="cuaInput()" checked><input type="checkbox" id="cu_dimhl" onchange="cuaInput()" checked><input type="checkbox" id="cu_dimlo" onchange="cuaInput()"></div>
     </div>
     <div id="cuaTb"></div>
     <div class="cuabtn"><button type="button" onclick="cuaReset()">Xoá số (nhập cửa mới)</button></div>
@@ -9841,6 +9851,7 @@ function vZoom(f, cx, cy) { V.z = Math.max(1, Math.min(8, V.z * f)); vApply(cx, 
 const PF = { on: false, rot: null, z: 1, vx: 0, vy: 0, W: 0, H: 0, Lw: 0, Lh: 0, v: null, raf: 0, info: '' };
 function pfAuto() {   // tam dai/det + may cam doc -> xoay cho lap day man hinh
   if (PF.W >= PF.H) return false;
+  if (PF.cua) { if (!CUA_R || !CUA_R.ok) return false; const w = CUA_R.R + CUA_R.bt + CUA_R.bp + 1100, h = CUA_R.C - Math.min(0, CUA_R.canh.y) + 800; return Math.min(PF.H / w, PF.W / h) >= 1.2 * Math.min(PF.W / w, PF.H / h); }      // T290: khu Cua
   let g; try { g = geom(cur, PF.v); } catch (e) { return false; }
   const xs = g.poly.map(p => p[0]), ys = g.poly.map(p => p[1]);
   const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
@@ -9854,21 +9865,21 @@ function pfSize() {
   $('pfRot').classList.toggle('on', r);
 }
 function openPF() {
-  PF.v = PVV || readForm(); PF.rot = null; PF.z = 1; PF.vx = 0; PF.vy = 0; PF.on = true;
+  PF.cua = false; PF.v = PVV || readForm(); PF.rot = null; PF.z = 1; PF.vx = 0; PF.vy = 0; PF.on = true;
   $('pfs').hidden = false; document.body.style.overflow = 'hidden';
   try { history.pushState({ pvfs: 1 }, ''); } catch (e) {}
   pfSize(); pfDraw();
 }
 function closePF(fromPop) {
   if (!PF.on) return;
-  PF.on = false; $('pfs').hidden = true; document.body.style.overflow = '';
+  PF.on = false; PF.cua = false; $('pfs').hidden = true; document.body.style.overflow = '';
   if (!fromPop) { try { if (history.state && history.state.pvfs) history.back(); } catch (e) {} }
 }
 window.addEventListener('popstate', () => closePF(true));
 function pfDraw() {
   if (!PF.on) return;
   const z = PF.z, Lw = PF.Lw, Lh = PF.Lh;
-  const R = renderPV(cur, PF.v, Math.round(Lw * z), Math.round(Lh * z), { full: true, dims: qOn() || pvDimOn(), dimLv: PF.z >= 2 || qOn() ? 'du' : pvLv(), fs: 13, padTop: 8, rot: pfRotOn() });      // T46: dang ghi so -> toan man hinh luon co dim lo (cac buoc nhap)
+  const R = PF.cua ? cuaPfSvg(Lw, Lh, z) : renderPV(cur, PF.v, Math.round(Lw * z), Math.round(Lh * z), { full: true, dims: qOn() || pvDimOn(), dimLv: PF.z >= 2 || qOn() ? 'du' : pvLv(), fs: 13, padTop: 8, rot: pfRotOn() });      // T46: dang ghi so -> toan man hinh luon co dim lo (cac buoc nhap)
   PF.vx = Math.max(0, Math.min(PF.vx, Lw * z - Lw)); PF.vy = Math.max(0, Math.min(PF.vy, Lh * z - Lh));
   const tf = pfRotOn() ? 'transform:translate(' + PF.W + 'px,0) rotate(90deg);' : '';
   $('pfstage').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="' + Lw + '" height="' + Lh + '" viewBox="' + PF.vx.toFixed(1) + ' ' + PF.vy.toFixed(1) + ' ' + Lw + ' ' + Lh + '" style="' + tf + '"><rect x="0" y="0" width="' + Math.round(Lw * z) + '" height="' + Math.round(Lh * z) + '" fill="#fff"/>' + R.svg + '</svg>';
@@ -13392,9 +13403,20 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T285: CUA LUA 5 TAM (lenh CLU lisp) - giao dien giai doan 1. Tinh toan: cuaCalc (form_logic.js), y het Lispcua/lua5tbaotuong.lsp. */
-var CUAKEY = 'ctkinh_cua_v1', CUAS = { on: false, nep: 'U', v: {} }, CUA_F = ['R', 'C', 'CTT', 'kep', 'bt', 'bp', 'cn'], CUA_MAU = { R: 3525, C: 3105, CTT: 2550 }, CUA_R = null, CUA_INIT = false;
-try { var _cs = JSON.parse(localStorage.getItem(CUAKEY) || 'null'); if (_cs && typeof _cs === 'object') { CUAS.on = !!_cs.on; CUAS.nep = _cs.nep === 'S' ? 'S' : 'U'; CUAS.v = _cs.v || {}; } } catch (e) {}
-function cuaSave() { try { localStorage.setItem(CUAKEY, JSON.stringify(CUAS)); } catch (e) {} }
+var CUAKEY = 'ctkinh_cua_v1', CUAS = { on: false, nep: 'U', v: {}, z: 1, sz: 'm', min: false }, CUA_F = ['R', 'C', 'CTT', 'kep', 'bt', 'bp', 'cn'], CUA_T = ['kh', 'kt', 'lk'], CUA_MAU = { R: 3525, C: 3105, CTT: 2550 }, CUA_R = null, CUA_INIT = false;
+try { var _cs = JSON.parse(localStorage.getItem(CUAKEY) || 'null'); if (_cs && typeof _cs === 'object') { CUAS.on = !!_cs.on; CUAS.nep = _cs.nep === 'S' ? 'S' : 'U'; CUAS.v = _cs.v || {}; CUAS.sz = /^[sml]$/.test(_cs.sz) ? _cs.sz : 'm'; CUAS.min = !!_cs.min; } } catch (e) {}
+// T290: chong giat khi go - o nhap chi hen gio (150 ms) roi ve 1 lan trong requestAnimationFrame; ket qua tinh / bang / hinh chi dung lai khi doi; luu localStorage gom 400 ms
+var CUA_TM = 0, CUA_RF = 0, CUA_ST = 0, CUA_K = '', CUA_TBK = '', CUA_SVGH = '', CUA_BH = { w: 0, h: 0 }, CUA_DRF = 0, CUA_HID = 0;
+function cuaSave(now) {
+  clearTimeout(CUA_ST); CUA_ST = 0;
+  var w = function () { CUA_ST = 0; try { localStorage.setItem(CUAKEY, JSON.stringify({ on: CUAS.on, nep: CUAS.nep, v: CUAS.v, sz: CUAS.sz, min: CUAS.min })); } catch (e) {} };
+  if (now) w(); else CUA_ST = setTimeout(w, 400);
+}
+function cuaSoon() {
+  clearTimeout(CUA_TM);
+  CUA_TM = setTimeout(function () { CUA_TM = 0; if (CUA_RF) cancelAnimationFrame(CUA_RF); CUA_RF = requestAnimationFrame(function () { CUA_RF = 0; cuaInput(); }); }, 150);
+}
+function cuaFlush() { if (CUA_TM || CUA_RF) { clearTimeout(CUA_TM); CUA_TM = 0; if (CUA_RF) cancelAnimationFrame(CUA_RF); CUA_RF = 0; cuaInput(); } if (CUA_ST) cuaSave(true); }
 function cuaEl(i) { return document.getElementById(i); }
 function cuaFmt(n) { return String(Math.round(n * 10) / 10).replace('.', ','); }
 function cuaSetOn(on) {
@@ -13403,8 +13425,8 @@ function cuaSetOn(on) {
   cuaEl('spCua').classList.toggle('act', CUAS.on);
   if (CUAS.on) { cuaEl('spLc').classList.remove('act'); cuaEl('spKs').classList.remove('act'); }
   var t = document.querySelector('header h1'); if (t) t.textContent = CUAS.on ? 'Cửa lùa – CTKinh' : 'Nhập liệu CTKinh';
-  if (CUAS.on) { cuaInit(); cuaInput(); } else cuaEl('cuaKb').hidden = true;
-  cuaSave(); if (typeof setHH === 'function') setHH(); window.scrollTo(0, 0);
+  if (CUAS.on) { cuaInit(); cuaInput(); } else { cuaFlush(); cuaEl('cuaKb').hidden = true; var m = cuaEl('cuaMenu'); if (m) m.hidden = true; }
+  cuaSave(true); if (typeof setHH === 'function') setHH(); window.scrollTo(0, 0);
 }
 function cuaInit() {
   if (CUA_INIT) return; CUA_INIT = true;
@@ -13412,41 +13434,92 @@ function cuaInit() {
   sel.innerHTML = Object.keys(CUA_RAY).map(function (k) { return '<option value="' + k + '">' + k + (k === 'HS' ? ' (2 hàng lỗ)' : '') + '</option>'; }).join('');
   sel.value = CUA_RAY[CUAS.v.ray] ? CUAS.v.ray : 'HS';
   cuaEl('cu_pk').value = CUA_PK[CUAS.v.pk] ? CUAS.v.pk : '';
-  cuaEl('cu_dimlo').checked = !!CUAS.v.dimlo; cuaEl('cu_dimkt').checked = CUAS.v.dimkt !== false;
+  cuaEl('cu_dimlo').checked = !!CUAS.v.dimlo; cuaEl('cu_dimkt').checked = CUAS.v.dimkt !== false; cuaEl('cu_dimhl').checked = CUAS.v.dimhl !== false;
+  CUA_T.forEach(function (k) {
+    var e = cuaEl('cu_' + k); e.value = CUAS.v[k] || ''; e.setAttribute('autocomplete', 'off'); e.setAttribute('enterkeyhint', 'next');
+    e.addEventListener('input', cuaSoon);
+    e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cuaMove(1); } });
+  });
   CUA_F.forEach(function (k) {
     var e = cuaEl('cu_' + k); e.value = CUAS.v[k] || '';
     e.setAttribute('inputmode', e.getAttribute('data-list') ? 'text' : 'decimal'); e.setAttribute('autocomplete', 'off'); e.setAttribute('enterkeyhint', 'next'); e.type = 'text';
-    e.addEventListener('input', function () { cuaInput(); });
+    e.addEventListener('input', cuaSoon);      // T290: khong ve lai moi phim (truoc: tinh + bang + SVG moi phim -> giat tren may yeu)
     e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cuaMove(1); } });
-    e.addEventListener('focus', function () { cuaEl('cuaKb').hidden = false; cuaKbPlace(); });
+    e.addEventListener('focus', function () { cuaEl('cuaKb').hidden = false; cuaKbPlace(); setTimeout(function () { cuaVis(e); }, 380); });
     e.addEventListener('blur', function () { setTimeout(function () { var a = document.activeElement; if (!(a && a.classList && a.classList.contains('cun'))) cuaEl('cuaKb').hidden = true; }, 200); });
   });
-  if (window.visualViewport) { visualViewport.addEventListener('resize', cuaKbPlace); visualViewport.addEventListener('scroll', cuaKbPlace); }      // phim phu nam tren ban phim he thong (Safari iPhone)
-  window.addEventListener('resize', function () { if (CUAS.on) cuaDraw(); });
+  var rs = function () { if (!CUAS.on || CUA_DRF) return; CUA_DRF = requestAnimationFrame(function () { CUA_DRF = 0; cuaDraw(); cuaKbPlace(); var ae = document.activeElement; if (ae && ae.closest && ae.closest('#cuaApp .cuaf')) setTimeout(function () { cuaVis(ae); }, 60); }); };      // ban phim mo xong -> keo o dang go ra cho thay
+  if (window.visualViewport) { visualViewport.addEventListener('resize', rs); visualViewport.addEventListener('scroll', cuaKbPlace); }      // phim phu nam tren ban phim he thong (Safari iPhone); ban phim mo -> hinh tu thu nho
+  window.addEventListener('resize', rs);
+  window.addEventListener('pagehide', cuaFlush); document.addEventListener('visibilitychange', function () { if (document.hidden) cuaFlush(); });
 }
 function cuaKbPlace() { var vv = window.visualViewport, b = cuaEl('cuaKb'); if (!b) return; b.style.bottom = vv ? Math.max(0, window.innerHeight - (vv.height + vv.offsetTop)) + 'px' : '0px'; }
+// T290: o dang go khong bi khoi ghim (tren) hay thanh phim phu / ban phim (duoi) che
+function cuaVis(e) {
+  if (!e || document.activeElement !== e) return;
+  var vv = window.visualViewport, top = (vv ? vv.offsetTop : 0), bot = top + (vv ? vv.height : innerHeight), dk = cuaEl('cuaDock').getBoundingClientRect(), kb = cuaEl('cuaKb');
+  var lo = Math.max(dk.bottom, top) + 6, hi = bot - (kb && !kb.hidden ? kb.offsetHeight : 0) - 6, r = e.getBoundingClientRect();
+  if (r.top < lo) window.scrollBy(0, r.top - lo); else if (r.bottom > hi) window.scrollBy(0, r.bottom - hi);
+}
 function cuaInputs() { return Array.prototype.slice.call(document.querySelectorAll('#cuaApp input.cun')).filter(function (e) { return !e.closest('[hidden]'); }); }
 function cuaMove(d) {
   var l = cuaInputs(), a = document.activeElement, i = l.indexOf(a), n = d ? l[i + d] : null;
   if (n) { n.focus(); try { n.select(); } catch (e) {} return; }
-  if (a && a.blur) a.blur(); cuaEl('cuaKb').hidden = true;
+  if (a && a.blur) a.blur(); cuaEl('cuaKb').hidden = true; cuaFlush();
   if (d > 0) cuaEl('cuaTb').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-function cuaZoom() { CUAS.z = CUAS.z === 1 || !CUAS.z ? 2 : CUAS.z === 2 ? 3 : 1; cuaSave(); cuaDraw(); }
+function cuaZoom(z) { CUAS.z = z || (CUAS.z === 1 || !CUAS.z ? 2 : CUAS.z === 2 ? 3 : 1); cuaSave(); cuaDraw(); }
+function cuaMin(v) { CUAS.min = v === undefined ? !CUAS.min : !!v; cuaSave(); cuaDraw(); }
 function cuaNep(n) { CUAS.nep = n === 'S' ? 'S' : 'U'; cuaInput(); }
 function cuaReset() { CUA_F.forEach(function (k) { cuaEl('cu_' + k).value = ''; }); cuaInput(); var e = cuaEl('cu_R'); if (e) e.focus(); }
+// T290: menu ⋯ cua khu Cua (cung kieu dockMenu T289): co khung, phong, 3 nhom dim, xuat anh, thu gon
+function cuaMenu() {
+  var m = cuaEl('cuaMenu');
+  if (m && !m.hidden) { m.hidden = true; return; }
+  if (!m) {
+    m = document.createElement('div'); m.id = 'cuaMenu'; m.className = 'dmenu'; m.setAttribute('role', 'menu'); m.hidden = true; document.body.appendChild(m);
+    document.addEventListener('pointerdown', function (e) { var x = cuaEl('cuaMenu'); if (x && !x.hidden && !(e.target.closest && e.target.closest('#cuaMenu,#cu_more'))) x.hidden = true; }, true);
+    window.addEventListener('scroll', function () { var x = cuaEl('cuaMenu'); if (x) x.hidden = true; }, { passive: true });
+  }
+  cuaMenuHtml(m);
+  var r = cuaEl('cu_more').getBoundingClientRect();
+  m.style.top = Math.round(r.bottom + 4) + 'px'; m.style.right = Math.max(6, Math.round(innerWidth - r.right)) + 'px'; m.hidden = false;
+}
+function cuaMenuHtml(m) {
+  var v = CUAS.v, z = CUAS.z === 2 || CUAS.z === 3 ? CUAS.z : 1, ck = function (on) { return '<span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> '; };
+  var row = function (lb, k, list, curV) { return '<div class="dmsz"><span>' + lb + '</span>' + list.map(function (a) { return '<button type="button" role="menuitemradio" aria-checked="' + (a[0] === curV) + '" class="' + (a[0] === curV ? 'on' : '') + '" onclick="cuaMg(\'' + k + '\',\'' + a[0] + '\')">' + a[1] + '</button>'; }).join('') + '</div>'; };
+  m.innerHTML = row('Cỡ khung', 'sz', [['s', 'Nhỏ'], ['m', 'Vừa'], ['l', 'Lớn']], CUAS.sz || 'm') + row('Phóng', 'z', [['1', '×1'], ['2', '×2'], ['3', '×3']], String(z)) +
+    '<button type="button" role="menuitemcheckbox" aria-checked="' + (v.dimkt !== false) + '" onclick="cuaMg(\'dimkt\')">' + ck(v.dimkt !== false) + 'Dim kích thước tấm</button>' +
+    '<button type="button" role="menuitemcheckbox" aria-checked="' + (v.dimhl !== false) + '" onclick="cuaMg(\'dimhl\')">' + ck(v.dimhl !== false) + 'Dim hàng lỗ (chuỗi lỗ, 515/437)</button>' +
+    '<button type="button" role="menuitemcheckbox" aria-checked="' + !!v.dimlo + '" onclick="cuaMg(\'dimlo\')">' + ck(!!v.dimlo) + 'Dim chi tiết (kẹp, chân nhện, 32/78/Ø)</button>' +
+    '<button type="button" role="menuitem" onclick="cuaMg(\'img\')">▦ Xuất ảnh JPG</button>' +
+    '<button type="button" role="menuitem" onclick="cuaMg(\'min\')">' + (CUAS.min ? '▾ Mở khung hình' : '▴ Thu gọn khung hình') + '</button>';
+}
+function cuaMg(k, a) {
+  var m = cuaEl('cuaMenu');
+  if (k === 'img' || k === 'min') { if (m) m.hidden = true; if (k === 'img') cuaXuat('img'); else cuaMin(); return; }
+  if (k === 'sz') { CUAS.sz = a; cuaSave(); cuaDraw(); }
+  else if (k === 'z') cuaZoom(parseInt(a, 10));
+  else { var c = cuaEl('cu_' + k); c.checked = !c.checked; cuaInput(); }
+  if (m && !m.hidden) cuaMenuHtml(m);      // giu menu mo de bat/tat nhieu nhom lien
+}
 function cuaInput() {
-  var v = { ray: cuaEl('cu_ray').value, pk: cuaEl('cu_pk').value, dimlo: cuaEl('cu_dimlo').checked, dimkt: cuaEl('cu_dimkt').checked };
+  if (CUA_TM) { clearTimeout(CUA_TM); CUA_TM = 0; }
+  var v = { ray: cuaEl('cu_ray').value, pk: cuaEl('cu_pk').value, dimlo: cuaEl('cu_dimlo').checked, dimkt: cuaEl('cu_dimkt').checked, dimhl: cuaEl('cu_dimhl').checked };
   CUA_F.forEach(function (k) { v[k] = k === 'cn' ? String(cuaEl('cu_cn').value || '').trim().replace(/\s+/g, ' ') : String(cuaEl('cu_' + k).value || '').replace(/\s+/g, '').replace(',', '.'); });      // T287: cn = danh sach (cach / phay / ; ngan cach)
+  CUA_T.forEach(function (k) { v[k] = String(cuaEl('cu_' + k).value || '').trim(); });
   CUAS.v = v; cuaSave();
   Array.prototype.forEach.call(document.querySelectorAll('#cu_nep button'), function (b) { b.classList.toggle('act', b.getAttribute('data-v') === CUAS.nep); });
   var mau = ['R', 'C', 'CTT'].filter(function (k) { return !v[k]; }), inp = { nep: CUAS.nep, ray: v.ray, pk: v.pk, bt: v.bt, bp: v.bp, kep: v.kep || 100, cn: v.cn };
   ['R', 'C', 'CTT'].forEach(function (k) { inp[k] = v[k] || CUA_MAU[k]; });
-  CUA_R = cuaCalc(inp); CUA_R.mau = mau.length > 0;
+  var key = JSON.stringify(inp) + '|' + mau.join('');
+  if (key !== CUA_K || !CUA_R) { CUA_R = cuaCalc(inp); CUA_R.mau = mau.length > 0; CUA_K = key; }      // T290: so khong doi (vd chi doi dim / ten) -> khong tinh lai luoi lo
   cuaEl('cu_cnW').hidden = !(CUA_R.ok && CUA_R.dc >= 300);
   if (CUA_R.ok) cuaEl('cu_cn').placeholder = (CUA_R.cnDef.length ? CUA_R.cnDef : [150]).map(cuaFmt).join(' ');      // T287b: so goi y theo cao tam dinh
-  cuaEl('cuaNote').textContent = CUA_R.mau ? 'Đang xem số mẫu (chữ mờ) – nhập ' + mau.map(function (k) { return { R: 'rộng', C: 'cao', CTT: 'thông thuỷ' }[k]; }).join(', ') + ' để tính cửa thật.' : '';
-  cuaTable(CUA_R); cuaDraw();
+  var nt = CUA_R.mau ? 'Đang xem số mẫu (chữ mờ) – nhập ' + mau.map(function (k) { return { R: 'rộng', C: 'cao', CTT: 'thông thuỷ' }[k]; }).join(', ') + ' để tính cửa thật.' : '';
+  if (cuaEl('cuaNote').textContent !== nt) cuaEl('cuaNote').textContent = nt;
+  if (CUA_TBK !== key) { cuaTable(CUA_R); CUA_TBK = key; }
+  cuaDraw();
 }
 function cuaTable(r) {
   var h = '';
@@ -13480,14 +13553,99 @@ function cuaTable(r) {
   h += '<div>' + ln.join('<br>') + '</div>' + cuaDetail(r);
   cuaEl('cuaTb').innerHTML = h;
 }
+// T290: chieu cao hinh trong khoi ghim (luat 9 LUAT-FORM-MOBILE): dien thoai doc CA khoi (hang nut + hinh + ghi chu) <= 30/38/55% (Nho/Vua/Lon), rieng hinh <= 28% (Nho/Vua);
+// ban phim mo -> hinh thu con ~24% vung thay (qua thap thi an). May tinh: nhu cu (~42%, 220..560 px).
+function cuaSize() {
+  var vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nar = typeof isNarrow === 'function' ? isNarrow() : innerWidth < 900;
+  if (Math.abs(innerWidth - CUA_BH.w) > 30) { CUA_BH.w = innerWidth; CUA_BH.h = 0; }      // xoay may -> do lai
+  CUA_BH.h = Math.max(CUA_BH.h, vh);
+  var kb = nar && vh < CUA_BH.h * 0.78;
+  cuaEl('cuaDock').classList.toggle('kb', kb);
+  if (CUAS.min) return 0;
+  if (!nar) return Math.round(Math.max(220, Math.min(vh * 0.42, 560)));
+  if (kb) { var hk = Math.round(vh * 0.24); return hk < 70 ? 0 : hk; }
+  var ch = cuaEl('cuaBar').offsetHeight + (CUA_R && CUA_R.mau ? 18 : 0) + 12, fr = { s: 0.30, m: 0.38, l: 0.55 }[CUAS.sz] || 0.38, cap = CUAS.sz === 'l' ? 0.5 : 0.28;
+  var h = Math.round(Math.min(vh * fr - ch, vh * cap));
+  if (vh < 500) h = Math.min(h, Math.round(vh * 0.4));      // xoay ngang
+  return Math.max(80, h);
+}
+function cuaTitle() {      // nhan khung ten trong vach trai (nhu ban ve mau): ngay - khach | Lua <ray> - <ky hieu> | loai kinh
+  var v = CUAS.v || {}, d = new Date(), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+  return [p2(d.getDate()) + p2(d.getMonth() + 1) + String(d.getFullYear()).slice(-2) + (v.kh ? ' - ' + v.kh : ''), 'Lùa ' + (v.ray || 'HS') + (v.kt ? ' - ' + v.kt : ''), v.lk || ''];
+}
+function cuaOpt(extra) { var v = CUAS.v || {}, o = { dimKt: v.dimkt !== false, dimHl: v.dimhl !== false, dimLo: !!v.dimlo, fs: 11, title: cuaTitle(), stat: {} }; for (var k in extra) o[k] = extra[k]; return o; }
 function cuaDraw() {
   var box = cuaEl('cuaPv'); if (!box || !CUAS.on) return;
-  var W = Math.max(280, box.clientWidth || 360), H = Math.max(220, Math.round(window.innerHeight * 0.38));
-  var z = CUAS.z === 2 || CUAS.z === 3 ? CUAS.z : 1;      // T288: phong x2 / x3 (keo ngon tay de xem dim nho)
-  box.style.overflow = z > 1 ? 'auto' : ''; box.style.maxHeight = z > 1 ? (H + 4) + 'px' : '';
-  box.innerHTML = cuaSvg(CUA_R, W * z, H * z, { dimLo: CUAS.v.dimlo, dimKt: CUAS.v.dimkt !== false });
-  var sv = box.firstChild; if (sv && z > 1) { sv.style.width = W * z + 'px'; sv.style.height = H * z + 'px'; sv.style.maxWidth = 'none'; }
-  var zb = cuaEl('cu_zoom'); if (zb) zb.textContent = 'Phóng ×' + z;
+  var H = cuaSize(), z = CUAS.z === 2 || CUAS.z === 3 ? CUAS.z : 1;      // T288: phong x2 / x3 (keo ngon tay de xem dim nho)
+  var mb = cuaEl('cu_minB'); if (mb) { mb.textContent = CUAS.min ? '▾' : '▴'; mb.setAttribute('aria-label', CUAS.min ? 'Mở khung hình' : 'Thu gọn khung hình'); }
+  box.classList.toggle('off', H <= 0); box.classList.toggle('zoom', z > 1);
+  document.documentElement.style.setProperty('--cuadh', Math.round(cuaEl('cuaDock').getBoundingClientRect().height || 0) + 'px');
+  if (H <= 0) return;
+  var W = Math.max(260, box.clientWidth || 360);
+  if (box.style.height !== H + 'px') box.style.height = H + 'px';
+  var o = cuaOpt(cuaEl('cuaDock').classList.contains('kb') ? { dimKt: false, dimHl: false, dimLo: false, title: null } : {}), s = cuaSvg(CUA_R, W * z, H * z, o);      // ban phim mo: hinh nho chi con dang cua (dim xem bang Xem truoc)
+  if (s !== CUA_SVGH) { box.innerHTML = s; CUA_SVGH = s; var sv = box.firstChild; if (sv) { sv.style.width = W * z + 'px'; sv.style.height = H * z + 'px'; } }
+  CUA_HID = o.stat.hid || 0;
+  var pb = document.querySelector('#cuaBar .cupv'); if (pb) { var tx = '⤢ Xem trước' + (CUA_HID ? ' +' + CUA_HID : ''); if (pb.textContent !== tx) pb.textContent = tx; pb.title = CUA_HID ? CUA_HID + ' dim nhỏ đang ẩn vì hình chật – bấm để xem lớn (phóng to hiện đủ)' : 'Xem hình lớn toàn màn hình'; }
+  document.documentElement.style.setProperty('--cuadh', Math.round(cuaEl('cuaDock').getBoundingClientRect().height || 0) + 'px');
+}
+// T290: XEM TRUOC toan man hinh - dung chung khung #pfs cua Mode 1-6 (T24: xoay, chum 2 ngon phong, keo, cham dup). Phong >= 2 -> hien them dim chi tiet.
+function cuaFull() {
+  cuaFlush();
+  if (!CUA_R || !CUA_R.ok) { toast('Số đo cửa chưa hợp lệ – xem dòng báo đỏ'); return; }
+  var m = cuaEl('cuaMenu'); if (m) m.hidden = true;
+  PF.cua = true; PF.rot = null; PF.z = 1; PF.vx = 0; PF.vy = 0; PF.on = true;
+  cuaEl('pfs').hidden = false; document.body.style.overflow = 'hidden';
+  try { history.pushState({ pvfs: 1 }, ''); } catch (e) {}
+  pfSize(); pfDraw();
+}
+var CUA_PFC = { k: '', v: null };
+function cuaPfSvg(Lw, Lh, z) {      // keo hinh chi doi viewBox -> dung lai SVG da dung (chi dung lai khi doi co / muc phong)
+  var o = cuaOpt({ fs: 12 }); if (z >= 2) o.dimLo = true;
+  var ck = [Lw, Lh, z.toFixed(3), CUA_K, JSON.stringify(o)].join('|'); if (CUA_PFC.k === ck) return CUA_PFC.v;
+  var s = cuaSvg(CUA_R, Math.round(Lw * z), Math.round(Lh * z), o);
+  CUA_PFC.k = ck; return CUA_PFC.v = { svg: s.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, ''), info: 'Cửa lùa ' + CUA_R.ray + ' · ' + cuaFmt(CUA_R.R) + '×' + cuaFmt(CUA_R.C) + (CUA_R.mau ? ' (số mẫu)' : '') + (o.stat.hid ? ' · ' + o.stat.hid + ' dim ẩn – phóng to thêm' : '') };
+}
+// T290: XUAT PDF / ANH ban ve cua: A4 ngang 1980 x 1400 px (1 px = 0,15 mm), dai khung ten 2 dong sat day nhu Mode (T279: khInfo + QR + khau hieu + ti le in), net vector (pdfBuild).
+// Dung lai ha tang xuat san co: pdfBuild, svgToPng, khInfo, isheet (Chia se / Tai ve / Mo xem), PDFR / IMGR.
+function cuaPage() {
+  var W = 1980, H = 1400, M = KH_M, by = H - M - KB_H, s = SHEET_S, aw = W - 2 * M, ah = by - M - 14, lw = Math.round(aw / s), lh = Math.round(ah / s), v = CUAS.v || {}, r = CUA_R;
+  var o = cuaOpt({ dimKt: true, dimHl: true, dimLo: true, fs: 12, print: true });      // PDF: du dim (kich thuoc + hang lo + chi tiet) nhu CAD
+  var inner = cuaSvg(r, lw, lh, o).replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  var pg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff"/>' +
+    '<svg x="' + M + '" y="' + M + '" width="' + aw + '" height="' + ah + '" viewBox="0 0 ' + lw + ' ' + lh + '">' + inner + '</svg>';
+  var nCn = r.chanNhen ? r.cns.length * 8 : 0, lo = '⌀' + r.phi + '×' + r.nLo + (nCn ? '; ⌀18×' + nCn : '');
+  var tl = o.stat.k > 0 ? '1:' + Math.round(1 / (o.stat.k * s * 0.15)) : '';
+  pg += khInfo(M, by, [imgDateStr(''), '', v.kh || '', v.lk || ''], 1, 1, { lo: lo, tong: '5/' + (r.nLo + nCn), nT: 5, tl: tl }, W - 2 * M) + '</svg>';
+  return { svg: pg, W: W, H: H, hid: o.stat.hid || 0 };
+}
+function cuaFn() { var v = CUAS.v || {}; return fnBase(['', '', v.kh || '', 'Cua' + (v.kt ? '-' + v.kt : '')]); }
+async function cuaXuat(kind) {
+  cuaFlush();
+  var m = cuaEl('cuaMenu'); if (m) m.hidden = true;
+  if (!CUA_R || !CUA_R.ok) { toast('Số đo cửa chưa hợp lệ – chưa xuất được'); return; }
+  if (CUA_R.mau) { toast('Đang là số mẫu (chữ mờ) – nhập rộng, cao, thông thuỷ thật rồi xuất', 4000); return; }      // T41: so mau khong bao gio vao anh / PDF
+  FN_BASE = cuaFn();
+  var box = cuaEl('isbox'); box.innerHTML = '<h3>Đang tạo ' + (kind === 'img' ? 'ảnh' : 'PDF') + '…</h3><small>Bản vẽ cửa A4 ngang có khung tên – chờ vài giây.</small>';
+  cuaEl('isheet').classList.add('on');
+  await new Promise(function (ok) { setTimeout(ok, 30); });
+  try {
+    var t0 = performance.now(), pg = cuaPage();
+    if (kind === 'img') {
+      var b = await svgToPng(pg, 'image/jpeg', 0.9), ext = /jpeg/.test(b.type) ? '.jpg' : '.png';
+      IMGR.forEach(function (x) { try { URL.revokeObjectURL(x.url); } catch (e) {} });
+      IMGR = [{ blob: b, url: URL.createObjectURL(b), suf: '', ext: ext, name: FN_BASE + ext }]; showImgResult(); return;
+    }
+    var blob = await pdfBuild([pg], 'Bản vẽ cửa – ' + [CUAS.v.kh, CUAS.v.kt].filter(Boolean).join(' – '));
+    if (PDFR) try { URL.revokeObjectURL(PDFR.url); } catch (e) {}
+    PDFR = { blob: blob, url: URL.createObjectURL(blob), name: FN_BASE + '.pdf', suf: '', n: 1, ms: performance.now() - t0 };
+    box.innerHTML = '<h3>PDF bản vẽ cửa đã sẵn sàng</h3><small>' + esc(PDFR.name) + ' · A4 ngang · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB · ' + (PDFR.ms / 1000).toFixed(1) + ' giây</small>' +
+      fnInputHtml() + '<button class="bt pri" onclick="sharePdf()">Chia sẻ PDF (Zalo…)</button>' +
+      '<div class="row"><button class="bt" onclick="savePdf()">' + (CO_PICKER() ? 'Lưu… (chọn thư mục)' : 'Tải về') + '</button><button class="bt" onclick="viewPdf()">Mở xem</button></div>' +
+      '<button class="bt" onclick="cuaXuat(\'img\')">Xuất ảnh JPG thay PDF</button>' +
+      '<small>Nét vẽ vector, đủ dim (kích thước, hàng lỗ, chi tiết). Khung tên lấy Khách / Loại kính ở ô nhập phía dưới.</small>' + (CO_PICKER() ? '' : HINT_DT) +
+      '<button class="bt" onclick="closeImgSheet()">Đóng</button>';
+  } catch (e) { box.innerHTML = '<h3>Không tạo được ' + (kind === 'img' ? 'ảnh' : 'PDF') + '</h3><small>' + esc(String(e && e.message || e)) + '</small><button class="bt" onclick="closeImgSheet()">Đóng</button>'; }
 }
 /* T287: ve 1 block tu CUA_BLK / CUA_KEP (mm that, tam = diem chen). k = px/mm; mp = ban kinh toi thieu (px) de lo nho van thay tren dien thoai (vi tri van chinh xac). */
 function cuaBlkSvg(name, px, py, k, mp) {
@@ -13530,89 +13688,128 @@ function cuaDetail(r) {
   if (r.chanNhen) o += cuaMini(-30, -110, 150, 140, ln(34, -110, 34, 30) + ln(37, -110, 37, 30) + mat('cnt'), [[-26, -88, 'vách', .9, 'start'], [60, 20, 'đỉnh', .9, 'start'], [36, -104, '71 × 70', 1]], 'Chân nhện trái: 4 lỗ φ18 (phải là gương)');
   return '<div class="cuadt">' + o + '</div>';
 }
+// T290: BO CUC DIM GIONG BAN VE MAU (maucua.dxf cum 8, Lua HS-BTD): dim ngoai khung xep THEO TANG (trong -> ngoai), tang dich ra cho vua chu (khong de) nhung giu ti le lisp khi hinh lon (PDF).
+//   tren: rong tung tam | Rong khao sat (+bao) · trai: 437 | 515 | cao dinh + Cao thong thuy (chung 1 tang nhu mau) | cao vach | Cao khao sat · phai: 437 | 515 | cao dinh | cao vach · duoi: rong vach + rong canh (chung 1 hang nhu mau)
+// Nhom: K = kich thuoc (030/020) · H = hang lo chinh (chuoi lo cong don, 515/437) · C = chi tiet (kep, chan nhen, 32/78/Ø). Co chu: 030 lon, 020 vua, 015/012 nho; theo ti le ban ve (mm) nhung khong nho hon co toi thieu.
+var CUA_TIER = { wVT: ['T', 0], wTD: ['T', 0], wVP: ['T', 0], rongKS: ['T', 1], baoT: ['T', 1], baoP: ['T', 1],
+  vT437: ['L', 0], hsVT515: ['L', 1], dcT: ['L', 2], ctt: ['L', 2], vcT: ['L', 3], caoKS: ['L', 4],
+  vP437: ['R', 0], hsVP515: ['R', 1], dcP: ['R', 2], vcP: ['R', 3],
+  bVT: ['B', 0], bVP: ['B', 0], crC: ['B', 0] };
+var CUA_FMM = { B: 90, M: 55, S: 45 };
+var CUA_SHORT = { ctt: 'TT:', caoKS: 'Cao KS:', rongKS: 'Rộng KS:' };
+function cuaDimPri(d) { return (d.sd ? 0 : 5) + ({ B: 0, M: 1, S: 2 })[d.fk]; }      // dat chu: dim tang ngoai truoc, chu lon (030) truoc      // chieu cao chu (mm ban ve) ~ ban mau
+function cuaDimCls(d) { return d.g === 'kt' ? 'K' : /^(kep|cn|hs78|hs32|hsPhi)/.test(d.id) ? 'C' : 'H'; }
+function cuaTw(t, fs) { var w = 0, s = String(t); for (var i = 0; i < s.length; i++) { var c = s.charAt(i); w += /[0-9]/.test(c) ? 0.57 : /[,.:;]/.test(c) ? 0.3 : c === ' ' ? 0.3 : /[A-ZĐÂÊÔƠƯ]/.test(c) ? 0.74 : /[mwMW]/.test(c) ? 0.9 : 0.62; } return w * fs + 3; }
 function cuaSvg(r, W, H, opt) {
-  opt = opt || {};
+  opt = opt || {}; var st = opt.stat || {}; st.hid = 0;
   if (!r || !r.ok) return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg"><text x="' + W / 2 + '" y="' + H / 2 + '" text-anchor="middle" font-size="15" fill="#999">Nhập số đo – hình cửa hiện ở đây</text></svg>';
-  var DM = cuaDims(r), gx0 = Math.min(-r.bt, 0), gx1 = r.R + r.bp, gy0 = Math.min(0, r.canh.y), gy1 = r.C;      // T288: khung nhin gom MOI dim (ke ca nhom dang tat) -> bat/tat dim khong lam hinh nhay
-  DM.forEach(function (d) {
-    var xs = d.o === 'H' ? [d.a[0], d.b[0]] : d.o === 'V' ? [d.L] : [d.pk[0], d.c[0]], ys = d.o === 'H' ? [d.L] : d.o === 'V' ? [d.a[1], d.b[1]] : [d.pk[1], d.c[1]];
-    gx0 = Math.min.apply(null, xs.concat(gx0)); gx1 = Math.max.apply(null, xs.concat(gx1)); gy0 = Math.min.apply(null, ys.concat(gy0)); gy1 = Math.max.apply(null, ys.concat(gy1));
-  });
-  var mL = 24, mT = 24, mR = 24, mB = 22, k = Math.min((W - mL - mR) / (gx1 - gx0), (H - mT - mB) / (gy1 - gy0));
-  var ox = mL + ((W - mL - mR) - (gx1 - gx0) * k) / 2, oy = mT + ((H - mT - mB) - (gy1 - gy0) * k) / 2;
-  var X = function (x) { return ox + (x - gx0) * k; }, Y = function (y) { return oy + (gy1 - y) * k; }, f1 = function (n) { return n.toFixed(1); };
-  var ghost = r.mau, PF = ghost ? '#f1f4f8' : '#e8f1fb', PS = ghost ? '#7f8c8d' : '#111', FR = '#a93226', DC = '#1e7a46', HO = ' stroke="#fff" stroke-width="3" paint-order="stroke" stroke-linejoin="round"';
-  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif">' +
-    '<defs><pattern id="cuaHat" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="' + FR + '" stroke-width="1" opacity=".45"/></pattern></defs>';
+  var DM = cuaDims(r), fs0 = opt.fs || 11, pr = !!opt.print;
+  var xL = Math.min(-r.bt, 0, r.vt.x), xR = Math.max(r.R + r.bp, r.vp.x + r.vp.w), yT = Math.max(r.C, r.vt.y + r.vt.h), yB = Math.min(0, r.canh.y), gw = xR - xL, gh = yT - yB;
+  var SD = { T: [], L: [], R: [], B: [] }, anyD = opt.dimKt !== false || opt.dimHl !== false || !!opt.dimLo;      // khung nhin gom moi tang dim (ke ca nhom dang tat) -> bat/tat dim khong lam hinh nhay; tat het (ban phim mo) -> hinh to nhat
+  DM.forEach(function (d) { d.cls = cuaDimCls(d); d.fk = d.st === '030-ok' ? 'B' : d.st === '020-ok' ? 'M' : 'S'; var t = anyD ? CUA_TIER[d.id] : null; d.sd = t ? t[0] : ''; if (t) (SD[t[0]][t[1]] = SD[t[0]][t[1]] || []).push(d); });
+  Object.keys(SD).forEach(function (s) { SD[s] = SD[s].filter(Boolean); SD[s].forEach(function (ms, i) { ms.forEach(function (d) { d.ti = i; }); }); });      // bo tang rong (vd ray khong phai HS: khong co 515)
+  var dist = function (s, d) { return Math.max(0, s === 'T' ? d.L - yT : s === 'B' ? yB - d.L : s === 'L' ? xL - d.L : d.L - xR); };
+  var FS = function (k) { return { B: Math.max(fs0 * 1.27, CUA_FMM.B * k), M: Math.max(fs0 * 1.05, CUA_FMM.M * k), S: Math.max(fs0, CUA_FMM.S * k) }; };
+  var tiers = function (k, F) {
+    var o = {};
+    Object.keys(SD).forEach(function (s) {
+      var p = [], prev = 0, pf = 0;
+      SD[s].forEach(function (ms, i) {
+        var od = Math.min.apply(null, ms.map(function (d) { return dist(s, d); })), ff = Math.max.apply(null, ms.map(function (d) { return F[d.fk]; }));
+        var q = i === 0 ? Math.max(od * k, 6) : Math.max(od * k, prev + pf * 1.2 + 7); p.push(q); prev = q; pf = ff;
+      });
+      o[s] = { p: p, m: p.length ? prev + pf * 1.25 + 6 : 4 };
+    });
+    return o;
+  };
+  var pad = 4, k = Math.min((W - 2 * pad) / gw, (H - 2 * pad) / gh) * 0.7, F, TP, k2;
+  for (var it = 0; it < 8; it++) { F = FS(k); TP = tiers(k, F); k2 = Math.min((W - 2 * pad - TP.L.m - TP.R.m) / gw, (H - 2 * pad - TP.T.m - TP.B.m) / gh); if (!(k2 > 0)) k2 = Math.min((W - 2 * pad) / gw, (H - 2 * pad) / gh) * 0.4; if (Math.abs(k2 - k) < k * 1e-4) break; k = k2; }
+  F = FS(k); TP = tiers(k, F); k2 = Math.min((W - 2 * pad - TP.L.m - TP.R.m) / gw, (H - 2 * pad - TP.T.m - TP.B.m) / gh);
+  if (k2 > 0 && k2 < k) { k = k2; F = FS(k); TP = tiers(k, F); }
+  st.k = k;
+  var ox = pad + TP.L.m + ((W - 2 * pad - TP.L.m - TP.R.m) - gw * k) / 2, oy = pad + TP.T.m + ((H - 2 * pad - TP.T.m - TP.B.m) - gh * k) / 2;
+  var X = function (x) { return ox + (x - xL) * k; }, Y = function (y) { return oy + (yT - y) * k; }, f1 = function (n) { return n.toFixed(1); };
+  var ghost = r.mau, PF0 = ghost ? '#f1f4f8' : '#e8f1fb', PS = ghost ? '#7f8c8d' : '#111', FR = '#a93226', DC = '#1e7a46', HO = ' stroke="#fff" stroke-width="' + (pr ? 4 : 3) + '" paint-order="stroke" stroke-linejoin="round"';
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif"><g font-family="Arial,Helvetica,sans-serif">';      // nhom g giu font khi SVG duoc long vao trang PDF / toan man hinh
   var rect = function (x, y, w, h, at) { return '<rect x="' + f1(X(x)) + '" y="' + f1(Y(y + h)) + '" width="' + f1(w * k) + '" height="' + f1(h * k) + '"' + at + '/>'; };
   var line = function (x1, y1, x2, y2, at) { return '<line x1="' + f1(x1) + '" y1="' + f1(y1) + '" x2="' + f1(x2) + '" y2="' + f1(y2) + '"' + at + '/>'; };
-  var text = function (x, y, t, fs, col, rot, extra) { return '<text x="' + f1(x) + '" y="' + f1(y) + '" dy="0.35em" text-anchor="middle" font-size="' + fs + '" font-weight="bold" fill="' + col + '"' + HO + (rot ? ' transform="rotate(' + rot + ' ' + f1(x) + ' ' + f1(y) + ')"' : '') + (extra || '') + '>' + esc(t) + '</text>'; };
-  var arr = function (x, y, dx, dy) { var a = 6, w = 2.2; return '<polygon points="' + f1(x) + ',' + f1(y) + ' ' + f1(x - dx * a - dy * w) + ',' + f1(y - dy * a + dx * w) + ' ' + f1(x - dx * a + dy * w) + ',' + f1(y - dy * a - dx * w) + '" fill="' + DC + '"/>'; };
-  // dim ngang: xa..xb (mm), yEdge (px) = mep doi tuong, yl (px) = duong dim
-  var dimH = function (xa, xb, yEdge, yl, t, fs) { var a = X(xa), b = X(xb), up = yl < yEdge ? -1 : 1;
-    return line(a, yEdge, a, yl + up * 3, ' stroke="' + DC + '" stroke-width=".8"') + line(b, yEdge, b, yl + up * 3, ' stroke="' + DC + '" stroke-width=".8"') + line(a, yl, b, yl, ' stroke="' + DC + '" stroke-width="1"') +
-      arr(a, yl, -1, 0) + arr(b, yl, 1, 0) + text((a + b) / 2, yl + (up < 0 ? -7 : 8), t, fs || 12, DC); };
-  var dimV = function (ya, yb, xEdge, xl, t, fs) { var a = Y(ya), b = Y(yb), sd = xl < xEdge ? -1 : 1;
-    return line(xEdge, a, xl + sd * 3, a, ' stroke="' + DC + '" stroke-width=".8"') + line(xEdge, b, xl + sd * 3, b, ' stroke="' + DC + '" stroke-width=".8"') + line(xl, a, xl, b, ' stroke="' + DC + '" stroke-width="1"') +
-      arr(xl, a, 0, 1) + arr(xl, b, 0, -1) + text(xl + (sd < 0 ? -7 : 7), (a + b) / 2, t, fs || 12, DC, -90); };
-  // bao tuong + khung lot long (mau 18 CAD)
-  if (r.bt > 0) s += rect(-r.bt, 0, r.bt, r.C, ' fill="url(#cuaHat)" stroke="' + FR + '" stroke-width="1"');
-  if (r.bp > 0) s += rect(r.R, 0, r.bp, r.C, ' fill="url(#cuaHat)" stroke="' + FR + '" stroke-width="1"');
+  var text = function (x, y, t, fs, col, rot, anc) { return '<text x="' + f1(x) + '" y="' + f1(y) + '" dy="0.35em" text-anchor="' + (anc || 'middle') + '" font-size="' + f1(fs) + '" font-weight="bold" fill="' + col + '"' + HO + (rot ? ' transform="rotate(' + rot + ' ' + f1(x) + ' ' + f1(y) + ')"' : '') + '>' + esc(t) + '</text>'; };
+  var AR = Math.max(5, fs0 * 0.55), arr = function (x, y, dx, dy) { var a = AR, w = a * 0.37; return '<polygon points="' + f1(x) + ',' + f1(y) + ' ' + f1(x - dx * a - dy * w) + ',' + f1(y - dy * a + dx * w) + ' ' + f1(x - dx * a + dy * w) + ',' + f1(y - dy * a - dx * w) + '" fill="' + DC + '"/>'; };
+  // bao tuong: gach cheo 45 do bang net that (khong dung pattern -> PDF vector cung co)
+  var hatch = function (x0, y0, w, h) {
+    var a = X(x0), b = Y(y0 + h), c = a + w * k, d = Y(y0), hh = d - b, stp = pr ? 12 : 8, o = '';
+    for (var cx = a - hh; cx < c; cx += stp) { var t0 = Math.max(0, a - cx), t1 = Math.min(hh, c - cx); if (t1 > t0) o += line(cx + t0, d - t0, cx + t1, d - t1, ' stroke="' + FR + '" stroke-width="1" stroke-opacity=".45"'); }
+    return o + rect(x0, y0, w, h, ' fill="none" stroke="' + FR + '" stroke-width="1"');
+  };
+  if (r.bt > 0) s += hatch(-r.bt, 0, r.bt, r.C);
+  if (r.bp > 0) s += hatch(r.R, 0, r.bp, r.C);
   s += rect(0, 0, r.R, r.C, ' fill="none" stroke="' + FR + '" stroke-width="1.2"');
-  // 4 tam co dinh + canh
-  var placed = [], tw = function (t, fs) { return String(t).length * fs * 0.6 + 4; };      // T288: chu da dat (px) de dim tranh de len
-  var pan = function (o, fill, nm) { var w = o.w * k, h = o.h * k, cx = X(o.x) + w / 2, cy = Y(o.y) - h / 2, sz = cuaFmt(o.w) + '×' + cuaFmt(o.h);
-    var t = rect(o.x, o.y, o.w, o.h, ' fill="' + fill + '" stroke="' + PS + '" stroke-width="1.6"' + (ghost ? ' stroke-dasharray="7 4"' : ''));
-    if (h > 34 && w > 60) { t += text(cx, cy - 8, nm, 12, '#1f4e79') + text(cx, cy + 8, sz, 11, '#1b2a3a'); placed.push([cx - tw(nm, 12) / 2, cy - 16, cx + tw(nm, 12) / 2, cy], [cx - tw(sz, 11) / 2, cy, cx + tw(sz, 11) / 2, cy + 16]); } else if (w > 50) { t += text(cx, cy, nm, 11, '#1f4e79'); placed.push([cx - tw(nm, 11) / 2, cy - 8, cx + tw(nm, 11) / 2, cy + 8]); }
-    return t; };
-  s += pan(r.vt, PF, 'Vách trái') + pan(r.td, PF, 'Tấm đỉnh') + pan(r.vp, PF, 'Vách phải');
-  // net dut phu tro (day ray qua vach) + duong lo khoan ray
+  var pan = function (o, fill) { return rect(o.x, o.y, o.w, o.h, ' fill="' + fill + '" stroke="' + PS + '" stroke-width="1.6"' + (ghost ? ' stroke-dasharray="7 4"' : '')); };
+  s += pan(r.vt, PF0) + pan(r.td, PF0) + pan(r.vp, PF0);
   s += line(X(r.vt.x), Y(r.td.y), X(r.td.x), Y(r.td.y), ' stroke="#7f8c8d" stroke-width="1" stroke-dasharray="4 3"') + line(X(r.td.x + r.td.w), Y(r.td.y), X(r.vp.x + r.vp.w), Y(r.td.y), ' stroke="#7f8c8d" stroke-width="1" stroke-dasharray="4 3"');
   r.rows.forEach(function (y) { s += line(X(r.mT), Y(y), X(r.mP), Y(y), ' stroke="#c0392b" stroke-width="1" stroke-dasharray="6 4"'); });
   var all = r.holes.vt.concat(r.holes.td, r.holes.vp), rr = Math.max(r.phi / 2 * k, 2.5);
   r.rows.forEach(function (y) { all.forEach(function (x) { s += '<circle cx="' + f1(X(x)) + '" cy="' + f1(Y(y)) + '" r="' + f1(rr) + '" fill="#fff" stroke="#1f4e9c" stroke-width="1.3"/><circle cx="' + f1(X(x)) + '" cy="' + f1(Y(y)) + '" r="' + f1(rr * 2) + '" fill="none" stroke="#1f4e9c" stroke-width=".6" opacity=".6"/>'; }); });      // T287: vong ngoai gap doi nhu block khoan CAD
-  s += pan(r.canh, ghost ? '#f7f3ee' : '#fdf3e6', 'Cánh ×2');
-  // T287: block THAT (kep theo ray, khoa/tay nam, chan nhen) dung diem chen lisp - cuaBlocks (form_logic.js)
-  var ct = r.canh.y + r.canh.h;
-  cuaBlocks(r).forEach(function (b) { s += cuaBlkSvg(b.n, X(b.x), Y(b.y), k, 1.6); });
-  if (r.pk) s += text(X(r.canh.x + r.canh.w) - 30, Y(r.canh.y) - 8, r.pk, 11, '#555');
-  // ---- T288: dim y het lisp CLU (cuaDims). Nhom 'kt' = dim kich thuoc; 'lo' = chuoi lo cong don, kep, chan nhen, ray HS (515/437/78/32/phi). Chu tu dat tranh de nhau.
-  var fsD = 11;
-  var hit = function (q) { var sc = 0; placed.forEach(function (p) { var w = Math.min(q[2], p[2]) - Math.max(q[0], p[0]), h = Math.min(q[3], p[3]) - Math.max(q[1], p[1]); if (w > 0 && h > 0) sc += w * h; }); return sc; };
-  var putText = function (cands, t, fs) {      // cands: [{x, y, rot, pen}] -> chon cai it de nhat; ghi vao placed
-    var best = null, bs = 1e9;
-    for (var i = 0; i < cands.length; i++) {
-      var c = cands[i], w = tw(t, fs), h = fs + 3, q = c.rot ? [c.x - h / 2, c.y - w / 2, c.x + h / 2, c.y + w / 2] : [c.x - w / 2, c.y - h / 2, c.x + w / 2, c.y + h / 2], sc = hit(q) + c.pen;
-      if (sc < bs) { bs = sc; best = { c: c, q: q }; if (sc < 0.5) break; }
-    }
-    placed.push(best.q); return text(best.c.x, best.c.y, t, fs, DC, best.c.rot ? -90 : 0);
-  };
-  var drawDim = function (d) {
-    var g = '', ST = ' stroke="' + DC + '" stroke-width=".8"', SL = ' stroke="' + DC + '" stroke-width="1"';
+  s += pan(r.canh, ghost ? '#f7f3ee' : '#fdf3e6');
+  cuaBlocks(r).forEach(function (b) { s += cuaBlkSvg(b.n, X(b.x), Y(b.y), k, 1.6); });      // T287: block THAT dung diem chen lisp
+  // ---- chu: dat theo thu tu uu tien, hop bao chu khong de nhau (0 cap de); dim lo/chi tiet khong con cho -> an ca dim (dem trong stat.hid, xem lon / phong de hien)
+  var placed = [], fsT = function (fk) { return F[fk]; };
+  var hit = function (q) { var sc = 0; for (var i = 0; i < placed.length; i++) { var p = placed[i], w = Math.min(q[2], p[2]) - Math.max(q[0], p[0]), h = Math.min(q[3], p[3]) - Math.max(q[1], p[1]); if (w > 0 && h > 0) sc += w * h; } return sc; };
+  var box = function (c, t, fs) { var w = cuaTw(t, fs), h = fs * 1.18 + 1; return c.rot ? [c.x - h / 2, c.y - w / 2, c.x + h / 2, c.y + w / 2] : c.anc === 'start' ? [c.x, c.y - h / 2, c.x + w, c.y + h / 2] : [c.x - w / 2, c.y - h / 2, c.x + w / 2, c.y + h / 2]; };
+  var inV = function (q) { return q[0] >= 0 && q[1] >= 0 && q[2] <= W && q[3] <= H; };
+  var choose = function (cands, t, fs) { var best = null, bs = 1e9; for (var i = 0; i < cands.length; i++) { var q = box(cands[i], t, fs), sc = hit(q) * 10 + (inV(q) ? 0 : 1e5) + cands[i].pen; if (sc < bs) { bs = sc; best = { c: cands[i], q: q, ov: hit(q) }; if (sc < 0.5) break; } } return best; };
+  var SL = ' stroke="' + DC + '" stroke-width="1"', ST = ' stroke="' + DC + '" stroke-width=".8"';
+  var dimSvg = function (d) {
+    var fs = fsT(d.fk), t = d.t, tl = cuaTw(t, fs), cl = [], g = '', sh, i, b;
     if (d.o === 'D') {      // Ø: duong dan tu tam lo toi diem chon, mui ten ngay mep lo
-      var cx = X(d.c[0]), cy = Y(d.c[1]), px = X(d.pk[0]), py = Y(d.pk[1]), dx = px - cx, dy = py - cy, ln = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / ln, uy = dy / ln, rr = Math.max(d.rad * k, 2.5);
-      g += line(cx - ux * rr, cy - uy * rr, px, py, SL) + arr(cx + ux * rr, cy + uy * rr, -ux, -uy) + arr(cx - ux * rr, cy - uy * rr, ux, uy);
-      var tl = tw(d.t, fsD); return g + putText([{ x: px + ux * (tl / 2 + 3), y: py + uy * 8, rot: false, pen: 0 }, { x: px + tl / 2 + 4, y: py - 10, rot: false, pen: 1 }, { x: px + tl / 2 + 4, y: py + 10, rot: false, pen: 1 }, { x: px + tl / 2 + 4, y: py - 24, rot: false, pen: 2 }, { x: px + tl / 2 + 4, y: py + 24, rot: false, pen: 2 }, { x: px + tl / 2 + 30, y: py, rot: false, pen: 3 }], d.t, fsD);
+      var cx = X(d.c[0]), cy = Y(d.c[1]), px = X(d.pk[0]), py = Y(d.pk[1]), dx = px - cx, dy = py - cy, ln = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / ln, uy = dy / ln, rd = Math.max(d.rad * k, 2.5);
+      [[px + ux * (tl / 2 + 3), py + uy * 8, 0], [px + tl / 2 + 4, py - fs, 1], [px + tl / 2 + 4, py + fs, 1], [px + tl / 2 + 4, py - 2 * fs, 2], [px - tl / 2 - 4, py - fs, 2], [px + tl / 2 + 4, py + 2 * fs, 2], [px + tl / 2 + 2.6 * fs, py, 3], [px + tl / 2 + 4, py - 3 * fs, 4]].forEach(function (a) { cl.push({ x: a[0], y: a[1], pen: a[2] }); });
+      b = choose(cl, t, fs); if (b.ov > 0.5) return null;
+      var ex = b.c.x - ux * 0, ey = b.c.y;
+      g += line(cx - ux * rd, cy - uy * rd, px, py, SL) + (Math.abs(ex - px) > tl / 2 + 6 || Math.abs(ey - py) > fs ? line(px, py, b.c.x - Math.sign(b.c.x - px) * (tl / 2), ey, SL) : '') + arr(cx + ux * rd, cy + uy * rd, -ux, -uy) + arr(cx - ux * rd, cy - uy * rd, ux, uy);
+      return { g: g, b: b, t: t, fs: fs };
     }
-    var cl = [], tl2 = tw(d.t, fsD), sh;
+    var off = fs * 0.62 + 2, sg = d.o === 'H' ? Math.abs(d.b[0] - d.a[0]) * k : Math.abs(d.b[1] - d.a[1]) * k;
+    if (CUA_SHORT[d.id] && tl > sg - 4) { t = CUA_SHORT[d.id] + d.t.split(':').pop(); tl = cuaTw(t, fs); }      // hinh nho: nhan dai khong vua doan dim -> nhan ngan (KS / TT)
     if (d.o === 'H') {
-      var xa = X(d.a[0]), xb = X(d.b[0]), yl = Y(d.L), yE = Y(d.a[1]), up = yl < yE ? -1 : 1, seg = Math.abs(xb - xa), mid = d.tp != null ? X(d.tp) : (xa + xb) / 2, dir = xb >= xa ? 1 : -1;
+      var xa = X(d.a[0]), xb = X(d.b[0]), yE = Y(d.a[1]), yl = d.sd === 'T' ? Y(yT) - TP.T.p[d.ti] : d.sd === 'B' ? Y(yB) + TP.B.p[d.ti] : Y(d.L), up = yl < yE ? -1 : 1, seg = Math.abs(xb - xa), mid = d.tp != null ? X(d.tp) : (xa + xb) / 2, dir = xb >= xa ? 1 : -1;
+      for (i = 0; i < 9; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (tl / 2 + 3); [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh, y: yl + sd * off, pen: Math.abs(sh) * 0.05 + j * (d.sd ? 40 : 2) }); }); }
+      if (seg < tl + 2 || d.cls !== 'K') for (i = 0; i < 5; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (fs * 1.2 + 2); [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh, y: yl + sd * (tl / 2 + 4), rot: true, pen: 6 + j * 3 + Math.abs(sh) * 0.05 }); }); }
+      b = choose(cl, t, fs); if (b.ov > 0.5 && d.cls !== 'K') return null;
       g += line(xa, yE, xa, yl + up * 3, ST) + line(xb, yE, xb, yl + up * 3, ST) + line(xa, yl, xb, yl, SL);
-      if (seg >= 14) g += arr(xa, yl, -dir, 0) + arr(xb, yl, dir, 0); else g += arr(xa, yl, dir, 0) + arr(xb, yl, -dir, 0);
-      for (var i = 0; i < 9; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (tl2 / 2 + 4);
-        [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh, y: yl + (sd < 0 ? -8 : 9), rot: false, pen: Math.abs(sh) * 0.02 + j * 1.5 }); }); }
-      if (seg < tl2) for (var i2 = 0; i2 < 5; i2++) { sh = i2 === 0 ? 0 : (i2 % 2 ? 1 : -1) * Math.ceil(i2 / 2) * (tl2 / 2 + 4); [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh * 0, y: yl + sd * (tl2 / 2 + 5) + sh, rot: true, pen: 3 + j + Math.abs(sh) * 0.02 }); }); }
-      return g + putText(cl, d.t, fsD);
+      g += seg >= 2.6 * AR ? arr(xa, yl, -dir, 0) + arr(xb, yl, dir, 0) : arr(xa, yl, dir, 0) + arr(xb, yl, -dir, 0);
+      if (Math.abs(b.c.x - mid) > seg / 2 + 2 && !b.c.rot) g += line(Math.min(Math.max(b.c.x, Math.min(xa, xb)), Math.max(xa, xb)), yl, b.c.x, yl, ST);      // chu dich ra ngoai doan ngan -> keo dai duong dim toi chu
+      return { g: g, b: b, t: t, fs: fs };
     }
-    var ya = Y(d.a[1]), yb = Y(d.b[1]), xl = X(d.L), xE = X(d.a[0]), sd0 = xl < xE ? -1 : 1, segv = Math.abs(yb - ya), midv = d.tp != null ? Y(d.tp) : (ya + yb) / 2, dv = yb >= ya ? 1 : -1;
-    g += line(xE, ya, xl + sd0 * 3, ya, ST) + line(xE, yb, xl + sd0 * 3, yb, ST) + line(xl, ya, xl, yb, SL);
-    if (segv >= 14) g += arr(xl, ya, 0, -dv) + arr(xl, yb, 0, dv); else g += arr(xl, ya, 0, dv) + arr(xl, yb, 0, -dv);
-    for (var j2 = 0; j2 < 9; j2++) { sh = j2 === 0 ? 0 : (j2 % 2 ? 1 : -1) * Math.ceil(j2 / 2) * (tl2 / 2 + 4);
-      [sd0, -sd0].forEach(function (sd, j) { cl.push({ x: xl + (sd < 0 ? -8 : 8), y: midv + sh, rot: true, pen: Math.abs(sh) * 0.02 + j * 1.5 }); }); }
-    return g + putText(cl, d.t, fsD);
+    var ya = Y(d.a[1]), yb = Y(d.b[1]), xE = X(d.a[0]), xl = d.sd === 'L' ? X(xL) - TP.L.p[d.ti] : d.sd === 'R' ? X(xR) + TP.R.p[d.ti] : X(d.L), sd0 = xl < xE ? -1 : 1, segv = Math.abs(yb - ya), midv = d.tp != null ? Y(d.tp) : (ya + yb) / 2, dv = yb >= ya ? 1 : -1;
+    var outS = d.sd === 'R' ? 1 : d.sd === 'L' ? -1 : sd0;
+    for (i = 0; i < 9; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (tl / 2 + 3); [outS, -outS].forEach(function (sd, j) { cl.push({ x: xl + sd * off, y: midv + sh, rot: true, pen: Math.abs(sh) * 0.05 + j * (d.sd ? 40 : 2) }); }); }
+    if (d.cls !== 'K') for (i = 0; i < 5; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (fs * 1.2 + 2); [outS, -outS].forEach(function (sd, j) { cl.push({ x: xl + sd * (tl / 2 + 4), y: midv + sh, pen: 6 + j * 3 + Math.abs(sh) * 0.05 }); }); }
+    b = choose(cl, t, fs); if (b.ov > 0.5 && d.cls !== 'K') return null;
+    g += line(xE, ya, xl + sd0 * 3, ya, ST) + line(X(d.b[0]), yb, xl + sd0 * 3, yb, ST) + line(xl, ya, xl, yb, SL);
+    g += segv >= 2.6 * AR ? arr(xl, ya, 0, -dv) + arr(xl, yb, 0, dv) : arr(xl, ya, 0, dv) + arr(xl, yb, 0, -dv);
+    if (b.c.rot && Math.abs(b.c.y - midv) > segv / 2 + 2) g += line(xl, Math.min(Math.max(b.c.y, Math.min(ya, yb)), Math.max(ya, yb)), xl, b.c.y, ST);
+    return { g: g, b: b, t: t, fs: fs };
   };
-  DM.forEach(function (d) { if (d.g === 'kt' ? opt.dimKt !== false : !!opt.dimLo) s += drawDim(d); });
-  return s + '</svg>';
+  var emit = function (o) { placed.push(o.b.q); return o.g + text(o.b.c.x, o.b.c.y, o.t, o.fs, o.col || DC, o.b.c.rot ? -90 : 0, o.b.c.anc); };
+  var on = function (d) { return d.cls === 'K' ? opt.dimKt !== false : d.cls === 'H' ? opt.dimHl !== false : !!opt.dimLo; };
+  var out = '';
+  var srt = function (c) { return DM.filter(function (d) { return d.cls === c && on(d); }).map(function (d, i) { return [cuaDimPri(d) * 1000 + i, d]; }).sort(function (u, w) { return u[0] - w[0]; }).map(function (u) { return u[1]; }); };
+  srt('K').forEach(function (d) { var o = dimSvg(d); if (o) out += emit(o); });
+  // nhan trong hinh nhu ban mau: khung ten (ngay - khach / Lua <ray> - <ky hieu> / loai kinh) trong vach trai; "2 Tấm" + phu kien giua canh
+  var lbl = function (lines, x0, w, y0, fsz, col, anc, minF) {
+    lines = lines.filter(Boolean); if (!lines.length) return '';
+    var mw = Math.max.apply(null, lines.map(function (t) { return cuaTw(t, fsz); })); if (mw > w) fsz = fsz * w / mw; if (fsz < minF) return '';
+    var o = '', lh = fsz * 1.35;
+    for (var i = 0; i < lines.length; i++) { var c = { x: anc === 'start' ? x0 : x0 + w / 2, y: y0 + i * lh, anc: anc }, q = box(c, lines[i], fsz); if (hit(q) > 0.5 || !inV(q)) continue; placed.push(q); o += text(c.x, c.y, lines[i], fsz, col, 0, anc); }
+    return o;
+  };
+  if (opt.title) out += lbl(opt.title, X(r.vt.x) + 6, r.vt.w * k - 12, Y(r.yK - 185) + F.S * 1.6 + 12, Math.max(pr ? 13 : 10, 55 * k), '#1f3fbf', 'start', pr ? 9 : 8.5);
+  var cn = r.canh, pkT = r.pk ? (/^Kho/.test(CUA_PK[r.pk]) ? 'Khoét ' + CUA_PK[r.pk] : CUA_PK[r.pk]) : '';
+  out += lbl(['2 Tấm'], X(cn.x) + 4, cn.w * k - 8, Y(cn.y + cn.h * 0.42), Math.max(fs0 * 1.2, 80 * k), '#1f4e79', 'middle', 9);
+  if (pkT) out += lbl([pkT], X(cn.x) + 4, cn.w * k - 8, Y(cn.y + cn.h * 0.42) + Math.max(fs0 * 1.2, 80 * k) * 1.4, Math.max(fs0, 40 * k), '#555', 'middle', 8.5);
+  ['H', 'C'].forEach(function (c) { srt(c).forEach(function (d) { var o = dimSvg(d); if (o) out += emit(o); else st.hid++; }); });
+  return s + out + '</g></svg>';
 }
 window.addEventListener('load', function () { setTimeout(function () { if (CUAS.on) cuaSetOn(true); }, 300); });
 </script>
@@ -14047,7 +14244,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261030075056';
+var CTK_BUILD = '20261030082534';
 (function () {
   function chk() {
     try {
