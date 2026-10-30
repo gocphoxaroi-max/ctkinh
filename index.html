@@ -114,6 +114,16 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
 .dgrp button+button{border-left:1px solid #1f4e79}
 .dgrp button.on{background:#1f4e79;color:#fff}
 .dock.qtyp .dirbar,.dock.min .dirbar,.dock.img .dirbar,body.kbf .dock .dirbar,body.kb .dock .dirbar{display:none}
+/* T289: thanh huong nam TRONG hang tab (1 hang ghim thay vi 2) */
+.dtabs .dirbar{flex:2 1 0;min-width:0;padding:0;border:0;background:none;gap:4px}
+.dmore{display:none}
+.dtabs .dgrp button{padding:2px 3px;font-size:12px;min-height:44px}
+.dmenu{position:fixed;z-index:45;min-width:220px;max-width:calc(100vw - 12px);background:#fff;border:1px solid #9fb3c8;border-radius:12px;box-shadow:0 6px 18px #0004;padding:6px;display:flex;flex-direction:column;gap:6px}
+.dmenu[hidden]{display:none}
+.dmenu>button{min-height:44px;padding:6px 12px;font-size:15px;text-align:left;border-radius:9px;border:1px solid #c9d6e3;background:#f7f9fb;color:#1f4e79}
+.dmenu .dmsz{display:flex;align-items:center;gap:4px;font-size:14px;color:#55657a}.dmenu .dmsz span{flex:1 1 auto;padding-left:4px}
+.dmenu .dmsz button{min-height:44px;min-width:52px;padding:0 8px;font-size:15px;border-radius:9px;border:1px solid #9fb3c8;background:#fff;color:#1f4e79}
+.dmenu .dmsz button.on{background:#1f4e79;color:#fff;border-color:#1f4e79}
 /* T55 (B5): khung xem truoc = HINH (pvbox) + DAI THE CONG CU doc sat canh phai (dtool) - nut KHONG de len hinh */
 #dpPv{display:flex;flex-direction:row}
 .pvbox{flex:1 1 auto;min-width:0;position:relative}
@@ -208,9 +218,25 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
   header{position:static}
   .edit{display:block}.a-form{margin-top:10px}
   .dtabs button{padding:4px 8px}
-  .dinfo{position:absolute;left:8px;top:47px;z-index:2;flex:none;padding:1px 6px;border-radius:6px;background:#ffffffd9;font-size:12px;pointer-events:none}
+  .dinfo{position:absolute;left:8px;top:56px;z-index:2;flex:none;padding:1px 6px;border-radius:6px;background:#ffffffd9;font-size:12px;pointer-events:none}
   .dinfo:empty,.dock.img .dinfo,.dock.min .dinfo{display:none}
   #dpImg{display:none}.dock.img #dpPv{display:none}.dock.img #dpImg{display:block}
+  /* T289 (anh Dampt 30/10: nut ghim to, xem truoc day xuong, o nhap co nho): 1 hang = huong + ▴ + ⋯ (Hinh ky hieu / Co khung vao menu ⋯) */
+  .dock .dtabs{padding:3px;gap:4px}
+  #dtPv,#dtImg,.dsize{display:none}
+  .dock.img #dtPv{display:block;flex:1 1 auto}
+  .dmore{display:block;flex:0 0 44px;width:44px;padding:0 !important;font-size:22px;font-weight:bold;line-height:1}
+  .dock.min .dirbar{display:flex}
+  .dock.min.img .dirbar{display:none}
+  .dgrp{border-width:1px}
+  /* thanh ghi so (khi chua go): 1 dong chu + 1 hang nut cuon ngang, khong xuong dong */
+  .qbar:not(.act){padding:3px 5px;gap:3px}
+  .qbar:not(.act) .qr:first-child{flex-wrap:nowrap;min-width:0}
+  .qbar:not(.act) .qlab{flex:1 1 auto;min-width:0;font-size:12px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qbar:not(.act) .qopt{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .qbar:not(.act) .qopt::-webkit-scrollbar{display:none}
+  .qbar:not(.act) .qopt>button{flex:0 0 auto;white-space:nowrap;padding:4px 9px}
+  .qbar:not(.act) .qinfo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   html{scroll-padding-top:calc(var(--dockh,34vh) + 14px);scroll-padding-bottom:92px}
 }
 @media(min-width:900px){
@@ -225,6 +251,7 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
   #dpImg .strip img{height:auto;width:100%}
 }
 @media(max-width:380px){.dtabs button{padding:4px 6px;font-size:13px}}
+@media(max-width:899px) and (max-height:500px){.qbar:not(.act) .qr:first-child{display:none}}      /* T289: xoay ngang - bo dong chu thanh ghi so */
 body.kb .bbar{display:none}
 body.kb #shareBtn,body.kbf #shareBtn{display:none}
 body.kb{padding-bottom:12px}
@@ -458,15 +485,17 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
         <div class="dtabs">
           <button type="button" id="dtPv" class="on" onclick="dtab('pv')">Xem trước</button>
           <button type="button" id="dtImg" onclick="dtab('img')">Hình ký hiệu</button>
+          <!-- T289: thanh huong (nghieng / do lo / mo rong) GOP chung 1 hang voi tab -> tiet kiem 1 hang ghim tren dien thoai -->
+          <div class="dirbar" id="dirbar" role="group" aria-label="Hướng tấm (chọn trước khi nhập)">
+            <div class="dgrp" id="dgDang" hidden><button type="button" id="dgDangB" onclick="m5DangOpen()">Dạng ▾<br><span id="dgDangT">Tự do</span></button></div>
+            <div class="dgrp" id="dgNg"><button type="button" id="dgNgT" onclick="setNghieng(true)">Nghiêng<br>trái</button><button type="button" id="dgNgP" onclick="setNghieng(false)">Nghiêng<br>phải</button></div>
+            <div class="dgrp" id="dgLo" hidden><button type="button" id="dgLoD" onclick="setDoLo('DUOI')">Đo lỗ từ<br>dưới</button><button type="button" id="dgLoT" onclick="setDoLo('TREN')">Đo lỗ từ<br>trên</button></div>
+            <div class="dgrp" id="dgSub" hidden><button type="button" id="dgSubT" onclick="setSub(false)">Mở rộng<br>trên</button><button type="button" id="dgSubD" onclick="setSub(true)">Mở rộng<br>dưới</button></div>
+          </div>
           <span class="dinfo" id="dinfo"></span>
           <button type="button" class="dsize" id="dsizeB" onclick="cycleDockSize()" title="Cỡ khung xem trước: Nhỏ / Vừa / Lớn (bấm để đổi)">Cỡ: Vừa</button>
-          <button type="button" class="dmin" id="dminB" onclick="dockMin()" title="Thu gọn / mở">▴</button>
-        </div>
-        <div class="dirbar" id="dirbar" role="group" aria-label="Hướng tấm (chọn trước khi nhập)">
-          <div class="dgrp" id="dgDang" hidden><button type="button" id="dgDangB" onclick="m5DangOpen()">Dạng ▾<br><span id="dgDangT">Tự do</span></button></div>
-          <div class="dgrp" id="dgNg"><button type="button" id="dgNgT" onclick="setNghieng(true)">Nghiêng<br>trái</button><button type="button" id="dgNgP" onclick="setNghieng(false)">Nghiêng<br>phải</button></div>
-          <div class="dgrp" id="dgLo" hidden><button type="button" id="dgLoD" onclick="setDoLo('DUOI')">Đo lỗ từ<br>dưới</button><button type="button" id="dgLoT" onclick="setDoLo('TREN')">Đo lỗ từ<br>trên</button></div>
-          <div class="dgrp" id="dgSub" hidden><button type="button" id="dgSubT" onclick="setSub(false)">Mở rộng<br>trên</button><button type="button" id="dgSubD" onclick="setSub(true)">Mở rộng<br>dưới</button></div>
+          <button type="button" class="dmin" id="dminB" onclick="dockMin()" title="Thu gọn / mở khung xem trước" aria-label="Thu gọn / mở khung xem trước">▴</button>
+          <button type="button" class="dmore" id="dmoreB" onclick="dockMenu()" title="Thêm: Hình ký hiệu, cỡ khung xem trước" aria-label="Thêm: hình ký hiệu, cỡ khung" aria-haspopup="menu">⋯</button>
         </div>
         <div class="dpane" id="dpPv"><div class="pvbox"><svg id="pv" onclick="pvTap(event)"></svg><button type="button" class="drailh" id="drailH" title="Mở dải công cụ" aria-label="Mở dải công cụ" onclick="railOpen()">&#8249;</button><button type="button" class="drailchip" id="drailChip" hidden onclick="railChipOff()"></button><div class="pvnote" id="pvnote"></div></div><div class="dtool" id="dtool" role="toolbar" aria-label="Công cụ hình"><button type="button" class="dpin" id="dpinB" title="Ghim dải (luôn rõ)" onclick="railPin()"><i>&#128204;</i>Ghim</button><button type="button" class="dq on" id="dqB" title="Ghi số trên hình (bật / tắt)" onclick="toggleQ()"><i>✎</i>Ghi số</button><button type="button" class="ddim" id="ddimB" title="Dim: Chính / Đủ / Tắt (bấm để đổi)" onclick="toggleDim()"><i>↔</i><span id="ddimT">Chính</span></button><button type="button" class="dzoom" id="dzoomB" title="Xem toàn màn hình" onclick="openPreview()"><i>⤢</i>Phóng</button><button type="button" class="dsg" id="dsgB" title="Sửa góc: cắt / cộng / khoét (hiện nút + ở các góc)" onclick="toggleSg()"><i>✂</i>Sửa góc</button><button type="button" class="dgoc" id="dgocB" title="Chọn đỉnh tấm để đo góc (khách yêu cầu)" onclick="toggleGoc()"><i>∠</i>Đo góc</button><button type="button" class="dgp" id="dgpB" title="Góc phụ 90−α: hiện thêm góc giữa cạnh xiên và phương đứng (bật/tắt, xuất cả ra CAD)" onclick="toggleGocPhu()"><i>∟</i>Góc phụ</button><button type="button" class="dbo" id="dboB" title="Chạm đỉnh tấm rồi nhập bán kính R để bo góc" onclick="toggleBo()"><i>◜</i>Bo góc</button><button type="button" class="dcx" id="dcxB" title="Cắt góc X/Y kiểu lệnh CHA: chạm đỉnh rồi nhập X (dọc cạnh ngang) và Y (dọc cạnh đứng) – Y tự bằng X nếu không nhập" onclick="toggleCx()"><i>◢</i>Cắt góc X/Y</button><button type="button" class="dlt" id="dltB" title="Thêm lỗ ở điểm bất kỳ: chạm đỉnh làm mốc rồi nhập 2 số đo như thợ ghi" onclick="toggleLt()"><i>⊕</i>Lỗ tự do</button><button type="button" class="dgt" id="dgtB" title="Cộng thêm ở góc trên phía cạnh xiên TRÁI, đo DỌC cạnh xiên (vd thợ ghi +50). Tấm nghiêng trái: góc này nằm bên phải." onclick="sgOpen('TL','GT')"><i>⊿</i>+ Trên trái</button><button type="button" class="dvc" id="dvcB" title="Cắt góc dưới-trái VUÔNG GÓC cạnh xiên, ghi 1 số = độ dài đường cắt (kiểu thợ Hải, có dấu góc vuông). Chỉ tấm chuỗi đáy (Mode 1)." onclick="sgOpen('BL','V')"><i>◺</i>Cắt 1 số</button><button type="button" class="dcat" id="dcatB" title="Cắt đôi băng (Mode 1 chuỗi đáy / thẻ đo chéo Mode 3): chạm điểm cắt trên hình hoặc nhập số – vẫn 1 hình băng liền, đo/đếm lỗ thành 2 tấm" onclick="toggleCat()"><i>✂</i>Cắt đôi</button><button type="button" class="dlp" id="dlpB" hidden title="Lỗ phụ: lỗ lẻ ở góc tấm – bấm nút chọn mép, gõ số" onclick="lpOpen()"><i>◉</i>Lỗ phụ</button><button type="button" class="dtp" id="dtpB" hidden title="Cạnh trên riêng: cạnh trên có đoạn ngang / bậc" onclick="tpOpen()"><i>⌐</i>Cạnh trên</button></div></div>
         <div class="qbar" id="qbar" hidden>
@@ -9394,11 +9423,30 @@ function dtab(t) {
   $('bImgT').textContent = t === 'img' ? 'Xem trước' : 'Hình';
   if ($('dock').classList.contains('min')) dockMin(false);
 }
+// T289: menu ⋯ (dien thoai) - Hinh ky hieu / Co khung / Thu gon (thay 3 nut cu tren hang ghim)
+function dockMenu() {
+  let m = $('dmenu');
+  if (m && !m.hidden) { m.hidden = true; return; }
+  if (!m) {
+    m = document.createElement('div'); m.id = 'dmenu'; m.className = 'dmenu'; m.setAttribute('role', 'menu'); m.hidden = true; document.body.appendChild(m);
+    document.addEventListener('pointerdown', e => { const x = $('dmenu'); if (x && !x.hidden && !(e.target.closest && e.target.closest('#dmenu,#dmoreB'))) x.hidden = true; }, true);
+    window.addEventListener('scroll', () => { const x = $('dmenu'); if (x) x.hidden = true; }, { passive: true });
+  }
+  const d = $('dock'), img = d.classList.contains('img'), mn = d.classList.contains('min');
+  m.innerHTML = '<button type="button" role="menuitem" onclick="dmenuGo(\'tab\')">' + (img ? '◧ Xem trước (hình có số)' : '▣ Hình ký hiệu') + '</button>' +
+    '<div class="dmsz"><span>Cỡ khung</span>' + ['s', 'm', 'l'].map(z => '<button type="button" role="menuitemradio" aria-checked="' + (UI.size === z) + '" class="' + (UI.size === z ? 'on' : '') + '" onclick="dmenuGo(\'' + z + '\')">' + SIZES[z] + '</button>').join('') + '</div>' +
+    '<button type="button" role="menuitem" onclick="dmenuGo(\'min\')">' + (mn ? '▾ Mở khung xem trước' : '▴ Thu gọn khung xem trước') + '</button>';
+  const r = $('dmoreB').getBoundingClientRect();
+  m.style.top = Math.round(r.bottom + 4) + 'px'; m.style.right = Math.max(6, Math.round(innerWidth - r.right)) + 'px'; m.hidden = false;
+}
+function dmenuGo(k) { const m = $('dmenu'); if (m) m.hidden = true; if (k === 'tab') dtab(UI.tab === 'img' ? 'pv' : 'img'); else if (k === 'min') dockMin(); else setDockSize(k); }
 function dockMin(v) { const m = v === undefined ? !$('dock').classList.contains('min') : v; $('dock').classList.toggle('min', m); UI.dmin = m; saveUI(); }
 let BASE = { w: 0, h: 0 };
 const SIZES = { s: 'Nhỏ', m: 'Vừa', l: 'Lớn' };
 // cỡ khung xem trước khi KHÔNG có bàn phím: [tỉ lệ chiều cao vùng nhìn, tối thiểu, tối đa]
 const DOCK_K = { s: [0.26, 150, 240], m: [0.38, 210, 380], l: [0.55, 260, 540] };
+// T289 (dien thoai): ca KHOI GHIM (hang huong + hinh + thanh ghi so) chiem [ti le vung nhin, hinh toi thieu px]; Vua = 38% -> o nhap con >= 45%
+const DOCK_KN = { s: [0.30, 90], m: [0.38, 120], l: [0.55, 160] };
 function sizeDock() {
   const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, zoomed = !!vv && vv.scale > 1.05;
   if (Math.abs(innerWidth - BASE.w) > 30) { BASE.w = innerWidth; BASE.h = 0; }          // xoay may -> do lai
@@ -9417,9 +9465,12 @@ function sizeDock() {
     document.body.classList.remove('kbtiny');
     const k = DOCK_K[z] || DOCK_K.m;
     h = Math.round(Math.max(k[1], Math.min(vh * k[0], k[2])));
+    if (isNarrow()) {      // T289: tinh cho CA khoi ghim (truoc: hinh 38% + cong them hang huong + thanh ghi so -> 58-66% man hinh)
+      const kn = DOCK_KN[z] || DOCK_KN.m, dt = document.querySelector('#dock .dtabs'), qb = $('qbar');
+      const chrome = (dt && dt.getClientRects().length ? dt.offsetHeight : 0) + (qb && !qb.hidden && qb.getClientRects().length ? qb.offsetHeight : 0) + 2;
+      h = Math.round(Math.max(vh * kn[0], chrome + Math.min(kn[1], vh * 0.3)));
+    }
     if (vh < 500) h = Math.min(h, Math.round(vh * 0.6));        // xoay ngang: khong chiem qua nua man hinh
-    const db = $('dirbar'); if (db && db.offsetParent) h += db.offsetHeight;      // T201: thanh huong an trong khung
-    const qb = $('qbar'); if (qb && !qb.hidden && isNarrow()) h = Math.min(h + qb.offsetHeight, Math.round(vh * 0.8));   // T34: chua them thanh nhap
     if ($('dock').classList.contains('qtyp') && isNarrow()) h = Math.max(h, Math.round(vh * (kb ? 1 : 0.7)) - 8);      // T40b: dang go so tren hinh -> khung cao toi da tren ban phim
   }
   document.documentElement.style.setProperty('--dockh', h + 'px');
@@ -13996,7 +14047,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261029170522';
+var CTK_BUILD = '20261030075056';
 (function () {
   function chk() {
     try {
