@@ -43,6 +43,11 @@ input.bad,select.bad{border-color:#c0392b;background:#fdecea}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chips button{font-size:13px;padding:5px 9px;border-radius:14px;border:1px solid #b9c6d3;background:#f4f7fa;color:#1f4e79;min-height:30px}
 .fnote{font-size:13px;color:#5b6772;line-height:1.35;margin:-1px 0 5px}
+.m5kd{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}.m5kd:empty,.m5kd[hidden]{display:none}
+.m5kd button{min-height:44px;padding:6px 10px;font-size:15px;border-radius:10px;border:1px solid #b9c6d3;background:#f4f7fa;color:#1f4e79}
+.m5kd button.on{background:#1f4e79;color:#fff;border-color:#1f4e79;font-weight:bold}.m5kd .sep{flex:0 0 1px;background:#c9d6e3;margin:4px 2px}
+.m5csv{font-size:13px;color:#5b6772;margin-top:3px;line-height:1.35}.m5csv b{word-break:break-all;color:#1f4e79;font-family:Consolas,monospace}
+input[hidden]{display:none}
 .cuthint{font-size:13px;color:#1e8449;margin-top:3px;font-weight:bold}
 .edhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 /* --- chon mode bang hinh --- */
@@ -535,14 +540,16 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
       <div class="cuarow"><label>Nẹp kính</label><div class="kssw" id="cu_nep"><button type="button" data-v="U" onclick="cuaNep('U')">Nẹp U</button><button type="button" data-v="S" onclick="cuaNep('S')">Nẹp S</button></div></div>
       <div class="cuag">
         <div><label for="cu_ray">Mã ray</label><select id="cu_ray" onchange="cuaInput()"></select></div>
-        <div><label for="cu_pk">Phụ kiện</label><select id="cu_pk" onchange="cuaInput()"><option value="">Không</option><option value="519">519</option><option value="524">524</option><option value="TA">Tay âm (TA)</option><option value="6">Tay nắm 600 (6)</option><option value="4">Tay nắm 400 (4)</option></select></div>
         <div><label for="cu_R">Rộng lọt lòng (DoKS_R)</label><input id="cu_R" class="cun" placeholder="3525"></div>
         <div><label for="cu_C">Cao tổng thể (DoKS_C)</label><input id="cu_C" class="cun" placeholder="3105"></div>
         <div><label for="cu_CTT">Cao thông thuỷ (CTT)</label><input id="cu_CTT" class="cun" placeholder="2550"></div>
+        <div><label for="cu_bt">Bạo tường trái (không có: để trống)</label><input id="cu_bt" class="cun" placeholder="0"></div>
+        <div><label for="cu_bp">Bạo tường phải (không có: để trống)</label><input id="cu_bp" class="cun" placeholder="0"></div>
         <div><label for="cu_kep">Tâm kẹp cách mép cánh</label><input id="cu_kep" class="cun" placeholder="100"></div>
-        <div><label for="cu_bt">Bạo tường trái</label><input id="cu_bt" class="cun" placeholder="0"></div>
-        <div><label for="cu_bp">Bạo tường phải</label><input id="cu_bp" class="cun" placeholder="0"></div>
-        <div id="cu_cnW" hidden><label for="cu_cn">Chân nhện: tâm cách mép trên (nhiều chân: 150 700)</label><input id="cu_cn" class="cun" placeholder="150" data-list="1"></div>
+        <div><label for="cu_pk">Phụ kiện</label><select id="cu_pk" onchange="cuaInput()"><option value="">Không</option><option value="519">519</option><option value="524">524</option><option value="TA">Tay âm (TA)</option><option value="6">Tay nắm 600 (6)</option><option value="4">Tay nắm 400 (4)</option></select></div>
+        <!-- T294: thu tu hoi y het lisp CLU: nep, ray, R, C, CTT, bao truong trai/phai, kep, phu kien, chan nhen (dc>=700: 2 o) -->
+        <div id="cu_cnW" hidden><label for="cu_cn" id="cu_cnL">Chân nhện: tâm cách mép trên</label><input id="cu_cn" class="cun" placeholder="150"></div>
+        <div id="cu_cn2W" hidden><label for="cu_cn2">Chân nhện 2: tâm cách mép trên</label><input id="cu_cn2" class="cun" placeholder="430"></div>
       </div>
       <div class="cuag cuatt">
         <div><label for="cu_kh">Khách / công trình</label><input id="cu_kh" class="cut" placeholder="TQG-Tài Yến"></div>
@@ -7479,14 +7486,12 @@ function cuaDims(r) {
   chain('hVT', vtL, r.holes.vt.filter(function (x) { return x >= vtL - 0.1; }));
   chain('hTD', td.x, r.holes.td);
   chain('hVP', vpL, r.holes.vp.filter(function (x) { return x <= vpR + 0.1; }));
-  // ---- 020-ok: chan nhen (dim dau tien y het lisp; nhieu chan: cong don tu mep tren, chu giua 2 chan)
+  // ---- 020-ok: chan nhen (moi chan 1 dim tu tam chan den mep tren, cung duong dim x-100 / x+105, y het lisp)
   if (r.chanNhen) {
-    var prevC = 0;
     r.cns.forEach(function (c, i) {
       var yc = yTD - c, xT = r.chanNhen.xT, xP = r.chanNhen.xP;
-      add('cnT' + i, 'lo', 'V', [xT, yc], [xT, yTD], xT - 100, F(c), '020-ok', yTD - (prevC + c) / 2);
-      add('cnP' + i, 'lo', 'V', [xP, yc], [xP, yTD], xP + 105, F(c), '020-ok', yTD - (prevC + c) / 2);
-      prevC = c;
+      add('cnT' + i, 'lo', 'V', [xT, yc], [xT, yTD], xT - 100, F(c), '020-ok');      // T294: y het lisp (moi chan do tu mep tren, chu giua dim, khong cong don)
+      add('cnP' + i, 'lo', 'V', [xP, yc], [xP, yTD], xP + 105, F(c), '020-ok');      // T294: y het lisp (moi chan do tu mep tren, chu giua dim, khong cong don)
     });
   }
   // ---- 020-ok: mep tren -> hang lo (vach trai -55, vach phai +120), CTT, bao tuong, Rong/Cao khao sat
@@ -7873,7 +7878,10 @@ function fieldHTML(f) {
     : '<input id="' + id + '" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" enterkeyhint="next" ' + 'inputmode="' + imode(f) + '" ' + (num ? '' : 'autocapitalize="characters"') + ' placeholder="' + esc(f.k === 'SoLuong' ? '1' : f.ex ? 'vd ' + f.ex : '') + '">';
   const cut = f.type === 'cut' ? '<div class="chips">' + CUT_CHIPS.map((c, i) => '<button type="button" onmousedown="event.preventDefault()" onclick="addCut(\'' + f.k + '\',' + i + ')">+ ' + esc(c[0]) + '</button>').join('') + '</div><div class="cuthint" id="d_' + f.k + '"></div>' : '';
   const qty = f.k === 'SoLuong' ? '<div class="qchips"><span class="qhint">để trống = 1 tấm</span><button type="button" onmousedown="event.preventDefault()" onclick="setQty(2)">×2</button><button type="button" onmousedown="event.preventDefault()" onclick="setQty(3)">×3</button></div>' : '';
-  return '<div><label for="' + id + '">' + esc(f.label) + (f.req ? ' *' : '') + '</label>' + (f.hint ? '<div class="fnote">' + esc(f.hint) + '</div>' : '') + inp + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
+  const cd = cur === '5' && (f.k === 'KhoangLo' || f.k === 'Lo');      // T292: o chu Khoang lo / Lo Mode 5 - nut chon kieu + o "cong don" (o goc f_ giu ky hieu CSV)
+  const cdTop = cd ? '<div class="m5kd" id="m5k_' + f.k + '"></div>' : '';
+  const cdIn = cd ? '<input id="c_' + f.k + '" hidden autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" enterkeyhint="next" inputmode="decimal" autocapitalize="characters" placeholder="' + (f.k === 'KhoangLo' ? 'vd 400/1305/2240' : 'vd 80/180-80/180') + '" oninput="m5CdIn(\'' + f.k + '\',this)" onfocus="m5CdFoc(\'' + f.k + '\')" onblur="setTimeout(m5CdSync,0)"><div class="m5csv" id="n_' + f.k + '" hidden></div>' : '';
+  return '<div><label for="' + id + '">' + esc(f.label) + (f.req ? ' *' : '') + '</label>' + (f.hint ? '<div class="fnote">' + esc(f.hint) + '</div>' : '') + cdTop + inp + cdIn + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
 }
 function toggleRB() {
   const t = $('rbT'); t.hidden = !t.hidden; $('rbB').textContent = t.hidden ? 'Đọc lại số đo' : 'Ẩn đọc lại';
@@ -7908,7 +7916,7 @@ function setMode(m, keepVals) {
     if (el.id === 'f_Day' || el.id === 'f_Tren') el.addEventListener('input', () => { if (KBF.on && KBF.el === el) updateBar(el, true); });      // T283: phim phu doi theo cho dang go (x sau so ngang doan doc)
     el.addEventListener('change', () => { const f = M.fields.find(q => 'f_' + q.k === el.id); if (f) { const n = fixComma(f.type, el.value); if (n !== el.value.trim()) { el.value = n; live(); } } });
     if (el.id === 'f_CutP3') el.addEventListener('change', () => { const n = normCut(el.value); if (n !== el.value) { el.value = n; live(); } });
-    el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (ev.ctrlKey || i === ins.length - 1 || el.id === 'f_SoLuong') savePanel(); else if (KBF.on) { const nx = ins.slice(i + 1).find(x => x.tagName === 'INPUT' && !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); if (nx) goField(nx); else savePanel(); } else { const n = ins.slice(i + 1).find(x => x.offsetParent !== null); (n || ins[0]).focus(); setTimeout(() => keepVisible(n || ins[0]), 60); } } });
+    el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (ev.ctrlKey || i === ins.length - 1 || el.id === 'f_SoLuong') savePanel(); else if (KBF.on) { const nx = ins.slice(i + 1).find(x => x.tagName === 'INPUT' && !x.hidden && !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); if (nx) goField(nx); else savePanel(); } else { const n = ins.slice(i + 1).find(x => x.offsetParent !== null); (n || ins[0]).focus(); setTimeout(() => keepVisible(n || ins[0]), 60); } } });
   });
   if (old) { const keep = {}; for (const f of M.fields) if (old[f.k] !== undefined) keep[f.k] = old[f.k]; fillForm(keep); }
   live();
@@ -7953,6 +7961,7 @@ function live() {
   $('warns').innerHTML = r.red.map(w => '<div class="wr"><span class="dot r"></span>' + esc(w) + '</div>').concat(r.warn.concat(r.yellow).map(w => '<div class="wy"><span class="dot y"></span>' + esc(w) + '</div>')).join('');
   const rbT = $('rbT'); if (rbT && !rbT.hidden) rbT.textContent = Object.keys(r.err).length ? 'Còn ô thiếu / sai – điền đủ rồi đọc lại.' : readBack(cur, v);
   const dc = $('d_CutP3'); if (dc) dc.textContent = r.err.CutP3 ? '' : describeCut(v.CutP3);
+  m5CdSync();      // T292
   drawPreview(v); markFlip(); draftSave();
   const bs = $('bSave'); if (bs) bs.classList.toggle('notyet', Object.keys(r.err).length > 0);     // T34: du so bat buoc -> nut Luu sang
   return r;
@@ -8065,10 +8074,10 @@ function qOn() { return UI.q !== false && !GOCP; }
 let QFOC = null, QFSEL = null;      // QFSEL = id "?" dang sang theo o bam (co dim -> khong to cam ca vien hinh kieu T02 cu)
 function qFocMark(marks) {
   if (!QFOC || !marks) return null;
-  const el = $('f_' + QFOC); if (!el) return null;
+  const cp = $('c_' + QFOC), ck = !!cp && !cp.hidden && QFOC === 'KhoangLo', el = cp && !cp.hidden ? cp : $('f_' + QFOC); if (!el) return null;      // T292: o cong don
   let pos = el.value.length; try { if (el.selectionStart != null) pos = el.selectionStart; } catch (e) {}
-  const sp = QFOC === 'Day' ? '+' : '-';      // T75: o Day (Mode 5) cac doan noi "+"
-  const bf = el.value.slice(0, pos), t = bf.split(sp).length - 1, s = (bf.split(sp).pop().match(/\//g) || []).length;
+  const sp = QFOC === 'Day' ? '+' : ck ? '/' : '-';      // T75: o Day (Mode 5) cac doan noi "+"; T292: 400/1305/2240
+  const bf = el.value.slice(0, pos), t = bf.split(sp).length - 1, s = ck ? 0 : (bf.split(sp).pop().match(/\//g) || []).length;
   const l = marks.filter(m => m.k === QFOC && m.kind !== 'corner'); if (!l.length) return null;
   const m = l.find(m => m.t === t && m.s === s) || l.find(m => m.t === t && m.s <= 0) || l.find(m => m.t < 0) || l[0];
   return m.id;
@@ -8150,7 +8159,17 @@ function qPick(i) {
   inp.classList.remove('bad');
   qInputMode(m);
   inp.focus({ preventScroll: true }); try { inp.select(); } catch (e) {}
-  drawPreview(v); sizeDock();
+  drawPreview(v); sizeDock(); qFocusIn();
+}
+// T292: o go so chi hien khi thanh co lop "act" (qBar trong drawPreview) -> focus lai SAU khi ve; may tinh: cuon trang cho o go nam tren thanh nut duoi (bbar)
+function qFocusIn() {
+  const inp = $('qin'); if (!inp || !inp.getClientRects().length) return;
+  if (document.activeElement !== inp) { inp.focus({ preventScroll: true }); try { inp.select(); } catch (e) {} }
+  if (isNarrow()) return;
+  const r = inp.getBoundingClientRect(), bb = document.querySelector('.bbar'), hd = document.querySelector('header');
+  const lim = innerHeight - (bb && bb.getClientRects().length ? bb.offsetHeight : 0) - 10, top = (hd ? hd.offsetHeight : 52) + 8;
+  if (r.bottom > lim) window.scrollBy(0, r.bottom - lim);
+  else if (r.top < top) window.scrollBy(0, r.top - top);
 }
 function qInputMode(m) {
   const inp = $('qin'), f = MODES[cur].fields.find(x => x.k === m.k) || {};
@@ -8764,33 +8783,128 @@ let Q5CD_ORIG = null;      // {kl: chuoi kieu cu truoc khi doi, conv: chuoi da d
 function m5CdLoad() { try { const g = k => localStorage.getItem(k); m5SetCd({ kl: g('ctkinh_m5_cd') !== '0', lo: g('ctkinh_m5_locd') !== '0', side: g('ctkinh_m5_cd_side') === 'R' ? 'R' : 'L' }); } catch (e) {} }
 m5CdLoad();
 function q5CdMode(on) {
+  const m = qMark(), t = m && m.k === 'KhoangLo' ? m.t : 0;
+  m5KlKieu(on);
+  DIRTY = true; q5Repick('KhoangLo:' + t + ':-1');
+  toast(on ? 'Khoảng lỗ: gõ số CỘNG DỒN như phiếu (từ góc tới từng đường lỗ, đo dọc đáy)' : 'Khoảng lỗ: kiểu cũ (khoảng giữa các đường lỗ)');
+}
+// T292: doi kieu o Khoang lo (dung chung thanh Nhap so + o chu tren form): nho lua chon; chuoi kieu cu -> doi theo vi tri lo THAT; bam lai "cu" chua sua -> tra dung chuoi cu
+function m5KlKieu(on) {
   try { localStorage.setItem('ctkinh_m5_cd', on ? '1' : '0'); } catch (e) {}
-  const m = qMark(), t = m && m.k === 'KhoangLo' ? m.t : 0, el = $('f_KhoangLo'); m5SetCd({ kl: !!on });
+  const el = $('f_KhoangLo'); m5SetCd({ kl: !!on });
   const v = readForm(), kl = String(v.KhoangLo || '').trim();
   if (on && el && kl !== '' && !m5CdOn(v)) {      // chuoi kieu cu (?, @, @P, so toi dau phai) -> doi theo vi tri lo THAT tren hinh (toa do giu nguyen)
     const nv = m5CdFromGeo(v, M5CD.side);
     if (nv === null || nv === '') { m5SetCd({ kl: false }); toast('Tấm này chưa đổi được sang kiểu cộng dồn – giữ kiểu cũ'); }
     else { Q5CD_ORIG = { kl, conv: nv }; el.value = nv; const lo = $('f_Lo'); if (lo) lo.value = m5CdPadLo(readForm()); }
   } else if (!on && el && Q5CD_ORIG && kl === Q5CD_ORIG.conv) { el.value = Q5CD_ORIG.kl; Q5CD_ORIG = null; }
-  DIRTY = true; q5Repick('KhoangLo:' + t + ':-1');
-  toast(on ? 'Khoảng lỗ: gõ số CỘNG DỒN như phiếu (từ góc tới từng đường lỗ, đo dọc đáy)' : 'Khoảng lỗ: kiểu cũ (khoảng giữa các đường lỗ)');
+  DIRTY = true;
 }
 function q5CdSide(side) {
+  const m = qMark(), t = m ? m.t : 0;
+  m5KlSide(side);
+  q5Repick('KhoangLo:' + t + ':-1'); toast('Số cộng dồn đo từ góc ' + (side === 'R' ? 'PHẢI' : 'TRÁI'));
+}
+function m5KlSide(side) {      // T292: tach khoi q5CdSide - doi goc do (so doi theo, vi tri lo giu nguyen)
   try { localStorage.setItem('ctkinh_m5_cd_side', side); } catch (e) {}
   m5SetCd({ side });
-  const m = qMark(), t = m ? m.t : 0, el = $('f_KhoangLo'), v = readForm(), p = m5CdParse(v);
+  const el = $('f_KhoangLo'), v = readForm(), p = m5CdParse(v);
   if (el && p && p.side !== side) {
     const tot = m5DayTot(v.Day), lc = m5CdLeft(v, p);
     el.value = m5CdStr(v, side, lc.map(x => x === null ? '' : m5Fmt(side === 'R' ? tot - x : x)));
   }
-  q5Repick('KhoangLo:' + t + ':-1'); toast('Số cộng dồn đo từ góc ' + (side === 'R' ? 'PHẢI' : 'TRÁI'));
+  DIRTY = true;
 }
 function q5LoCdMode(on) {
-  try { localStorage.setItem('ctkinh_m5_locd', on ? '1' : '0'); } catch (e) {}
-  m5SetCd({ lo: !!on }); const m = qMark(), t = m && m.k === 'Lo' ? m.t : 0;
-  if (on && !m5LoCdOn(readForm())) toast('Ô Lỗ có ký hiệu khác – giữ kiểu cũ'); else toast(on ? 'Lỗ: gõ khoảng cách từ ĐÁY tới từng lỗ (80 rồi 180)' : 'Lỗ: lỗ đầu cách đáy, rồi khoảng cách lỗ trước');
+  const m = qMark(), t = m && m.k === 'Lo' ? m.t : 0;
+  m5LoKieu(on);
   q5Repick('Lo:' + t + ':0');
 }
+function m5LoKieu(on) {      // T292: tach khoi q5LoCdMode (dung chung o chu tren form)
+  try { localStorage.setItem('ctkinh_m5_locd', on ? '1' : '0'); } catch (e) {}
+  m5SetCd({ lo: !!on });
+  if (on && !m5LoCdOn(readForm())) toast('Ô Lỗ có ký hiệu khác – giữ kiểu cũ'); else toast(on ? 'Lỗ: gõ khoảng cách từ ĐÁY tới từng lỗ (80 rồi 180)' : 'Lỗ: lỗ đầu cách đáy, rồi khoảng cách lỗ trước');
+}
+// ---------- T292: O CHU Khoang lo / Lo tren FORM (may tinh + dien thoai): nut [Cộng dồn | Cũ] ngay tren o ----------
+//   Kieu Cong don: o hien c_KhoangLo "400/1305/2240", c_Lo "80/180-80/180" (V80/180 = do thang dung); o goc f_ (an) giu ky hieu CSV cu -> readForm / CSV / lisp KHONG doi.
+//   Ghi chu duoi o: ky hieu CSV se xuat. Chuoi kieu cu khong doc duoc kieu moi -> hien o cu (nhu T291).
+let M5CD_FOC = null;      // nhom Lo luc bam vao o (nhom rong -> lo dau tren doan DOC tu them V, nhu qSet)
+function m5CdTxt(k, v) {
+  if (k === 'KhoangLo') { const p = m5CdParse(v); if (!p) return ''; const c = p.c.slice(); while (c.length && c[c.length - 1] === '') c.pop(); return c.join('/'); }
+  const g = m5LoCdParse(v) || [], o = g.map(x => { const c = x.c.slice(); while (c.length && c[c.length - 1] === '') c.pop(); return c.length ? (x.V ? 'V' : '') + c.join('/') : ''; });
+  while (o.length && o[o.length - 1] === '') o.pop();
+  return o.join('-');
+}
+// chu tren o cong don -> chuoi CSV (ky hieu cu); null = go sai
+function m5CdFromTxt(k, s, v) {
+  s = String(s == null ? '' : s).trim().toUpperCase();
+  if (k === 'KhoangLo') {
+    if (s === '') return '';
+    const t = s.split(/[\s\/,;\-]+/).filter(x => x !== '');
+    if (t.some(x => !m5Num(x))) return null;
+    const p = m5CdParse(v), side = p ? p.side : (M5CD.side === 'R' ? 'R' : 'L');
+    return m5CdStr(v, side, t.map(x => m5Fmt(+x)));
+  }
+  const old = M5CD_FOC || m5LoCdParse(v) || [], gs = [];
+  const grp = s === '' ? [] : s.split('-');
+  for (let i = 0; i < grp.length; i++) {
+    const t = grp[i].trim().split(/[\s\/,;]+/).filter(x => x !== ''); let V = false; const c = [];
+    for (let j = 0; j < t.length; j++) {
+      let x = t[j];
+      if (j === 0 && /^V/.test(x)) { V = true; x = x.slice(1); }
+      if (!m5Num(x)) return null;
+      c.push(m5Fmt(+x));
+    }
+    if (!V && c.length && !((old[i] || { c: [] }).c.some(x => x !== ''))) { const sg = m5FootSeg(v, i); if (sg && sg.k === 'D') V = true; }      // nhom moi tren doan doc -> do thang dung (nhu thanh Nhap so)
+    gs.push({ V, c });
+  }
+  return m5LoCdStr(gs, m5CdKeep(v));
+}
+function m5CdFoc(k) { if (k === 'Lo') { const p = m5LoCdParse(readForm()); M5CD_FOC = p ? p.map(x => ({ V: x.V, c: x.c.slice() })) : null; } }
+function m5CdIn(k, cp) {
+  const el = $('f_' + k); if (!el) return;
+  const v = readForm(), nv = m5CdFromTxt(k, cp.value, v);
+  cp.dataset.perr = nv === null ? '1' : ''; cp.classList.toggle('bad', nv === null);
+  const nt = $('n_' + k); if (nv === null) { if (nt) { nt.hidden = false; nt.innerHTML = '<span style="color:#c0392b">Chỉ gõ số, cách nhau bằng dấu / ' + (k === 'Lo' ? '(đường lỗ sau: dấu -, đo đứng: V80/180)' : '(vd 400/1305/2240)') + '</span>'; } return; }
+  el.value = nv;
+  if (k === 'KhoangLo') { const lo = $('f_Lo'); if (lo) lo.value = m5CdPadLo(readForm()); }
+  DIRTY = true;
+}
+function m5CdBtn(on, fn, txt) { return '<button type="button" class="' + (on ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="' + fn + '">' + esc(txt) + '</button>'; }
+function m5CdSync() {
+  for (const k of ['KhoangLo', 'Lo']) {
+    const el = $('f_' + k), cp = $('c_' + k), bx = $('m5k_' + k), nt = $('n_' + k); if (!el || !cp || !bx || !nt) continue;
+    const v = readForm(), lb = el.parentNode.querySelector('label');
+    if (lb && lb.dataset.l0 == null) lb.dataset.l0 = lb.textContent;
+    if (cur !== '5' || isNM5(v) || curShape() === 'nhatminh') { bx.hidden = cp.hidden = nt.hidden = true; el.hidden = false; if (lb) lb.textContent = lb.dataset.l0; continue; }
+    const want = k === 'KhoangLo' ? !!M5CD.kl : !!M5CD.lo, use = want && (k === 'KhoangLo' ? m5CdOn(v) : m5LoCdOn(v));
+    const p = k === 'KhoangLo' && use ? m5CdParse(v) : null, R = !!p && p.side === 'R';
+    bx.hidden = false;
+    bx.innerHTML = m5CdBtn(use, "m5FormKieu('" + k + "',true)", 'Cộng dồn') + m5CdBtn(!use, "m5FormKieu('" + k + "',false)", 'Cũ')
+      + (p ? m5CdBtn(!R, "m5FormSide('L')", '⇤ Từ trái') + m5CdBtn(R, "m5FormSide('R')", 'Từ phải ⇥') : '');
+    const swap = el.hidden !== use; el.hidden = use; cp.hidden = !use;
+    if (use) {
+      if (document.activeElement !== cp || swap) { cp.value = m5CdTxt(k, v); cp.dataset.perr = ''; }
+      if (cp.dataset.perr !== '1') {
+        cp.classList.toggle('bad', el.classList.contains('bad'));
+        nt.innerHTML = (k === 'KhoangLo' ? 'Từ góc ' + (R ? 'PHẢI' : 'TRÁI') + ' tới từng đường lỗ, cộng dồn DỌC đáy (qua dốc, bậc) · tổng đáy ≈ ' + Math.round(m5DayTot(v.Day)) + ' · ' : 'Mỗi đường lỗ: lỗ cách đáy 80/180 (V = đo thẳng đứng) · ') + 'CSV xuất: <b>' + esc(String(el.value || '').trim() || '–') + '</b>';
+      }
+      if (lb) lb.textContent = k === 'KhoangLo' ? 'Khoảng lỗ – số cộng dồn như phiếu (vd 400/1305/2240)' : 'Lỗ – cách đáy cộng dồn (vd 80/180, đường sau cách dấu -)';
+    } else {
+      cp.classList.remove('bad'); cp.dataset.perr = '';
+      nt.innerHTML = want && String(el.value || '').trim() !== '' ? 'Ô đang có ký hiệu kiểu cũ (?, @, @P, số tới đầu phải…) – bấm «Cộng dồn» để đổi' : '';
+      if (lb) lb.textContent = lb.dataset.l0;
+    }
+    nt.hidden = nt.innerHTML === '';
+    if (swap && document.activeElement === (use ? el : cp)) { const n = use ? cp : el; n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} }
+  }
+}
+function m5FormKieu(k, on) {
+  if (k === 'KhoangLo') { m5KlKieu(on); toast(on ? 'Khoảng lỗ: gõ số CỘNG DỒN như phiếu (400/1305/2240)' : 'Khoảng lỗ: kiểu cũ (@D400-905-935)'); }
+  else m5LoKieu(on);
+  live(); if (qMark()) q5Repick(QSEL);
+}
+function m5FormSide(side) { m5KlSide(side); live(); toast('Số cộng dồn đo từ góc ' + (side === 'R' ? 'PHẢI' : 'TRÁI')); }
 function q5LoV(on) {
   const m = qMark(), el = $('f_Lo'); if (!m || !el) return;
   const g = grpToks(el.value); while (g.length <= m.t) g.push([]);
@@ -9910,7 +10024,8 @@ const KBF = { on: false, el: null, scroll: 0 };
 const CUTCAP = { '/': 'nối', '@': 'lỗ', L: 'trái', G: 'trên', D: 'dưới', K: 'khoét' };
 // phim phu theo kieu o (khop RX trong form_logic.js: moi ky tu hop le deu co phim)
 function keysFor(el) {
-  const k = el.id.replace('f_', ''), f = MODES[cur].fields.find(x => x.k === k) || {};
+  const k = el.id.replace(/^[fc]_/, ''), f = MODES[cur].fields.find(x => x.k === k) || {};
+  if (el.id === 'c_KhoangLo') return ['/', '.'];      // T292: cong don 400/1305/2240
   if (k === 'TG_LoThem') return ['T', 'X', 'H', '/', '@', '-', '.'];
   if (k === 'Lo') return cur === '5' && /^G\d/i.test(String((readForm() || {}).DauTrai || '').trim()) ? ['-', '/', '.', 'A', 'V'] : ['-', '/', '.', 'V'];                         // Mode 5: V = do doc; T229: A = do doc truc (tam Nhat Minh)
   if (k === 'HoleGroups' && cur === '1') return ['-', '/', 'T', '@', '.'];  // T48: T30 = lo tren cach mep tren
@@ -9937,7 +10052,7 @@ function keysFor(el) {
   }
 }
 function formFocus() { const a = document.activeElement; return a && a.tagName === 'INPUT' && a.closest && a.closest('#form') ? a : null; }
-function navInputs() { return [...$('form').querySelectorAll('input')].filter(x => !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); }      // T207: bo o bi an (C o the phan mo rong)
+function navInputs() { return [...$('form').querySelectorAll('input')].filter(x => !x.hidden && !x.closest('details:not([open])') && x.parentNode.style.display !== 'none'); }      // T292: bo o goc f_ dang an (kieu cong don)      // T207: bo o bi an (C o the phan mo rong)
 function clearFcur() { document.querySelectorAll('#form .fcur,#form .hasf').forEach(x => x.classList.remove('fcur', 'hasf')); }
 function setFcur(el) {
   clearFcur();
@@ -11173,7 +11288,7 @@ function highlightField(fieldKey) {
 function setupFieldListeners() {
   const allInputs = document.querySelectorAll('#form input, #form select');
   allInputs.forEach(input => {
-    const fieldKey = input.id.replace('f_', '');
+    const fieldKey = input.id.replace(/^[fc]_/, '');      // T292: o cong don c_ = cung o
     input.addEventListener('focus', () => {
       QFOC = fieldKey;      // T42
       if (pvLv() === 'chinh') PVREV = { f: fieldKey };      // T32: bam o lo -> hien dim lo (T02)
@@ -13642,7 +13757,7 @@ async function ksMake(kind) {
 </script>
 <script>
 /* T285: CUA LUA 5 TAM (lenh CLU lisp) - giao dien giai doan 1. Tinh toan: cuaCalc (form_logic.js), y het Lispcua/lua5tbaotuong.lsp. */
-var CUAKEY = 'ctkinh_cua_v1', CUAS = { on: false, nep: 'U', v: {}, z: 1, sz: 'm', min: false }, CUA_F = ['R', 'C', 'CTT', 'kep', 'bt', 'bp', 'cn'], CUA_T = ['kh', 'kt', 'lk'], CUA_MAU = { R: 3525, C: 3105, CTT: 2550 }, CUA_R = null, CUA_INIT = false;
+var CUAKEY = 'ctkinh_cua_v1', CUAS = { on: false, nep: 'U', v: {}, z: 1, sz: 'm', min: false }, CUA_F = ['R', 'C', 'CTT', 'bt', 'bp', 'kep', 'cn', 'cn2'], CUA_T = ['kh', 'kt', 'lk'], CUA_MAU = { R: 3525, C: 3105, CTT: 2550 }, CUA_R = null, CUA_INIT = false;
 try { var _cs = JSON.parse(localStorage.getItem(CUAKEY) || 'null'); if (_cs && typeof _cs === 'object') { CUAS.on = !!_cs.on; CUAS.nep = _cs.nep === 'S' ? 'S' : 'U'; CUAS.v = _cs.v || {}; CUAS.sz = /^[sml]$/.test(_cs.sz) ? _cs.sz : 'm'; CUAS.min = !!_cs.min; } } catch (e) {}
 // T290: chong giat khi go - o nhap chi hen gio (150 ms) roi ve 1 lan trong requestAnimationFrame; ket qua tinh / bang / hinh chi dung lai khi doi; luu localStorage gom 400 ms
 var CUA_TM = 0, CUA_RF = 0, CUA_ST = 0, CUA_K = '', CUA_TBK = '', CUA_SVGH = '', CUA_BH = { w: 0, h: 0 }, CUA_DRF = 0, CUA_HID = 0;
@@ -13746,15 +13861,21 @@ function cuaInput() {
   if (CUA_TM) { clearTimeout(CUA_TM); CUA_TM = 0; }
   var v = { ray: cuaEl('cu_ray').value, pk: cuaEl('cu_pk').value, dimlo: cuaEl('cu_dimlo').checked, dimkt: cuaEl('cu_dimkt').checked, dimhl: cuaEl('cu_dimhl').checked };
   CUA_F.forEach(function (k) { v[k] = k === 'cn' ? String(cuaEl('cu_cn').value || '').trim().replace(/\s+/g, ' ') : String(cuaEl('cu_' + k).value || '').replace(/\s+/g, '').replace(',', '.'); });      // T287: cn = danh sach (cach / phay / ; ngan cach)
+  var dc0 = (parseFloat(v.C) || CUA_MAU.C) - (parseFloat(v.CTT) || CUA_MAU.CTT) - (CUAS.nep === 'S' ? 5 : 8), cn2ok = dc0 >= 700 && v.cn2;      // T294: o chan nhen 2 chi tinh khi cao tam dinh >= 700 (nhu lisp CLU)
+  v.cnAll = v.cn || cn2ok ? (v.cn || '150') + (cn2ok ? ' ' + v.cn2 : '') : '';
   CUA_T.forEach(function (k) { v[k] = String(cuaEl('cu_' + k).value || '').trim(); });
   CUAS.v = v; cuaSave();
   Array.prototype.forEach.call(document.querySelectorAll('#cu_nep button'), function (b) { b.classList.toggle('act', b.getAttribute('data-v') === CUAS.nep); });
-  var mau = ['R', 'C', 'CTT'].filter(function (k) { return !v[k]; }), inp = { nep: CUAS.nep, ray: v.ray, pk: v.pk, bt: v.bt, bp: v.bp, kep: v.kep || 100, cn: v.cn };
+  var mau = ['R', 'C', 'CTT'].filter(function (k) { return !v[k]; }), inp = { nep: CUAS.nep, ray: v.ray, pk: v.pk, bt: v.bt, bp: v.bp, kep: v.kep || 100, cn: v.cnAll };
   ['R', 'C', 'CTT'].forEach(function (k) { inp[k] = v[k] || CUA_MAU[k]; });
   var key = JSON.stringify(inp) + '|' + mau.join('');
   if (key !== CUA_K || !CUA_R) { CUA_R = cuaCalc(inp); CUA_R.mau = mau.length > 0; CUA_K = key; }      // T290: so khong doi (vd chi doi dim / ten) -> khong tinh lai luoi lo
-  cuaEl('cu_cnW').hidden = !(CUA_R.ok && CUA_R.dc >= 300);
-  if (CUA_R.ok) cuaEl('cu_cn').placeholder = (CUA_R.cnDef.length ? CUA_R.cnDef : [150]).map(cuaFmt).join(' ');      // T287b: so goi y theo cao tam dinh
+  cuaEl('cu_cnW').hidden = !(CUA_R.ok && CUA_R.dc >= 300); cuaEl('cu_cn2W').hidden = !(CUA_R.ok && CUA_R.dc >= 700);
+  if (CUA_R.ok) {      // T294: goi y (mac dinh) y het lisp: 1 o <300..700 = 150; >=700: o1 = 150, o2 = max(270, dc-370 lam tron 5)
+    var cd = CUA_R.cnDef.length ? CUA_R.cnDef : [150];
+    cuaEl('cu_cn').placeholder = cuaFmt(cd[0]); cuaEl('cu_cn2').placeholder = cuaFmt(cd[1] == null ? 430 : cd[1]);
+    cuaEl('cu_cnL').textContent = CUA_R.dc >= 700 ? 'Chân nhện 1: tâm cách mép trên' : 'Chân nhện: tâm cách mép trên';
+  }
   var nt = CUA_R.mau ? 'Đang xem số mẫu (chữ mờ) – nhập ' + mau.map(function (k) { return { R: 'rộng', C: 'cao', CTT: 'thông thuỷ' }[k]; }).join(', ') + ' để tính cửa thật.' : '';
   if (cuaEl('cuaNote').textContent !== nt) cuaEl('cuaNote').textContent = nt;
   if (CUA_TBK !== key) { cuaTable(CUA_R); CUA_TBK = key; }
@@ -13787,7 +13908,7 @@ function cuaTable(r) {
   ln.push('Hàng lỗ φ' + r.phi + ': cách đáy ray ' + r.khoan + (r.ray === 'HS' ? ' và ' + (r.khoan - 78) + ' (2 hàng, cách nhau 78)' : '') + ' · tổng <b>' + r.nLo + ' lỗ</b>.');
   ln.push('Kẹp cánh: tâm cách mép cánh ' + F(r.kep) + '.');
   if (r.pk) ln.push('Phụ kiện: ' + esc(CUA_PK[r.pk]) + ' (góc dưới phải cánh).');
-  if (r.chanNhen) ln.push('Chân nhện (' + r.cns.length + ' hàng' + (r.cnTay ? ', anh nhập' : ', gợi ý theo cao tấm đỉnh: <300 không, 300–699 một hàng, ≥700 hai hàng') + (r.cns.length > 1 ? ' – lisp CLU hiện chỉ 1 hàng' : '') + '): tâm cách mép trên tấm đỉnh ' + r.cns.map(F).join(' · ') + '; mỗi hàng 4 lỗ φ18, lưới 71×70, lỗ ngoài cách mép vách 34.');
+  if (r.chanNhen) ln.push('Chân nhện (' + r.cns.length + ' hàng' + (r.cnTay ? ', anh nhập' : ', mặc định như lisp CLU: <300 không, 300–699 một chân, ≥700 hai chân') + '): tâm cách mép trên tấm đỉnh ' + r.cns.map(F).join(' · ') + '; mỗi hàng 4 lỗ φ18, lưới 71×70, lỗ ngoài cách mép vách 34.');
   else ln.push('<small>Tấm đỉnh cao ' + F(r.dc) + ' &lt; 300: không có chân nhện.</small>');
   h += '<div>' + ln.join('<br>') + '</div>' + cuaDetail(r);
   cuaEl('cuaTb').innerHTML = h;
@@ -14483,7 +14604,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261030102240';
+var CTK_BUILD = '20261030143424';
 (function () {
   function chk() {
     try {
