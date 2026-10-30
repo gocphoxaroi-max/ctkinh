@@ -151,7 +151,7 @@ input[hidden]{display:none}
   #dpPv.rail-open .dtool{transform:none;visibility:visible;pointer-events:auto;transition:transform .2s ease,visibility 0s}
   .drailh{display:flex;align-items:center;justify-content:center;position:absolute;right:0;top:50%;margin-top:-42px;width:36px;height:84px;padding:0;font-size:24px;line-height:1;border:1px solid #b9c6d3;border-right:0;border-radius:10px 0 0 10px;background:rgba(238,242,246,.6);color:#1f4e79;opacity:.9;z-index:4;touch-action:manipulation;min-width:36px}
   .drailh:active{opacity:1}
-  #dpPv.rail-open .drailh{display:none}
+  #dpPv.rail-open .drailh{right:62px;background:rgba(238,242,246,.92)}      /* T299: tab luon co mat, mo roi thi dai o yen (khong tu thu); tab nam sat mep trai dai de bam dong */
   .drailchip{position:absolute;right:30px;top:6px;z-index:4;min-height:30px;padding:2px 10px;border-radius:15px;border:0;background:#d35400;color:#fff;font-size:13px;font-weight:bold;touch-action:manipulation}
   .drailchip:not([hidden]){display:block}
   #dpPv.rail-open .drailchip{display:none}
@@ -506,7 +506,7 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
           <button type="button" class="dmin" id="dminB" onclick="dockMin()" title="Thu gọn / mở khung xem trước" aria-label="Thu gọn / mở khung xem trước">▴</button>
           <button type="button" class="dmore" id="dmoreB" onclick="dockMenu()" title="Thêm: Hình ký hiệu, cỡ khung xem trước" aria-label="Thêm: hình ký hiệu, cỡ khung" aria-haspopup="menu">⋯</button>
         </div>
-        <div class="dpane" id="dpPv"><div class="pvbox"><svg id="pv" onclick="pvTap(event)"></svg><button type="button" class="drailh" id="drailH" title="Mở dải công cụ" aria-label="Mở dải công cụ" onclick="railOpen()">&#8249;</button><button type="button" class="drailchip" id="drailChip" hidden onclick="railChipOff()"></button><div class="pvnote" id="pvnote"></div></div><div class="dtool" id="dtool" role="toolbar" aria-label="Công cụ hình"><button type="button" class="dpin" id="dpinB" title="Ghim dải (luôn rõ)" onclick="railPin()"><i>&#128204;</i>Ghim</button><button type="button" class="dq on" id="dqB" title="Ghi số trên hình (bật / tắt)" onclick="toggleQ()"><i>✎</i>Ghi số</button><button type="button" class="ddim" id="ddimB" title="Dim: Chính / Đủ / Tắt (bấm để đổi)" onclick="toggleDim()"><i>↔</i><span id="ddimT">Chính</span></button><button type="button" class="dzoom" id="dzoomB" title="Xem toàn màn hình" onclick="openPreview()"><i>⤢</i>Phóng</button><button type="button" class="dsg" id="dsgB" title="Sửa góc: cắt / cộng / khoét (hiện nút + ở các góc)" onclick="toggleSg()"><i>✂</i>Sửa góc</button><button type="button" class="dgoc" id="dgocB" title="Chọn đỉnh tấm để đo góc (khách yêu cầu)" onclick="toggleGoc()"><i>∠</i>Đo góc</button><button type="button" class="dgp" id="dgpB" title="Góc phụ 90−α: hiện thêm góc giữa cạnh xiên và phương đứng (bật/tắt, xuất cả ra CAD)" onclick="toggleGocPhu()"><i>∟</i>Góc phụ</button><button type="button" class="dbo" id="dboB" title="Chạm đỉnh tấm rồi nhập bán kính R để bo góc" onclick="toggleBo()"><i>◜</i>Bo góc</button><button type="button" class="dcx" id="dcxB" title="Cắt góc X/Y kiểu lệnh CHA: chạm đỉnh rồi nhập X (dọc cạnh ngang) và Y (dọc cạnh đứng) – Y tự bằng X nếu không nhập" onclick="toggleCx()"><i>◢</i>Cắt góc X/Y</button><button type="button" class="dlt" id="dltB" title="Thêm lỗ ở điểm bất kỳ: chạm đỉnh làm mốc rồi nhập 2 số đo như thợ ghi" onclick="toggleLt()"><i>⊕</i>Lỗ tự do</button><button type="button" class="dgt" id="dgtB" title="Cộng thêm ở góc trên phía cạnh xiên TRÁI, đo DỌC cạnh xiên (vd thợ ghi +50). Tấm nghiêng trái: góc này nằm bên phải." onclick="sgOpen('TL','GT')"><i>⊿</i>+ Trên trái</button><button type="button" class="dvc" id="dvcB" title="Cắt góc dưới-trái VUÔNG GÓC cạnh xiên, ghi 1 số = độ dài đường cắt (kiểu thợ Hải, có dấu góc vuông). Chỉ tấm chuỗi đáy (Mode 1)." onclick="sgOpen('BL','V')"><i>◺</i>Cắt 1 số</button><button type="button" class="dcat" id="dcatB" title="Cắt đôi băng (Mode 1 chuỗi đáy / thẻ đo chéo Mode 3): chạm điểm cắt trên hình hoặc nhập số – vẫn 1 hình băng liền, đo/đếm lỗ thành 2 tấm" onclick="toggleCat()"><i>✂</i>Cắt đôi</button><button type="button" class="dlp" id="dlpB" hidden title="Lỗ phụ: lỗ lẻ ở góc tấm – bấm nút chọn mép, gõ số" onclick="lpOpen()"><i>◉</i>Lỗ phụ</button><button type="button" class="dtp" id="dtpB" hidden title="Cạnh trên riêng: cạnh trên có đoạn ngang / bậc" onclick="tpOpen()"><i>⌐</i>Cạnh trên</button></div></div>
+        <div class="dpane" id="dpPv"><div class="pvbox"><svg id="pv" onclick="pvTap(event)"></svg><button type="button" class="drailh" id="drailH" title="Mở dải công cụ" aria-label="Mở dải công cụ" onclick="railToggle()">&#8249;</button><button type="button" class="drailchip" id="drailChip" hidden onclick="railChipOff()"></button><div class="pvnote" id="pvnote"></div></div><div class="dtool" id="dtool" role="toolbar" aria-label="Công cụ hình"><button type="button" class="dpin" id="dpinB" title="Ghim dải (luôn rõ)" onclick="railPin()"><i>&#128204;</i>Ghim</button><button type="button" class="dq on" id="dqB" title="Ghi số trên hình (bật / tắt)" onclick="toggleQ()"><i>✎</i>Ghi số</button><button type="button" class="ddim" id="ddimB" title="Dim: Chính / Đủ / Tắt (bấm để đổi)" onclick="toggleDim()"><i>↔</i><span id="ddimT">Chính</span></button><button type="button" class="dzoom" id="dzoomB" title="Xem toàn màn hình" onclick="openPreview()"><i>⤢</i>Phóng</button><button type="button" class="dsg" id="dsgB" title="Sửa góc: cắt / cộng / khoét (hiện nút + ở các góc)" onclick="toggleSg()"><i>✂</i>Sửa góc</button><button type="button" class="dgoc" id="dgocB" title="Chọn đỉnh tấm để đo góc (khách yêu cầu)" onclick="toggleGoc()"><i>∠</i>Đo góc</button><button type="button" class="dgp" id="dgpB" title="Góc phụ 90−α: hiện thêm góc giữa cạnh xiên và phương đứng (bật/tắt, xuất cả ra CAD)" onclick="toggleGocPhu()"><i>∟</i>Góc phụ</button><button type="button" class="dbo" id="dboB" title="Chạm đỉnh tấm rồi nhập bán kính R để bo góc" onclick="toggleBo()"><i>◜</i>Bo góc</button><button type="button" class="dcx" id="dcxB" title="Cắt góc X/Y kiểu lệnh CHA: chạm đỉnh rồi nhập X (dọc cạnh ngang) và Y (dọc cạnh đứng) – Y tự bằng X nếu không nhập" onclick="toggleCx()"><i>◢</i>Cắt góc X/Y</button><button type="button" class="dlt" id="dltB" title="Thêm lỗ ở điểm bất kỳ: chạm đỉnh làm mốc rồi nhập 2 số đo như thợ ghi" onclick="toggleLt()"><i>⊕</i>Lỗ tự do</button><button type="button" class="dgt" id="dgtB" title="Cộng thêm ở góc trên phía cạnh xiên TRÁI, đo DỌC cạnh xiên (vd thợ ghi +50). Tấm nghiêng trái: góc này nằm bên phải." onclick="sgOpen('TL','GT')"><i>⊿</i>+ Trên trái</button><button type="button" class="dvc" id="dvcB" title="Cắt góc dưới-trái VUÔNG GÓC cạnh xiên, ghi 1 số = độ dài đường cắt (kiểu thợ Hải, có dấu góc vuông). Chỉ tấm chuỗi đáy (Mode 1)." onclick="sgOpen('BL','V')"><i>◺</i>Cắt 1 số</button><button type="button" class="dcat" id="dcatB" title="Cắt đôi băng (Mode 1 chuỗi đáy / thẻ đo chéo Mode 3): chạm điểm cắt trên hình hoặc nhập số – vẫn 1 hình băng liền, đo/đếm lỗ thành 2 tấm" onclick="toggleCat()"><i>✂</i>Cắt đôi</button><button type="button" class="dlp" id="dlpB" hidden title="Lỗ phụ: lỗ lẻ ở góc tấm – bấm nút chọn mép, gõ số" onclick="lpOpen()"><i>◉</i>Lỗ phụ</button><button type="button" class="dtp" id="dtpB" hidden title="Cạnh trên riêng: cạnh trên có đoạn ngang / bậc" onclick="tpOpen()"><i>⌐</i>Cạnh trên</button></div></div>
         <div class="qbar" id="qbar" hidden>
           <div class="qr"><span class="qlab" id="qlab"></span></div>
           <div class="qprog" id="qprog"></div>
@@ -3042,7 +3042,7 @@ const MODES = {
       F('H','Chiều cao H (mm)','num',{req:1,ex:'900'}), F('C','Nghiêng ngang bao nhiêu mm (hoặc G65 = góc với đáy, V36 = góc với cạnh đứng)','c1',{req:1,ex:'150',hint:NGHIENG_HINT}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('DTren','Lỗ hàng trên khoan φ (mm) – trống = bằng φ chung','num',{ex:'25'}), F('HoleGroups','Lỗ từng đường – cách đáy/khoảng 2 lỗ, các đường cách nhau bằng dấu - (T30 = lỗ trên cách mép trên; @18T30 = lỗ trên φ18 cách mép trên 30)','groups',{ex:'130/415-130/415'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}),
-      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B',ex:'875-200'}), F('HoleGroupsB','Mở rộng: lỗ từng đường','groups',{sec:'Mở rộng A+B',ex:'105/145'}),
+      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B',ex:'875-200'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (T30 = lỗ cách mép TRÊN)','groups',{sec:'Mở rộng A+B',ex:'105/145'}),
       F('EdgeQ1Q2','Mở rộng: cạnh Q1–Q2 (trống = dài bằng cạnh xiên)','num',{sec:'Mở rộng A+B',ex:'810'}),
       F('TG_CanhTren','TG: tổng cạnh trên','num',{sec:'Tấm TG (tam giác)',ex:'1220'}), F('TG_Phia','TG: phía tam giác','sel',{sec:'Tấm TG (tam giác)',opts:[['','—'],['P','Phải'],['T','Trái']]}),
       F('TG_Buoc','TG: bước đứng chân cạnh xiên','num0',{sec:'Tấm TG (tam giác)',ex:'0'}), F('TG_LoThem','TG: lỗ thêm','text',{sec:'Tấm TG (tam giác)',ex:'T960/118'}),
@@ -3063,7 +3063,7 @@ const MODES = {
       F('AKnownList','Các đoạn đáy ở giữa (có ? thì ghi thêm đoạn cuối tới góc phải)','list',{ex:'918-921'}), F('Total','Tổng đáy (? = app tự tính, chỉ 1 số được để ?)','num',{req:1,ex:'2447'}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'22'}), F('HoleHeights','Lỗ từng đường – lỗ đầu / khoảng tiếp','groups',{ex:'47/145-58/145'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}),
-      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B'}), F('HoleGroupsB','Mở rộng: lỗ từng đường','groups',{sec:'Mở rộng A+B'}),
+      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (T30 = lỗ cách mép TRÊN)','groups',{sec:'Mở rộng A+B'}),
       F('EdgeQ1Q2','Mở rộng: cạnh Q1–Q2 (trống = dài bằng cạnh xiên)','num',{sec:'Mở rộng A+B'}),
       F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '4': { name: 'Mode 4 – Hình thang 2 cụm lỗ', imgs: ['m4', 'cut'],
@@ -3081,7 +3081,7 @@ const MODES = {
       F('Day','Đáy: N700 + DL1500/1250 (dài dốc/ngang) + DX395x309 (ngang x chênh cao)…','day',{req:1,ex:'DL2218/1790+N965'}),
       F('DauTrai','Đầu trái: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}), F('DauPhai','Đầu phải: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'22'}), F('KhoangLo','Khoảng cách các đường lỗ: 110-932-920-?-200 (? = tự tính, @ = cách đầu trái, @P = đo từ đầu phải)','kl',{ex:'110-?-200'}),
-      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo dọc)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50 (@P25/100 = đo từ mép PHẢI; /T100 = từ mép TRÊN; /B980 = từ ĐÁY; mặc định từ trái, từ trên)','lophu',{ex:''}),
+      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo dọc; T30 = lỗ cách mép TRÊN, vd 80/T30)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50 (@P25/100 = đo từ mép PHẢI; /T100 = từ mép TRÊN; /B980 = từ ĐÁY; mặc định từ trái, từ trên)','lophu',{ex:''}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}), F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '6': { name: 'Mode 6 – CTKINH (tấm thường + tấm góc)', imgs: ['m6', 'm6goc'],
     cols: ['TenTam','H','A','C','D','Offset55','KhoanCheo1','KhoanCheo2','HuongNghieng','HuongDoLo','X','Y','GocHSub','GocCSub','GocALeft','GocOffset','GocKC1','GocKC2','GocKieu','SoLuong'],
@@ -4393,7 +4393,8 @@ function validate(mode, v, ctx) {
       case 'num0': ok = RX.num.test(x); msg = 'Nhập số'; break;
       case 'int': ok = RX.int.test(x) || (f.k === 'KiemSoLo' && x === '0'); msg = 'Số nguyên ≥ 1'; break;
       case 'list': ok = RX.list.test(x); msg = 'Dạng 1025-1025'; break;
-      case 'groups': if ((mode === '1' && f.k === 'HoleGroups') || (mode === '3' && f.k === 'HoleHeights')) { ok = RX.groupsT.test(x); msg = /T(\/|-|$)/i.test(x) ? 'Chưa nhập số lỗ trên (cách mép trên)' : 'Dạng 130/415-130/415 hoặc 73/T30'; }
+      case 'groups': if ((mode === '1' && (f.k === 'HoleGroups' || f.k === 'HoleGroupsB')) || (mode === '3' && (f.k === 'HoleHeights' || f.k === 'HoleGroupsB'))) { ok = RX.groupsT.test(x); msg = /T(\/|-|$)/i.test(x) ? 'Chưa nhập số lỗ trên (cách mép trên)' : 'Dạng 130/415-130/415 hoặc 73/T30'; }      // T297: HoleGroupsB cung co T..
+        else if (mode === '5' && f.k === 'Lo' && /T/i.test(x)) { ok = RX.groupsT.test(x.replace(/(^|-)\s*[VA](?=\d|@|T)/gi, '$1')); msg = /T(\/|-|$)/i.test(x) ? 'Chưa nhập số lỗ trên (cách mép trên)' : 'Dạng 80/100-V80/T30 (T = lỗ cách mép TRÊN)'; }      // T297
         else { ok = RX.groups.test(x); msg = 'Dạng 130/415-130/415'; } break;
       case 'c1': ok = RX.c1.test(x); msg = 'Số hoặc G65'; break;
       case 'day': ok = RX.day.test(x); msg = 'Dạng N700+DL1500/1250 (dài dốc/ngang) hoặc N700+DL1250x900 (ngang x chênh cao)'; break;
@@ -4539,8 +4540,9 @@ function checkSmart(mode, v, ctx, hasErr) {
   // Mode 6 thuong: geom6 bo lo khong dung duoc (lo roi ngoai tam) -> thieu lo so voi 4 lo (2 duong x 2 lo)
   if (mode === '6' && !String(v.GocHSub || '').trim() && c.soLo < 4 && !noHoleVals(mode, v)) red.push('Chỉ vẽ được ' + c.soLo + '/4 lỗ – có lỗ rơi ngoài tấm. Kiểm tra lại lỗ đầu (KhoanCheo1), bước lỗ (KhoanCheo2), H.');
   // lo: ngoai tam / cham mep (DO), qua sat mep (VANG), 2 lo qua sat / chong (DO / VANG)
+  if (S.tgWarn) S.tgWarn.forEach(w => red.push(w));      // T298: lo them TG khong dung duoc
   const hs = S.holes, nLoMsg = { r: [], y: [] };
-  const lab = (h, i) => 'Lỗ thứ ' + (i + 1) + (h.src === 'B' ? ' (phần mở rộng)' : h.src === 'L' ? ' (phần cộng trái)' : h.src === 'F' ? ' (lỗ tự do ' + (h.axis + 1) + ')' : '');
+  const lab = (h, i) => 'Lỗ thứ ' + (i + 1) + (h.src === 'B' ? ' (phần mở rộng)' : h.src === 'L' ? ' (phần cộng trái)' : h.src === 'TG' ? ' (lỗ thêm TG)' : h.src === 'F' ? ' (lỗ tự do ' + (h.axis + 1) + ')' : '');
   hs.forEach((h, i) => {
     const p = [h.x, h.y], d = h.d || f('D') || 18;
     let dm = Infinity; for (let k = 0; k < poly.length; k++) dm = Math.min(dm, ptSegDist(p, poly[k], poly[(k + 1) % poly.length]));
@@ -4675,9 +4677,10 @@ const groupsT = s => (s || '').split('-').map(g => g.split('/').map(x => x.trim(
   if (isTopTok(x)) { const t = parseFloat(x.replace(TOPRX, '')), ph = topPhiOf(x); if (t > 0) o.push(ph > 0 ? Object.assign(new Number(-t), { phi: ph }) : -t); } else if (!/^@/.test(x)) o.push(parseFloat(x.replace(/^V/i, ''))); return o; }, []));
 // T276: o rieng "φ lo hang tren" (DTren, khong la cot CSV) -> chen @φ vao moi so T chua co phi (khac φ chung). CSV + hinh dung CHUNG ham nay.
 function withDTren(v) {
-  const p = parseFloat(v && v.DTren), D = parseFloat(v && v.D), hg = String((v && v.HoleGroups) || '');
-  if (!(p > 0) || !(D > 0) || Math.abs(p - D) < 0.01 || !/T/i.test(hg)) return v;
-  const o = Object.assign({}, v); o.HoleGroups = hg.replace(/(^|[\/-])(\s*)(T\d)/gi, (m, a, b, c) => a + b + '@' + p + c); return o;
+  const p = parseFloat(v && v.DTren), D = parseFloat(v && v.D), hg = String((v && v.HoleGroups) || ''), hb = String((v && v.HoleGroupsB) || '');
+  if (!(p > 0) || !(D > 0) || Math.abs(p - D) < 0.01 || !(/T/i.test(hg) || /T/i.test(hb))) return v;
+  const o = Object.assign({}, v), fx = s => s.replace(/(^|[\/-])(\s*)(T\d)/gi, (m, a, b, c) => a + b + '@' + p + c);
+  o.HoleGroups = fx(hg); if (hb) o.HoleGroupsB = fx(hb); return o;      // T297: ca truc mo rong (HoleGroupsB)
 }
 // T48: diem XA NHAT tia (b, huong u) cat canh da giac poly (= diem truc lo ra khoi tam qua mep tren) - CTK-AxisTopPt
 function rayTop(b, u, poly) {
@@ -5579,7 +5582,7 @@ function diamDim(out, c, phi, st, src, u) {      // T233: u = huong chu (vector 
 //   TG_Phia P = tam giac ben phai (dau dung ben trai) / T = ben trai. Nghieng trai (Huong T): lisp dao chuoi
 //   AList + HoleGroups (CTK-RevTokStr, nA-1 nhom) roi ve, lat guong o geom(). TG_LoThem do tu DAU DUNG: giu.
 function geomTG(v, flip) {
-  const out = { verts: [], holes: [], axes: [], dims: [] }, nm = (n, p) => ({ n, p });
+  const out = { verts: [], holes: [], axes: [], dims: [], warn: [] }, nm = (n, p) => ({ n, p });
   let a = lNums(v.AList); const nA = a.length;
   let gr = String(v.HoleGroups || '').trim() === '' ? [] : String(v.HoleGroups).trim().split('-').map(tGroup);      // T57: co so T
   if (flip && nA) {
@@ -5598,6 +5601,8 @@ function geomTG(v, flip) {
   G.forEach((p, i) => { const q = out.verts[out.verts.length - 1]; if (!q || V2.dist(q.p, p) > 0.01) out.verts.push(nm('G' + i, p)); });
   if (out.verts.length > 1 && V2.dist(out.verts[0].p, out.verts[out.verts.length - 1].p) <= 0.01) out.verts.pop();
   const uS = V2.u(sA, sB), vx = dd => sideT ? bot - dd : dd, dims = out.dims;
+  // T298: canh xien la bien DUOI (canh tren dai hon day: tam giac nho ra NGOAI day) -> lo X/H di LEN tu canh xien; nguoc lai (canh tren ngan hon day) di XUONG
+  const slDir = topLen >= bot ? 1 : -1, sx0 = Math.min(sA[0], sB[0]), sx1 = Math.max(sA[0], sB[0]);
   let nMain = 0; const extraD = [], tgDiam = [];
   // duong lo dung tu canh day (AList / HoleGroups)
   let x = 0;
@@ -5635,11 +5640,12 @@ function geomTG(v, flip) {
       // T64: H<s>/<lo1>/<kc>..[@phi] = (T70) chan truc tren CANH XIEN cach CHAN canh huyen (dau thap) s, do DOC canh xien;
       //   lo DUNG len tu chan truc: lo 1 cach chan lo1 (do dung), cac lo sau cach nhau kc (mau Mautamgiac S7-3 / TG-5)
       const Ls = V2.dist(sA, sB);
-      if (Ls > 1e-6 && dd >= 0 && dd < Ls) {          // T74: cho H0 (truc qua dung chan canh huyen)
+      if (!(Ls > 1e-6 && dd >= 0 && dd < Ls)) out.warn.push('Lỗ thêm TG "' + t0.trim() + '": chân trục ' + dd + ' mm vượt chiều dài cạnh xiên (' + _r1(Ls) + ' mm) – không vẽ được, kiểm tra lại.');
+      else {          // T74: cho H0 (truc qua dung chan canh huyen)
         const E = V2.add(sA, V2.u(sA, sB), dd);       // T70: do tu CHAN canh huyen (sA)
         if (dd > 0.01) holeDimAdd(dims, sA, E, dd, 45, !sideT, 'TG_LoThem', 2);
         let prev = null;
-        ns.slice(1).forEach(k => { const h = [E[0], (prev || E)[1] + k]; holeDimAdd(dims, prev || E, h, k, 55, sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
+        ns.slice(1).forEach(k => { const h = [E[0], (prev || E)[1] + slDir * k]; holeDimAdd(dims, prev || E, h, k, 55, sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
         if (hs.length > 1) holeDimAdd(dims, E, prev, V2.dist(E, prev), 110, sideT, 'TG_LoThem', 2);
         if (hs.length) out.axes.push({ a: E, b: prev, src: 'TG' });
       }
@@ -5648,11 +5654,19 @@ function geomTG(v, flip) {
       hs.push(h); out.axes.push({ a: h, b: top, src: 'TG' });
       holeDimAdd(dims, h, top, dep, 55, !sideT, 'TG_LoThem', 2);
     } else {
-      const E = V2.inters(sA, sB, [xx, 0], [xx, H]);
+      // T298: truc DUNG tai xx lay theo canh THAT no cat: trong khoang canh xien -> lo 1 cach canh xien (vuong goc), di vao trong tam;
+      //   ngoai khoang canh xien nhung tren canh day -> chan truc tren DAY, lo 1 cach day (do dung, nhu HoleGroups); ngoai tam -> bao do, khong ve
+      const onS = sx1 - sx0 > 1e-6 && xx >= sx0 - 1e-6 && xx <= sx1 + 1e-6, onB = xx >= -1e-6 && xx <= bot + 1e-6;
+      const E = onS ? V2.inters(sA, sB, [xx, 0], [xx, H]) : null;
+      if (!onS && onB) {
+        const foot = [xx, 0]; let prev = null;
+        ns.slice(1).forEach(k => { const h = [xx, (prev || foot)[1] + k]; holeDimAdd(dims, prev || foot, h, k, prev ? 45 : 55, prev ? sideT : !sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
+        if (hs.length) out.axes.push({ a: foot, b: prev, src: 'TG' });
+      } else if (!E) out.warn.push('Lỗ thêm TG "' + t0.trim() + '": đường lỗ cách đầu đứng ' + dd + ' mm nằm NGOÀI tấm – không vẽ được, kiểm tra lại.');
       if (E) {
         let prev = null;
         ns.slice(1).forEach(k => {
-          const h = prev ? [xx, prev[1] + k] : [xx, E[1] + k / Math.max(1e-6, Math.abs(uS[0]))];
+          const h = prev ? [xx, prev[1] + slDir * k] : [xx, E[1] + slDir * k / Math.max(1e-6, Math.abs(uS[0]))];
           if (prev) holeDimAdd(dims, prev, h, k, 45, sideT, 'TG_LoThem', 2);
           else { const pa = V2.add(sA, uS, V2.dot(V2.sub(h, sA), uS)); holeDimAdd(dims, pa, h, k, 45, !sideT, 'TG_LoThem', 2); }
           hs.push(h); prev = h;
@@ -5840,7 +5854,10 @@ function geom5(v, m, rev) {
   const num5 = tk => atP(tk) ? lAtof(tk.slice(2)) : /^@/.test(tk) ? lAtof(tk.slice(1)) : lAtof(tk);
   const dirH = Math.abs(cL) <= 1e-9 ? [0, 1] : dL, dirHR = Math.abs(cR) <= 1e-9 ? [0, 1] : dR;
   const vflags = loStr !== '' ? loStr.split('-').map(gs => /^[VA]/.test(up(gs))) : [];      // T229: A105 = nhu V105
-  const groups5 = lGroups(loStr.replace(/[VvAa]/g, '')), nL = groups5.length;
+  // T297: cot Lo cung co lo TREN do tu mep tren (cu phap Mode 1: 73/T30, T30, @18T30, 73/T100/T30 - T CUOI = cach mep tren)
+  const loClean = loStr.replace(/[VvAa]/g, ''), hasT5 = /T/i.test(loClean), gT5 = hasT5 ? groupsT(loClean) : null;
+  const groups5 = hasT5 ? gT5.map(g => g.filter(k => !(k < 0) && k > 0)) : lGroups(loClean), nL = groups5.length;
+  const tops5 = hasT5 ? gT5.map(g => g.filter(k => k < 0).map(k => ({ k: -k, phi: k.phi || 0 })).reverse()) : [], tpD = [];
   const toks = klStr !== '' ? klStr.split('-').map(t => t.trim()) : [];
   const hasR = nL > 0 && toks.length > nL;
   let s = Array(nL).fill(null), q = null, i = 0, flagIdx = null, flagR = false;
@@ -5904,11 +5921,22 @@ function geom5(v, m, rev) {
       if (!prev && !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01) perpL.push({ a: E.a, b: E.b, v: k, h });
       hs.push(h); prev = h;
     });
-    lines5.push({ i: gi, hs, E: E.p, ea: E.a, eb: E.b, s: s[gi], X: X.p, pq: !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01 });      // T52: pq = lo dau do VUONG GOC canh duoi
+    const ths = [];
+    if (hasT5 && tops5[gi] && tops5[gi].length) {      // T297: lo tren - tu giao diem truc voi mep tren (X) lui xuong doc truc
+      let pv = X.p;
+      tops5[gi].forEach(e => {
+        pv = P(pv, dH, -e.k); const ph = e.phi > 0 ? e.phi : D; ths.push(pv);
+        out.holes.push({ x: pv[0], y: pv[1], d: ph, src: 'main', axis: gi });
+        if (Math.abs(ph - D) >= 0.01) { const hc = String(Math.floor(ph + 0.5)), q = tpD.find(z => z[0] === hc); if (q) q[1]++; else tpD.push([hc, 1]); }
+        else tops5.nTop = (tops5.nTop || 0) + 1;
+      });
+    }
+    if (!hs.length && ths.length) { lines5.top = (lines5.top || []).concat([{ i: gi, ths, E: E.p, ea: E.a, eb: E.b, X: X.p, hs }]); return; }
+    lines5.push({ ths, i: gi, hs, E: E.p, ea: E.a, eb: E.b, s: s[gi], X: X.p, pq: !vflags[gi] && Math.abs(V2.dot(eu, dH)) > 0.01 });      // T52: pq = lo dau do VUONG GOC canh duoi
   });
   // --- 13. lo phu "phi@[P]x/[T|B]y" (T224): x tu mep TRAI (mac dinh) hoac PHAI (P hoac dau -); y tu mep TREN (mac dinh = T) hoac DAY (B) ---
   //   (mep trai/phai theo huong tho nhin: Huong T lat guong -> P tinh tu dau doi dien truoc khi lat)
-  const lpDims = [], holeD = [];
+  const lpDims = [], holeD = tpD.slice();
   const lpOutline = [].concat(Bp, [TR], topMid.slice().reverse(), [TL]);
   if (lpStr !== '') lpStr.split(/-(?=\d+(?:\.\d+)?@)/).forEach((t0, li) => {
     const lp = t0.trim(), at = lp.indexOf('@');
@@ -6013,7 +6041,15 @@ function geom5(v, m, rev) {
   const holeDim = (a, b, perp, pr) => { const d = holeDimAdd(dims, a, b, V2.dist(a, b), perp, !!pr, 'Lo', 2); if (d && small && d.st === '012') { d.st = '010-ok'; d.text = fmtDim(d.val, '010-ok'); } return d; };
   const refMark = d => { if (d) { d.ref = 1; d.qs = 'calc'; } };      // T52: dim QUY DOI (tho khong ghi) -> kieu tham khao (xam)
   // --- 5. dim lo tren tung duong lo ---
-  let holeCnt = 0;
+  let holeCnt = tops5.nTop || 0;
+  // T297: dim lo tren (mep tren -> lo, roi tung khoang) - y het lisp c5pp / c5pr (khong qua leftHoleDims)
+  lines5.concat(lines5.top || []).forEach(L => {
+    if (!L.ths || !L.ths.length) return;
+    const slp = Math.abs(L.eb[0] - L.ea[0]) > 1e-6 && Math.abs((L.eb[1] - L.ea[1]) / (L.eb[0] - L.ea[0])) > 1e-3;
+    let pr = (c5bh || slp) && !c5nm ? clSide(L) : false, pp = c5bh ? 70 : 45;
+    if (c5bh && L.hs.length === 1) { if (bx2 - L.E[0] < 200) { pr = true; pp = (bx2 - L.E[0]) / 2; } else if (L.E[0] - bx1 < 200) { pr = false; pp = (L.E[0] - bx1) / 2; } }
+    L.ths.forEach((h, j) => { holeDim(j ? L.ths[j - 1] : L.X, h, pp, pr); });
+  });
   lines5.forEach(L => {
     holeCnt += L.hs.length;
     if (leftHoleDims) return;
@@ -7083,7 +7119,7 @@ function geom(mode, v) {
     if (mode === '1' && f('TG_CanhTren') > 0) {
       // T10: tam TG - chep CTK-DrawTGPanel (15-mode1-TG.lsp). Lisp bo qua CutP3 / mo rong A+B voi tam TG.
       const r = geomTG(v, flip);
-      S.verts = r.verts; S.holes = r.holes; S.axes = r.axes; S.dims = r.dims;
+      S.verts = r.verts; S.holes = r.holes; S.axes = r.axes; S.dims = r.dims; if (r.warn.length) S.tgWarn = r.warn;      // T298
       const ig = [(v.CutP3 || '').trim() && 'CutP3 (sửa góc)', (v.DistBaseList || '').trim() && 'mở rộng A+B'].filter(Boolean);
       if (ig.length) S.ignored.push(ig.join(', ') + ' (tấm TG)');
     } else if (mode === '1' || mode === '3') {
@@ -7128,12 +7164,16 @@ function geom(mode, v) {
       if (ext) {
         // mo rong A+B (DrawParallelPanel): extPerp = ep, mainDiag = u; MT -> ben trai (tu p1, nguoc ep)
         const ep = [u[1], -u[0]], sd = db.reduce((s, x) => s + x, 0), base = extL ? p1 : p2, sg = extL ? -1 : 1;
-        const nkh = (!extL && m.kw > 0) ? m.kh : 0, nkw = (!extL && m.kw > 0) ? m.kw : 0, zoneS = sd - nkw, grB = groups(v.HoleGroupsB);
+        const nkh = (!extL && m.kw > 0) ? m.kh : 0, nkw = (!extL && m.kw > 0) ? m.kw : 0, zoneS = sd - nkw, grB = groupsT(v.HoleGroupsB);      // T297: truc mo rong cung co lo tren T..
         let dc = 0, gi = 0;
         db.slice(0, -1).forEach((seg, i) => {
           dc += seg; let bp = V2.add(base, ep, sg * dc), hg;
           if (nkw > 0 && Math.abs(dc - zoneS) <= 0.5) hg = null; else hg = grB[gi++];
           if (nkw > 0 && dc > zoneS + 0.5) bp = V2.add(bp, u, nkh);
+          if (hg && hg.some(k => k < 0)) {      // T297: lo tren (T..) cua truc mo rong: tach khoi lo duoi, ve sau khi co mep tren that (pendT)
+            pendT.push({ base: bp, ts: hg.filter(k => k < 0).map(k => ({ k: -k, phi: k.phi || 0 })).reverse(), gi: i, src: 'B' });
+            hg = hg.filter(k => !(k < 0));
+          }
           if (hg && hg.length) {
             let pv = bp; const hp = []; hg.forEach(k => { pv = V2.add(pv, u, k); hp.push(pv); addHole(pv, 'B', i); });
             S.axes.push({ a: bp, b: pv, src: 'B' }); extAx.push({ base: bp, holes: hp });
@@ -7172,7 +7212,8 @@ function geom(mode, v) {
       pendT.forEach(t => {
         const top = rayTop(t.base, u, S.verts.map(q => q.p)); if (!top) return;
         let pv = top; const hp = [];
-        t.ts.forEach(e => { pv = V2.add(pv, u, -e.k); hp.push(pv); addHole(pv, 'main', t.gi, e.phi); });
+        t.ts.forEach(e => { pv = V2.add(pv, u, -e.k); hp.push(pv); addHole(pv, t.src || 'main', t.gi, e.phi); });
+        if (t.src === 'B') S.axes.push({ a: t.base, b: top, src: 'B' });      // T297
         topAx.push({ top, holes: hp });
       });
       {
@@ -9978,12 +10019,17 @@ function openPreview() { if (!$('dinfo').textContent) return; openPF(); }
 
 // ---------- T80: dai the cong cu tu an ----------
 let _railT = 0;
-function railOpen() {
+// T299: NGUYEN GOC "dung 1 lan roi an": (1) cham len HINH de dat diem (Sua goc / Bo goc / Lo tu do...) goi railClose -> dai thu ngay sau lan dung dau; (2) hen gio 6s tu thu. Nay: dai da mo thi O YEN den khi nguoi dung bam tab ‹/› (nho lai qua tai trang); hinh va hen gio khong dong dai nua.
+function railSet(on) {
   const p = $('dpPv'); if (!p) return;
-  p.classList.add('rail-open'); railTimer();
+  p.classList.toggle('rail-open', !!on);
+  const h = $('drailH'); if (h) { h.innerHTML = on ? '&#8250;' : '&#8249;'; h.title = on ? 'Thu dải công cụ' : 'Mở dải công cụ'; h.setAttribute('aria-label', h.title); h.setAttribute('aria-expanded', on ? 'true' : 'false'); }
+  try { localStorage.setItem('ctk_railopen', on ? '1' : '0'); } catch (e) {}
 }
-function railClose() { const p = $('dpPv'); if (p) p.classList.remove('rail-open'); clearTimeout(_railT); }
-function railTimer() { clearTimeout(_railT); _railT = setTimeout(railClose, 6000); }      // T282: 6 giay
+function railOpen() { railSet(true); }
+function railClose() { railSet(false); }
+function railToggle() { const p = $('dpPv'); railSet(!(p && p.classList.contains('rail-open'))); }
+function railTimer() { }      // T299: khong con tu thu
 function railPin() {
   const d = $('dtool'), on = !d.classList.contains('pinned');
   d.classList.toggle('pinned', on); $('dpinB').classList.toggle('on', on);
@@ -10006,10 +10052,9 @@ function updRailChip() {
   try { if (localStorage.getItem('ctk_railpin') === '1') { d.classList.add('pinned'); $('dpinB').classList.add('on'); } } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('button'); if (!b || b.id === 'dpinB') return;
-    setTimeout(updRailChip, 150); railTimer();      // T282: dung xong KHONG dong ngay - giu mo them vai giay de dung tiep, roi tu thu (tab luon con)
+    setTimeout(updRailChip, 150);      // T299: dung xong dai van mo
   });
-  d.addEventListener('pointerdown', railTimer);
-  if (pv) pv.addEventListener('pointerdown', railClose);
+  try { if (localStorage.getItem('ctk_railopen') === '1') railSet(true); } catch (e) {}
   // T282: chong ket o trang thai an: tab luon co mat; co hoat dong (cuon / chuot / doi the) -> dai hien nhanh
   const peek = () => { const p = $('dpPv'); if (!p) return; p.classList.add('rail-peek'); clearTimeout(peek.t); peek.t = setTimeout(() => p.classList.remove('rail-peek'), 1800); };
   window.addEventListener('scroll', peek, { passive: true }); document.addEventListener('pointermove', ev => { if (ev.pointerType === 'mouse') peek(); }, { passive: true });
@@ -14604,7 +14649,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261030143424';
+var CTK_BUILD = '20261030173603';
 (function () {
   function chk() {
     try {
