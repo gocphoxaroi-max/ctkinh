@@ -3376,10 +3376,124 @@ function q5n(v) {
   v = v || {}; const kl = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), lo = String(v.Lo == null ? '' : v.Lo).trim();
   if (isNM5(v)) return Math.max(grpToks(lo).length, kl === '' ? 0 : kl.split('-').length, 1);      // T229: tam Nhat Minh - moi khoang = 1 duong lo (khong co so toi dau phai)
   if (kl === '' && lo === '') return grpToks(m5Mau(v).Lo).length;      // T236: theo dang tam
+  if (m5CdOn(v)) return Math.max(grpToks(lo).length, kl === '' ? 0 : kl.split('-').length, 1);      // T291: kieu cong don - moi so = 1 duong lo (khong co so toi dau phai)
   return Math.max(grpToks(lo).length, kl === '' ? 0 : kl.split('-').length - 1, 1);
+}
+// ---- T291: Mode 5 nhap LO KHOAN "CONG DON NHU PHIEU" (lop giao dien - CSV giu ky hieu cu, lisp KHONG doi)
+//   KhoangLo: moi duong lo 1 so = khoang cach tu goc TRAI (hoac PHAI) DOC THEO DAY (di qua doan doc, bac) toi chan duong lo.
+//     -> CSV "@D400-905-935" (tu trai; so dau tran "400-..." khi dau trai dung + doan dau ngang = cung nghia) / "@PD<xa nhat>-khoang-khoang" (tu phai).
+//     Thieu so truoc / khoang am -> so tuyet doi "@D1305" / "@PD..." (geom5 + lisp 16 deu doc @D/@PD o moi vi tri).
+//   Lo: moi lo 1 so cach DAY (cong don): 80, 180 -> "80/100". Tien to V giu nguyen.
+//   Kieu cu ("khoang giua lo", co "?", "@", "@P", so toi dau phai) van nguyen: chuoi khong doc duoc kieu moi -> o nhap kieu cu.
+let M5CD = { kl: true, lo: true, side: 'L' };      // form_ui nap / ghi localStorage (m5SetCd)
+function m5SetCd(o) { Object.assign(M5CD, o || {}); }
+function m5Num(x) { return /^\d+(\.\d+)?$/.test(String(x == null ? '' : x).trim()); }
+function m5Fmt(x) { return String(Math.round(x * 1000) / 1000); }
+// cac doan day theo ban ve CUOI (trai -> phai): {k: 'N' | 'D', w: ngang, h: chenh, L: dai doc duong di}
+function m5DaySegs(day) {
+  const s = String(day == null ? '' : day).trim() || 'N1000';
+  return s.split('+').map(t => t.trim().toUpperCase()).filter(t => t !== '').map(tk => {
+    if (/^D[LX]/.test(tk)) { const g = m5Seg(tk); return { k: 'D', w: g[0], h: g[1], L: Math.hypot(g[0], g[1]) }; }
+    const a = lAtof(/^N/.test(tk) ? tk.slice(1) : tk); return { k: 'N', w: a, h: 0, L: Math.abs(a) };
+  });
+}
+function m5DayTot(day) { return m5DaySegs(day).reduce((s, x) => s + x.L, 0); }
+// so dau TRAN (kieu cu: vuong goc dau trai) = dung so doc day khi dau trai thang dung + doan day dau la doan NGANG + so nam tren doan do
+function m5PlainOK(v, c0) {
+  const e = String(v.DauTrai == null ? '' : v.DauTrai).trim().toUpperCase(), sg = m5DaySegs(v.Day)[0];
+  return (e === '' || e === '0' || e === 'V') && !!sg && sg.k === 'N' && c0 >= 0 && c0 <= sg.L + 1e-9;
+}
+// KhoangLo -> {side: 'L' | 'R', c: [so cong don ('' = chua co)]} hoac null (chuoi kieu cu, khong doc duoc kieu moi)
+function m5CdParse(v) {
+  v = v || {}; if (isNM5(v)) return null;
+  const kl = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), sd = M5CD.side === 'R' ? 'R' : 'L';
+  if (kl === '') return { side: sd, c: [] };
+  const t = kl.split('-').map(x => x.trim()), G = grpToks(v.Lo).length;
+  if (G > 0 && t.length > G && t.slice(G).some(y => y !== '')) return null;      // co so toi dau phai (kieu cu)
+  let side = null; const c = [];
+  for (let i = 0; i < t.length; i++) {
+    const x = t[i]; let m;
+    if (x === '') { c.push(''); continue; }
+    if ((m = /^@D(\d+(?:\.\d+)?)$/i.exec(x))) { if (side === 'R') return null; side = 'L'; c.push(m5Fmt(+m[1])); continue; }
+    if ((m = /^@PD(\d+(?:\.\d+)?)$/i.exec(x))) { if (side === 'L') return null; side = 'R'; c.push(m5Fmt(+m[1])); continue; }
+    if (!m5Num(x)) return null;
+    if (i === 0) { if (!m5PlainOK(v, +x)) return null; side = 'L'; c.push(m5Fmt(+x)); continue; }
+    const p = c[i - 1]; if (p === '' || side === null) return null;
+    c.push(m5Fmt(side === 'R' ? +p - +x : +p + +x));
+  }
+  return { side: side || sd, c };
+}
+function m5CdOn(v) { return !!M5CD.kl && m5CdParse(v) !== null; }
+// {side, c} -> chuoi KhoangLo (ky hieu CSV hien co)
+function m5CdStr(v, side, c) {
+  const t = c.map((x, i) => {
+    if (x === '' || x == null) return '';
+    const p = i > 0 ? c[i - 1] : '';
+    if (p !== '' && p != null) { const g = side === 'R' ? +p - +x : +x - +p; if (g >= 0) return m5Fmt(g); }
+    if (side !== 'R' && i === 0 && m5PlainOK(v, +x)) return m5Fmt(+x);
+    return (side === 'R' ? '@PD' : '@D') + m5Fmt(+x);
+  });
+  return t.every(x => x === '') ? '' : t.join('-');
+}
+// so cong don -> khoang tu goc TRAI doc day (null = chua co)
+function m5CdLeft(v, p) { const tot = m5DayTot(v.Day); return (p ? p.c : []).map(x => x === '' ? null : p.side === 'R' ? tot - +x : +x); }
+// doi kieu cu -> kieu moi theo HINH (vi tri that cua chan duong lo, geom5 s5) - giu dung toa do lo
+function m5CdFromGeo(v, side) {
+  let S; try { S = geom('5', v).shape; } catch (e) { return null; }
+  if (!S || !S.s5) return null;
+  const tot = S.tot5, r2 = x => Math.round(x * 100) / 100;
+  return m5CdStr(v, side, S.s5.map(s => s == null ? '' : m5Fmt(r2(side === 'R' ? tot - s : s))));
+}
+// so nhom Lo >= so trong KhoangLo (them nhom rong) - de chuoi kieu moi khong bi hieu la "so toi dau phai"
+function m5CdPadLo(v) {
+  const kl = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), n = kl === '' ? 0 : kl.split('-').length, g = grpToks(v.Lo);
+  if (g.length >= n) return String(v.Lo == null ? '' : v.Lo);
+  while (g.length < n) g.push([]);
+  return g.map(x => x.join('/')).join('-');
+}
+function m5CdKeep(v) { const p = M5CD.kl ? m5CdParse(v) : null; return p ? p.c.length : 0; }
+// Lo -> [{V, c: [so cach day cong don]}] hoac null (co ky hieu khac)
+function m5LoCdParse(v) {
+  v = v || {}; if (isNM5(v)) return null;
+  const out = [];
+  for (const grp of grpToks(v.Lo)) {
+    const c = []; let V = false;
+    for (let j = 0; j < grp.length; j++) {
+      let x = grp[j];
+      if (j === 0 && /^V/i.test(x)) { V = true; x = x.slice(1); }
+      if (x === '') { c.push(''); continue; }
+      if (!m5Num(x)) return null;
+      if (j === 0) c.push(m5Fmt(+x)); else { if (c[j - 1] === '') return null; c.push(m5Fmt(+c[j - 1] + +x)); }
+    }
+    out.push({ V, c });
+  }
+  return out;
+}
+function m5LoCdOn(v) { return !!M5CD.lo && m5LoCdParse(v) !== null; }
+function m5LoCdStr(gs, keep) {
+  const s = gs.map(x => {
+    const c = x.c.slice(); while (c.length && c[c.length - 1] === '') c.pop();
+    const t = c.map((y, j) => j === 0 ? (y === '' ? '' : (x.V ? 'V' : '') + y) : (y === '' || c[j - 1] === '' ? '' : m5Fmt(+y - +c[j - 1])));
+    return t.join('/');
+  });
+  while (s.length > keep && s[s.length - 1] === '') s.pop();
+  return s.join('-');
+}
+// doan day (ban ve cuoi) chua chan duong lo gi: {k: 'N' | 'D', ...} hoac null
+function m5FootSeg(v, gi) {
+  const segs = m5DaySegs(v.Day), p = m5CdParse(v);
+  let s = null;
+  if (p && p.c[gi] != null && p.c[gi] !== '') s = m5CdLeft(v, p)[gi];
+  else { try { const S = geom('5', v).shape; if (S && S.s5 && S.s5[gi] != null) s = S.s5[gi]; } catch (e) {} }
+  if (s === null || !segs.length) return null;
+  let acc = 0;
+  for (let k = 0; k < segs.length; k++) { if (s < acc + segs[k].L - 1e-6 || k === segs.length - 1) return segs[k]; acc += segs[k].L; }
+  return null;
 }
 function qGet(v, m) {
   if (m.nm) return nmGet(v, m);      // T229: o tam Nhat Minh - bo tien to P / G / @D / @PD / A / N (tho chi thay so)
+  if (m.cd) { const p = m5CdParse(v); return p && p.c[m.t] != null ? p.c[m.t] : ''; }      // T291
+  if (m.lcd) { const p = m5LoCdParse(v); return p && p[m.t] && p[m.t].c[m.s] != null ? p[m.t].c[m.s] : ''; }      // T291
   if (m.day) { const x = d5Parse(v.Day)[m.t]; return x ? (m.s ? x.b : x.a) : ''; }      // T75
   const s = String(v[m.k] == null ? '' : v[m.k]).trim();
   if (m.hh !== undefined) return (s.split('/')[m.hh] || '').trim();      // T234: cao dau trai / dau phai
@@ -3454,6 +3568,24 @@ function nmGhost(v, vd, gf, G) {
 function qSet(mode, v, m, val) {
   val = String(val == null ? '' : val).trim();
   if (m.nm) return nmSet(v, m, val);      // T229
+  if (m.cd) {      // T291: so cong don doc day -> KhoangLo ky hieu cu
+    if (val !== '' && !m5Num(val)) return null;
+    const p = m5CdParse(v) || { side: M5CD.side === 'R' ? 'R' : 'L', c: [] }, c = p.c.slice(), n = Math.max(q5n(v), m.t + 1);
+    while (c.length < n) c.push('');
+    c[m.t] = val === '' ? '' : m5Fmt(+val);
+    return m5CdStr(v, p.side, c);
+  }
+  if (m.lcd) {      // T291: lo cach day cong don -> "80/100"; lo dau tren doan DOC (nhom moi) mac dinh do thang dung V
+    if (val !== '' && !/^[Vv]?\d+(\.\d+)?$/.test(val)) return null;
+    const gs = (m5LoCdParse(v) || []).map(x => ({ V: x.V, c: x.c.slice() }));
+    while (gs.length <= m.t) gs.push({ V: false, c: [] });
+    const G0 = gs[m.t]; let vv = val;
+    if (/^V/i.test(vv)) { G0.V = true; vv = vv.slice(1); }
+    else if (m.s === 0 && vv !== '' && !G0.V && !G0.c.some(x => x !== '')) { const sg = m5FootSeg(v, m.t); if (sg && sg.k === 'D') G0.V = true; }
+    while (G0.c.length <= m.s) G0.c.push('');
+    G0.c[m.s] = vv === '' ? '' : m5Fmt(+vv);
+    return m5LoCdStr(gs, m5CdKeep(v));
+  }
   if (m.day) {      // T75: 1 so cua 1 doan day Mode 5
     const a = d5Toks(v); while (a.length <= m.t) a.push({ k: 'N', a: '', b: '' });
     if (m.s) a[m.t].b = val; else a[m.t].a = val;
@@ -3470,7 +3602,7 @@ function qSet(mode, v, m, val) {
   const g = grpToks(v[m.k]); while (g.length <= m.t) g.push([]);
   const p = g[m.t]; while (p.length <= m.s) p.push(''); p[m.s] = m.tt ? (topPhiOf(p[m.s]) > 0 ? '@' + topPhiOf(p[m.s]) : '') + 'T' + val : val;       // T48: o lo tren giu chu T (rong = 'T')
   while (p.length && p[p.length - 1] === '') p.pop();
-  while (g.length && !g[g.length - 1].length) g.pop();
+  { const keep = mode === '5' && m.k === 'Lo' ? m5CdKeep(v) : 0; while (g.length > keep && !g[g.length - 1].length) g.pop(); }      // T291: giu nhom rong cho duong lo kieu cong don
   return g.map(x => x.join('/')).join('-');
 }
 // them / bot duong lo: tra ve {o: gia tri moi} hoac null
@@ -3498,6 +3630,12 @@ function qLines(mode, v, add) {
       if (add) { kn.push(''); g.push([]); } else { if (n <= 1) return null; kn.pop(); g.pop(); }
       while (g.length && !g[g.length - 1].length) g.pop();
       return { KhoangLo: kn.length <= 1 && kn.every(x => x === '') ? '' : kn.join('-'), Lo: g.map(x => x.join('/')).join('-') };
+    }
+    if (m5CdOn(v)) {      // T291: kieu cong don - moi duong lo 1 so + 1 nhom lo (nhom rong giu cho)
+      const p = m5CdParse(v), c = p.c.slice(); while (c.length < n) c.push(''); while (g.length < n) g.push([]);
+      if (add) { c.push(''); g.push([]); } else { if (n <= 1) return null; c.pop(); g.pop(); }
+      const ks = m5CdStr(v, p.side, c), kc = ks === '' ? c.map(() => '').join('-') : ks;
+      return { KhoangLo: kc, Lo: g.map(x => x.join('/')).join('-') };
     }
     const kt = kl === '' ? Array(n + 1).fill('') : kl.split('-').map(x => x.trim());
     while (kt.length < n) kt.push('');
@@ -3817,7 +3955,21 @@ function qGhost(mode, shp, v) {
     }
     const n = q5n(v), kl = String(v.KhoangLo == null ? '' : v.KhoangLo).trim(), sk = String(G.KhoangLo || '110-?-200').split('-');
     let kt = kl === '' ? [] : kl.split('-').map(x => x.trim());
-    if (kt.length < n || kt.some(x => x === '' || x === '?')) {
+    const cdp = m5CdOn(v) ? m5CdParse(v) : null;
+    if (cdp) {      // T291: kieu cong don - so con thieu = chia deu giua 2 so da co (goc trai 0 .. tong day)
+      const c = cdp.c.slice(); while (c.length < n) c.push('');
+      if (c.some(x => x === '')) {
+        const tot = m5DayTot(vd.Day), lc = m5CdLeft(vd, { side: cdp.side, c }), out = lc.slice();
+        for (let i = 0; i < n; i++) {
+          if (lc[i] !== null) continue;
+          let ia = i - 1; while (ia >= 0 && lc[ia] === null) ia--;
+          let ib = i + 1; while (ib < n && lc[ib] === null) ib++;
+          const a = ia >= 0 ? lc[ia] : 0, b = ib < n ? lc[ib] : tot, ka = ia >= 0 ? ia : -1, kb = ib < n ? ib : n;
+          out[i] = Math.round(a + (b - a) * (i - ka) / (kb - ka));
+        }
+        vd.KhoangLo = m5CdStr(vd, cdp.side, out.map(x => m5Fmt(cdp.side === 'R' ? tot - x : x))); gf.KhoangLo = 1; ghost = true;
+      }
+    } else if (kt.length < n || kt.some(x => x === '' || x === '?')) {
       while (kt.length < n + 1) kt.push('');
       let hasQ = kt.indexOf('?') >= 0;
       kt = kt.map((x, i) => { if (x !== '') return x; if (i === 0) return sk[0] || '110'; if (i === kt.length - 1) return sk[sk.length - 1] || '200';
@@ -4048,6 +4200,10 @@ function qMarks0(mode, shp, v) {
       const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nr = [(b[1] - a[1]) / L, -(b[0] - a[0]) / L], up = x.k === 'DL' ? 'LÊN ↗' : 'XUỐNG ↘', yl = Math.min(a[1], b[1]);
       if (x.xc) {      // T221: nhap NGANG roi CHENH CAO (khong nhap dai doc)
         const xv = x.k === 'DL' ? b[0] : a[0];
+        if (String(x.b).trim() === '0') {      // T291: BAC DUNG (ngang 0) - chi hoi cao bac
+          add('Day', i, 0, 'num', nm + ': BẬC ĐỨNG ' + (x.k === 'DL' ? 'LÊN ↑' : 'XUỐNG ↓') + ' – cao bậc (đo đứng)', [xv, (a[1] + b[1]) / 2], [x.k === 'DL' ? 30 : -30, 0], { day: 1, sh: 'Đáy ' + (i + 1) + ' bậc', lg: nm + ' – bậc đứng: cao bậc', hl: [[xv, a[1]], [xv, b[1]]] });
+          return;
+        }
         add('Day', i, 1, 'num', nm + ': DỐC ' + up + ' – NGANG (đo ngang từ đầu dốc tới cuối dốc)', [md[0], yl], [0, 34], { day: 1, sh: 'Đáy ' + (i + 1) + ' ngang', lg: nm + ' – dốc ' + up + ': ngang', hl: [[a[0], yl], [b[0], yl]] });
         add('Day', i, 0, 'num', nm + ': DỐC ' + up + ' – CHÊNH CAO (đo đứng, đầu cao hơn đầu thấp bao nhiêu)', [xv, (a[1] + b[1]) / 2], [x.k === 'DL' ? 30 : -30, 0], { day: 1, sh: 'Đáy ' + (i + 1) + ' chênh cao', lg: nm + ' – dốc ' + up + ': chênh cao', hl: [[xv, a[1]], [xv, b[1]]] });
         return;
@@ -4061,15 +4217,29 @@ function qMarks0(mode, shp, v) {
     const HL = Array.from({ length: nL }, (_, gi) => (S.holes || []).filter(q => q.src === 'main' && q.axis === gi).map(q => [q.x, q.y]));
     const fx = HL.map((h, gi) => h.length ? h[0][0] : x0 + (x1 - x0) * (gi + 1) / (nL + 1));
     const ax = [x0].concat(fx, [x1]);
-    for (let gi = 0; gi <= nL; gi++) {
-      const mx = (ax[gi] + ax[gi + 1]) / 2, last = gi === nL;
-      const lab = gi === 0 ? 'Đầu trái → đường lỗ 1 (đo vuông góc đầu tấm)' : last ? 'Đường lỗ ' + nL + ' → đầu phải (vuông góc đầu tấm)' : 'Đường lỗ ' + gi + ' → ' + (gi + 1) + ' (đo dọc đáy)';
-      add('KhoangLo', gi, -1, 'num', lab, [mx, yAt(mx)], [0, 30], { sh: gi === 0 ? 'Đầu → lỗ 1' : last ? 'Lỗ ' + nL + ' → đầu' : 'Lỗ ' + gi + ' → ' + (gi + 1), lg: lab,
-        hl: [[ax[gi], yAt(ax[gi])], [ax[gi + 1], yAt(ax[gi + 1])]], mid5: gi > 0 && !last, soft: last && !hasQ });
-      if (last) break;
+    const CD = m5CdOn(v), cdR = CD && m5CdParse(v).side === 'R', LCD = m5LoCdOn(v);      // T291: kieu cong don nhu phieu
+    // T291: kieu cong don tu goc PHAI -> hoi tu duong lo GAN goc phai truoc (nhu tho doc phieu), so thu tu dem tu phai
+    const ord = CD ? Array.from({ length: nL + 1 }, (_, i) => cdR ? (i < nL ? nL - 1 - i : nL) : i) : Array.from({ length: nL + 1 }, (_, i) => i);
+    for (let oi = 0; oi <= nL; oi++) {
+      const gi = ord[oi], mx = (ax[gi] + ax[gi + 1]) / 2, last = gi === nL;
+      if (CD) {      // T291: moi duong lo 1 so = cach goc TRAI / PHAI doc theo day (dung so tho ghi)
+        if (last) break;
+        const f0 = [fx[gi], yAt(fx[gi])], nn = oi + 1, lab = 'Đường lỗ ' + nn + (cdR ? ' (đếm từ phải)' : '') + ' – cách góc ' + (cdR ? 'PHẢI' : 'TRÁI') + ' (số cộng dồn dọc đáy, đúng số trên phiếu)';
+        add('KhoangLo', gi, -1, 'num', lab, f0, [0, 30], { cd: 1, sh: 'Lỗ ' + nn + ' cách góc ' + (cdR ? 'P' : 'T'), lg: lab, hl: cdR ? [f0, C[nB]] : [C[0], f0] });
+      } else {
+        const lab = gi === 0 ? 'Đầu trái → đường lỗ 1 (đo vuông góc đầu tấm)' : last ? 'Đường lỗ ' + nL + ' → đầu phải (vuông góc đầu tấm)' : 'Đường lỗ ' + gi + ' → ' + (gi + 1) + ' (đo dọc đáy)';
+        add('KhoangLo', gi, -1, 'num', lab, [mx, yAt(mx)], [0, 30], { sh: gi === 0 ? 'Đầu → lỗ 1' : last ? 'Lỗ ' + nL + ' → đầu' : 'Lỗ ' + gi + ' → ' + (gi + 1), lg: lab,
+          hl: [[ax[gi], yAt(ax[gi])], [ax[gi + 1], yAt(ax[gi + 1])]], mid5: gi > 0 && !last, soft: last && !hasQ });
+        if (last) break;
+      }
       const h = HL[gi], ft = [fx[gi], yAt(fx[gi])], cnt = Math.max(2, (gr[gi] || []).length);
       for (let s = 0; s < cnt; s++) {
         const p0 = s ? (h[s - 1] || [ft[0], ft[1] + 60 * s]) : ft, p1 = h[s] || [ft[0], ft[1] + 60 * (s + 1)];
+        if (LCD) {      // T291: lo k cach DAY (cong don): 80, 180
+          const ln = CD ? oi + 1 : gi + 1, l3 = 'Đường lỗ ' + ln + ': lỗ ' + (s + 1) + ' cách đáy (cộng dồn, vd 80 rồi 180)';
+          add('Lo', gi, s, 'num', l3, mid(ft, p1), [16, 0], { lcd: 1, sh: 'Lỗ ' + ln + '.' + (s + 1) + ' cách đáy', lg: l3, hl: [ft, p1] });
+          continue;
+        }
         const l2 = 'Đường lỗ ' + (gi + 1) + (s ? ': khoảng lỗ ' + s + ' → ' + (s + 1) : ': lỗ đầu cách cạnh dưới (đo vuông góc cạnh)');
         add('Lo', gi, s, 'num', l2, mid(p0, p1), [16, 0], { sh: 'Lỗ ' + (gi + 1) + (s ? ' bước' : ' đầu'), lg: l2, hl: [p0, p1] });
       }
@@ -4336,6 +4506,16 @@ function checkSmart(mode, v, ctx, hasErr) {
   }
   if (mode === '5') {
     (v.Day || '').split('+').forEach(t => { const m = /^D([LX])(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/i.exec(t.trim()); if (m && +m[2] < +m[3]) red.push('Đoạn ' + t.trim().toUpperCase() + ': cạnh dốc ' + m[2] + ' ngắn hơn chiều cao ' + m[3] + ' – không thể.'); });
+    { const p = m5CdParse(v);      // T291: so cong don doc day: vuot tong day / 2 duong lo trung hoac nguoc chieu
+      if (p && p.c.some(x => x !== '')) {
+        const tot = m5DayTot(v.Day), lc = m5CdLeft(v, p), gc = p.side === 'R' ? 'PHẢI' : 'TRÁI';
+        p.c.forEach((x, i) => { if (x !== '' && +x > tot + 0.5) red.push('Đường lỗ ' + (i + 1) + ': ' + x + ' mm từ góc ' + gc + ' – vượt tổng chiều dài đáy (' + _r1(tot) + ' mm, đo dọc đáy).'); });
+        let pi = -1;
+        lc.forEach((x, i) => { if (x === null) return;
+          if (pi >= 0 && Math.abs(x - lc[pi]) <= 0.5) red.push('Đường lỗ ' + (pi + 1) + ' và ' + (i + 1) + ' trùng nhau (cùng ' + p.c[i] + ' mm từ góc ' + gc + ').');
+          else if (pi >= 0 && x < lc[pi]) yel.push('Đường lỗ ' + (pi + 1) + ' và ' + (i + 1) + ' ngược chiều (' + p.c[pi] + ' rồi ' + p.c[i] + ' từ góc ' + gc + ') – kiểm lại thứ tự số trên phiếu.');
+          pi = i; });
+      } }
   }
   const c = appCalc(mode, v);
   if (!c.ok) return { red, yel };
@@ -5684,6 +5864,7 @@ function geom5(v, m, rev) {
       s[nL - 1] = sR;
     }
   }
+  out.s5 = s.slice(); out.tot5 = tot;      // T291: chan duong lo do DOC DAY tu goc TRAI ban ve cuoi (truoc khi doi rev) - doi kieu nhap cong don
   if (rev) s = s.map(sv => sv !== null ? tot - sv : null);
   if (toks.length > nL + 1) out.warn.push('KhoangLo có ' + toks.length + ' số nhưng cột Lo chỉ có ' + nL + ' nhóm lỗ.');
   else if (toks.length && toks.length < nL) out.warn.push('Cột Lo có ' + nL + ' nhóm nhưng KhoangLo chỉ có ' + toks.length + ' số – các đường lỗ cuối không xác định được vị trí.');
@@ -7081,7 +7262,7 @@ function geom(mode, v) {
       }
       // T10: hinh bao + duong lo + lo phu chep dung CTK5-DrawPanel (16-mode5-tudo.lsp)
       const r = geom5(v, m, flip);
-      take(r); S.dims = r.dims || [];      // T08c: dim nhu ban ve CAD
+      take(r); S.dims = r.dims || []; S.s5 = r.s5; S.tot5 = r.tot5;      // T08c: dim nhu ban ve CAD; T291: s5
       if (r.warn.length) g.note = r.warn.join(' ');
     } else if (mode === '6') {
       // T08c: chep dung DrawGlassPanel / CTGOC-DrawUpper / CTGOC-DrawLower (hinh + lo + dim + net dut)
@@ -8160,6 +8341,7 @@ function qPut(m, val) {
   if (m.kind === 'corner' && nv !== null && val !== '') { const n = boVert(m, v), eb = $('f_BoGoc'); if (n && eb && boGet(eb.value, n)) eb.value = boSet(eb.value, n, '') || ''; }   // T38: 1 goc chi 1 kieu sua
   if (nv === null) return null;
   el.value = nv;
+  if (m.cd) { const lo = $('f_Lo'); if (lo) lo.value = m5CdPadLo(readForm()); }      // T291: du nhom Lo cho moi so cong don
   if (NOLO && val !== '' && noLoKeys(cur).indexOf(m.k) >= 0) setNoLo(false);      // T125: nhap so lo -> het che do "khong lo"
   if (m.kind === 'corner') { const d = el.closest('details'); if (d && nv) d.open = true; }
   if (cur === '3' && q3Can(m)) { const ak = m3UnQ(readForm(), m, qGet(v, m) === '?'), ea = $('f_AKnownList'); if (ak !== null && ea) ea.value = ak; }      // T143: bo "?" -> bo o doan cuoi
@@ -8454,9 +8636,10 @@ function q5Opts(m, v) {
   if (curShape() === 'nhatminh') return q5NmOpts(m, v);      // T229
   const DG = M5DANG[curShape()] || {};      // T236: dang tam -> chi hien nut can cho dang do
   if (m.day) {
-    const a = d5Toks(v), x = a[m.t] || { k: 'N' }, ks = [['N', 'Đoạn ngang'], ['DL', 'Dốc lên ↗'], ['DX', 'Dốc xuống ↘']].filter(k => !DG.kinds || DG.kinds.indexOf(k[0]) >= 0 || x.k === k[0]);
-    if (ks.length > 1) o += ks.map(k => q5Btn(x.k === k[0], "q5Kind('" + k[0] + "')", k[1])).join('');
-    if (x.k !== 'N') o += q5Btn(!!x.xc, 'q5Xc(true)', 'Ngang + chênh cao', 'qk') + q5Btn(!x.xc, 'q5Xc(false)', 'Dài dốc (kiểu cũ)');      // T221
+    const a = d5Toks(v), x = a[m.t] || { k: 'N' }, bac = x.k !== 'N' && !!x.xc && String(x.b).trim() === '0', kx = bac ? (x.k === 'DL' ? 'SL' : 'SX') : x.k;      // T291: bac dung = doc ngang 0
+    const ks = [['N', 'Ngang'], ['DL', 'Dốc lên ↗'], ['DX', 'Dốc xuống ↘'], ['SL', 'Bậc lên ↑'], ['SX', 'Bậc xuống ↓']].filter(k => !DG.kinds || DG.kinds.indexOf(k[0]) >= 0 || kx === k[0] || (DG.seg !== false && /^S/.test(k[0])));
+    if (ks.length > 1) o += ks.map(k => q5Btn(kx === k[0], "q5Kind('" + k[0] + "')", k[1])).join('');
+    if (x.k !== 'N' && !bac) o += q5Btn(!!x.xc, 'q5Xc(true)', 'Ngang + chênh cao', 'qk') + q5Btn(!x.xc, 'q5Xc(false)', 'Dài dốc (kiểu cũ)');      // T221
     if (DG.seg !== false || a.length > 1) o += q5Btn(false, 'q5Seg(true)', '+ Thêm đoạn đáy') + (a.length > 1 && m.t === a.length - 1 ? q5Btn(false, 'q5Seg(false)', '− Bớt đoạn này') : '');
     [['DauTrai', 0, 'Đầu trái'], ['DauPhai', a.length - 1, 'Đầu phải']].forEach(e => {
       if (m.t !== e[1]) return;
@@ -8471,13 +8654,21 @@ function q5Opts(m, v) {
     if (DG.h2 !== false || two) o += q5Btn(!two, 'q5H2(false)', 'Chỉ 1 số cao') + q5Btn(two, 'q5H2(true)', 'Hai đầu cao khác nhau', 'qk');
     if (DG.h2 !== false || two) o += q5Btn(/^\?\//.test(String(v.H || '').trim()), "q5HQ('L')", 'Đầu trái không ghi (tự tính)', 'qk') + q5Btn(/\/\?$/.test(String(v.H || '').trim()), "q5HQ('R')", 'Đầu phải không ghi (tự tính)', 'qk');
   }
-  if (m.k === 'KhoangLo') {      // T234: cach do - thay go @ / @P
-    const pv = String(qGet(v, m) || '').replace(/^\s+/, ''), an = /^@P/i.test(pv) ? 'P' : /^@/.test(pv) ? 'L' : '';
-    o += q5Btn(an === '', "q5Pre('')", m.t === 0 ? 'Đo từ đầu tấm' : 'Cách đường lỗ trước') + q5Btn(an === 'L', "q5Pre('@')", 'Đo từ mép TRÁI', 'qk') + q5Btn(an === 'P', "q5Pre('@P')", 'Đo từ mép PHẢI', 'qk');
+  if (m.k === 'KhoangLo') {      // T291: 2 kieu nhap khoang lo (cu / cong don nhu phieu)
+    o += q5Btn(!m.cd, 'q5CdMode(false)', 'Khoảng giữa lỗ (cũ)') + q5Btn(!!m.cd, 'q5CdMode(true)', 'Cộng dồn như phiếu (mới)', 'qk');
+    if (m.cd) { const R = (m5CdParse(v) || {}).side === 'R'; o += q5Btn(!R, "q5CdSide('L')", 'Từ góc TRÁI', 'qk') + q5Btn(R, "q5CdSide('R')", 'Từ góc PHẢI', 'qk'); }
+    else {      // T234: cach do - thay go @ / @P
+      const pv = String(qGet(v, m) || '').replace(/^\s+/, ''), an = /^@P/i.test(pv) ? 'P' : /^@/.test(pv) ? 'L' : '';
+      o += q5Btn(an === '', "q5Pre('')", m.t === 0 ? 'Đo từ đầu tấm' : 'Cách đường lỗ trước') + q5Btn(an === 'L', "q5Pre('@')", 'Đo từ mép TRÁI', 'qk') + q5Btn(an === 'P', "q5Pre('@P')", 'Đo từ mép PHẢI', 'qk');
+    }
   }
-  if (m.k === 'Lo' && m.s === 0) {
-    const vv = /^V/i.test(String(qGet(v, m) || '').trim());
-    o += q5Btn(!vv, "q5Pre('')", 'Đo vuông góc đáy') + q5Btn(vv, "q5Pre('V')", 'Đo thẳng đứng', 'qk');
+  if (m.k === 'Lo' && m.s === 0) o += q5Btn(!m.lcd, 'q5LoCdMode(false)', 'Lỗ: cách lỗ trước (cũ)') + q5Btn(!!m.lcd, 'q5LoCdMode(true)', 'Lỗ: cách đáy cộng dồn (mới)', 'qk');      // T291
+  if (m.k === 'Lo' && m.s === 0) {      // T291: kieu do lo dau theo KHUC day duoi duong lo: khuc ngang (dau dung) -> an nut; khuc doc -> hoi ro
+    const vv = /^V/i.test(String((grpToks(v.Lo)[m.t] || [])[0] || '').trim()), fs = m5FootSeg(v, m.t);
+    const endsV = ['DauTrai', 'DauPhai'].every(k => /^0?$/.test(String(v[k] || '').trim())) && !String(v.TruLo || '').trim();
+    if (fs && fs.k === 'N' && endsV && !vv) { /* khuc ngang: vuong goc = thang dung, khong can nut */ }
+    else if (fs && fs.k === 'D') o += q5Btn(vv, 'q5LoV(true)', 'Đo thẳng đứng (V)', 'qk') + q5Btn(!vv, 'q5LoV(false)', 'Đo vuông góc cạnh dốc');
+    else o += q5Btn(!vv, 'q5LoV(false)', 'Đo vuông góc đáy') + q5Btn(vv, 'q5LoV(true)', 'Đo thẳng đứng', 'qk');
   }
   if (m.k === 'D' || m.k === 'H') o += q5Btn(false, 'lpOpen()', '+ Lỗ phụ (lỗ lẻ góc)', 'qk') + (DG.tren !== false || String(v.Tren || '').trim() ? q5Btn(false, 'tpOpen()', 'Cạnh trên riêng') : '');
   if (m.k === 'H') o += q5Btn(false, 'm5DangOpen()', 'Đổi dạng tấm');      // T236
@@ -8534,6 +8725,9 @@ function q5Info(m, v) {
   if (curShape() === 'nhatminh') { const t = q5NmInfo(m, v); if (t) return t; }      // T229
   { const tp = (M5DANG[curShape()] || {}).tip, k = m.day ? 'Day' : m.k;      // T236: goi y theo dang tam o buoc dau moi nhom so
     if (tp && tp[k] && (k === 'H' || k === 'D' || (m.t === 0 && !m.s))) return tp[k]; }
+  if (m.cd) { const p = m5CdParse(v) || {}, tot = m5DayTot(v.Day); return 'Gõ ĐÚNG số thợ ghi dưới đáy: từ góc ' + (p.side === 'R' ? 'PHẢI' : 'TRÁI') + ' tới chân đường lỗ, cộng dồn DỌC đáy (qua cả dốc, bậc) – vd 400, 1305, 2240. Tổng đáy ≈ ' + Math.round(tot) + ' mm'; }      // T291
+  if (m.lcd) return 'Lỗ ' + (m.s + 1) + ' cách đáy bao nhiêu (số cộng dồn như phiếu: 80 rồi 180) – đo dọc đường lỗ';      // T291
+  if (m.day && (d5Toks(v)[m.t] || {}).xc && String((d5Toks(v)[m.t] || {}).b).trim() === '0') return 'Bậc đứng: gõ chiều cao bậc (đo đứng)';      // T291
   if (m.day && (d5Toks(v)[m.t] || {}).xc) return m.s ? 'Đo NGANG của đoạn dốc (từ đầu dốc tới cuối dốc)' : 'Đo CHÊNH CAO của đoạn dốc (đầu cao hơn đầu thấp bao nhiêu mm, đo đứng)';      // T221
   if (m.day) return m.s ? 'Đo NGANG từ đầu dốc tới cuối dốc (hình chiếu), không đo dọc dốc' : d5Toks(v)[m.t] && d5Toks(v)[m.t].k !== 'N' ? 'Đo DỌC theo cạnh dốc. Đoạn đi từ TRÁI sang PHẢI' : 'Đo ngang theo đáy. Đoạn đi từ TRÁI sang PHẢI';
   if (m.k === 'KhoangLo') return m.mid5 ? 'Để trống + bấm Tiếp = app tự tính (chỉ 1 khoảng)' : m.soft ? 'Không có số này thì để trống, bấm Tiếp' : 'Đo vuông góc với đầu tấm (gõ @P1765 = đo từ đầu PHẢI)';
@@ -8565,9 +8759,54 @@ function q5H2(two) {
 }
 function q5Q() { const i = $('qin'); i.value = '?'; qWrite('?'); i.focus({ preventScroll: true }); }
 function q5Repick(id) { QSEL = id; QACT = null; QCHN = []; DIRTY = true; live(); const i = QLAST.findIndex(x => x.id === id); if (i >= 0) qPick(i); }
+// ---------- T291: KHOANG LO / LO "CONG DON NHU PHIEU" - chon kieu (nho lua chon), doi qua lai KHONG mat so ----------
+let Q5CD_ORIG = null;      // {kl: chuoi kieu cu truoc khi doi, conv: chuoi da doi} - bam lai "cu" ma chua sua -> tra dung chuoi cu
+function m5CdLoad() { try { const g = k => localStorage.getItem(k); m5SetCd({ kl: g('ctkinh_m5_cd') !== '0', lo: g('ctkinh_m5_locd') !== '0', side: g('ctkinh_m5_cd_side') === 'R' ? 'R' : 'L' }); } catch (e) {} }
+m5CdLoad();
+function q5CdMode(on) {
+  try { localStorage.setItem('ctkinh_m5_cd', on ? '1' : '0'); } catch (e) {}
+  const m = qMark(), t = m && m.k === 'KhoangLo' ? m.t : 0, el = $('f_KhoangLo'); m5SetCd({ kl: !!on });
+  const v = readForm(), kl = String(v.KhoangLo || '').trim();
+  if (on && el && kl !== '' && !m5CdOn(v)) {      // chuoi kieu cu (?, @, @P, so toi dau phai) -> doi theo vi tri lo THAT tren hinh (toa do giu nguyen)
+    const nv = m5CdFromGeo(v, M5CD.side);
+    if (nv === null || nv === '') { m5SetCd({ kl: false }); toast('Tấm này chưa đổi được sang kiểu cộng dồn – giữ kiểu cũ'); }
+    else { Q5CD_ORIG = { kl, conv: nv }; el.value = nv; const lo = $('f_Lo'); if (lo) lo.value = m5CdPadLo(readForm()); }
+  } else if (!on && el && Q5CD_ORIG && kl === Q5CD_ORIG.conv) { el.value = Q5CD_ORIG.kl; Q5CD_ORIG = null; }
+  DIRTY = true; q5Repick('KhoangLo:' + t + ':-1');
+  toast(on ? 'Khoảng lỗ: gõ số CỘNG DỒN như phiếu (từ góc tới từng đường lỗ, đo dọc đáy)' : 'Khoảng lỗ: kiểu cũ (khoảng giữa các đường lỗ)');
+}
+function q5CdSide(side) {
+  try { localStorage.setItem('ctkinh_m5_cd_side', side); } catch (e) {}
+  m5SetCd({ side });
+  const m = qMark(), t = m ? m.t : 0, el = $('f_KhoangLo'), v = readForm(), p = m5CdParse(v);
+  if (el && p && p.side !== side) {
+    const tot = m5DayTot(v.Day), lc = m5CdLeft(v, p);
+    el.value = m5CdStr(v, side, lc.map(x => x === null ? '' : m5Fmt(side === 'R' ? tot - x : x)));
+  }
+  q5Repick('KhoangLo:' + t + ':-1'); toast('Số cộng dồn đo từ góc ' + (side === 'R' ? 'PHẢI' : 'TRÁI'));
+}
+function q5LoCdMode(on) {
+  try { localStorage.setItem('ctkinh_m5_locd', on ? '1' : '0'); } catch (e) {}
+  m5SetCd({ lo: !!on }); const m = qMark(), t = m && m.k === 'Lo' ? m.t : 0;
+  if (on && !m5LoCdOn(readForm())) toast('Ô Lỗ có ký hiệu khác – giữ kiểu cũ'); else toast(on ? 'Lỗ: gõ khoảng cách từ ĐÁY tới từng lỗ (80 rồi 180)' : 'Lỗ: lỗ đầu cách đáy, rồi khoảng cách lỗ trước');
+  q5Repick('Lo:' + t + ':0');
+}
+function q5LoV(on) {
+  const m = qMark(), el = $('f_Lo'); if (!m || !el) return;
+  const g = grpToks(el.value); while (g.length <= m.t) g.push([]);
+  if (!g[m.t].length) g[m.t].push('');
+  g[m.t][0] = (on ? 'V' : '') + String(g[m.t][0]).replace(/^V/i, '');
+  el.value = g.map(x => x.join('/')).join('-'); DIRTY = true; q5Repick(m.id);
+  toast(on ? 'Lỗ đo THẲNG ĐỨNG từ cạnh đáy' : 'Lỗ đo VUÔNG GÓC cạnh đáy');
+}
 function q5Kind(k) {
   const m = qMark(), el = $('f_Day'); if (!m || !m.day || !el) return;
   const a = d5Toks(readForm()); if (!a[m.t]) return;
+  if (k === 'SL' || k === 'SX') {      // T291: bac dung = doan doc ngang 0 (DL0x110 / DX0x110)
+    a[m.t].k = k === 'SL' ? 'DL' : 'DX'; a[m.t].xc = 1; a[m.t].b = '0'; if (a[m.t].a === '') a[m.t].a = '';
+    el.value = d5Str(a); q5Repick('Day:' + m.t + ':0'); return;
+  }
+  if (a[m.t].xc && String(a[m.t].b).trim() === '0') a[m.t].b = '';      // bac -> doc / ngang: bo ngang 0
   const was = a[m.t].k; a[m.t].k = k; if (k === 'N') { a[m.t].b = ''; a[m.t].xc = 0; } else if (was === 'N' || (a[m.t].a === '' && a[m.t].b === '')) a[m.t].xc = q5XcPref() ? 1 : 0;      // T221: doan doc moi theo kieu anh chon lan truoc
   el.value = d5Str(a); q5Repick('Day:' + m.t + ':' + (a[m.t].xc ? 1 : 0));
 }
@@ -14244,7 +14483,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261030082534';
+var CTK_BUILD = '20261030102240';
 (function () {
   function chk() {
     try {
