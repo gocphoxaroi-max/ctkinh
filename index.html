@@ -3039,10 +3039,10 @@ const MODES = {
   '1': { name: 'Mode 1 – Song song (bình hành)', imgs: ['m1', 'm1ext', 'cut'],
     cols: ['TenTam','AList','H','C','D','HoleGroups','CutP3','X','Y','DistBaseList','HoleGroupsB','EdgeQ1Q2','TG_CanhTren','TG_Phia','TG_Buoc','TG_LoThem','Huong','SoLuong'],
     fields: [F('TenTam','Tên tấm','text',{req:1,ex:'S1'}), F('AList','Các đoạn đáy – từ góc trái, từng đoạn tới đường lỗ (mm)','list',{req:1,ex:'1025-1025'}),
-      F('H','Chiều cao H (mm)','num',{req:1,ex:'900'}), F('C','Nghiêng ngang bao nhiêu mm (hoặc G65 = góc với đáy, V36 = góc với cạnh đứng)','c1',{req:1,ex:'150',hint:NGHIENG_HINT}),
-      F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('DTren','Lỗ hàng trên khoan φ (mm) – trống = bằng φ chung','num',{ex:'25'}), F('HoleGroups','Lỗ từng đường – cách đáy/khoảng 2 lỗ, các đường cách nhau bằng dấu - (T30 = lỗ trên cách mép trên; @18T30 = lỗ trên φ18 cách mép trên 30)','groups',{ex:'130/415-130/415'}),
+      F('H','Chiều cao H (mm)','num',{req:1,ex:'900'}), F('C','Nghiêng ngang bao nhiêu mm (hoặc gõ G65 = Góc đáy 65°, V36 = Góc đứng 36°)','c1',{req:1,ex:'150',hint:NGHIENG_HINT}),
+      F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'18'}), F('DTren','Lỗ hàng trên khoan φ (mm) – trống = bằng φ chung','num',{ex:'25'}), F('HoleGroups','Lỗ từng đường – cách đáy/khoảng 2 lỗ, các đường cách nhau bằng dấu - (nút Mép trên / gõ T30 = lỗ trên cách mép trên 30; @18T30 = lỗ trên φ18 cách mép trên 30)','groups',{ex:'130/415-130/415'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}),
-      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B',ex:'875-200'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (T30 = lỗ cách mép TRÊN)','groups',{sec:'Mở rộng A+B',ex:'105/145'}),
+      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B',ex:'875-200'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (Mép trên: T30 = lỗ cách mép TRÊN 30)','groups',{sec:'Mở rộng A+B',ex:'105/145'}),
       F('EdgeQ1Q2','Mở rộng: cạnh Q1–Q2 (trống = dài bằng cạnh xiên)','num',{sec:'Mở rộng A+B',ex:'810'}),
       F('TG_CanhTren','TG: tổng cạnh trên','num',{sec:'Tấm TG (tam giác)',ex:'1220'}), F('TG_Phia','TG: phía tam giác','sel',{sec:'Tấm TG (tam giác)',opts:[['','—'],['P','Phải'],['T','Trái']]}),
       F('TG_Buoc','TG: bước đứng chân cạnh xiên','num0',{sec:'Tấm TG (tam giác)',ex:'0'}), F('TG_LoThem','TG: lỗ thêm','text',{sec:'Tấm TG (tam giác)',ex:'T960/118'}),
@@ -3063,25 +3063,25 @@ const MODES = {
       F('AKnownList','Các đoạn đáy ở giữa (có ? thì ghi thêm đoạn cuối tới góc phải)','list',{ex:'918-921'}), F('Total','Tổng đáy (? = app tự tính, chỉ 1 số được để ?)','num',{req:1,ex:'2447'}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'22'}), F('HoleHeights','Lỗ từng đường – lỗ đầu / khoảng tiếp','groups',{ex:'47/145-58/145'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}),
-      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (T30 = lỗ cách mép TRÊN)','groups',{sec:'Mở rộng A+B'}),
+      F('DistBaseList','Mở rộng A+B: các đoạn đáy phần mở rộng','list',{sec:'Mở rộng A+B'}), F('HoleGroupsB','Mở rộng: lỗ từng đường (Mép trên: T30 = lỗ cách mép TRÊN 30)','groups',{sec:'Mở rộng A+B'}),
       F('EdgeQ1Q2','Mở rộng: cạnh Q1–Q2 (trống = dài bằng cạnh xiên)','num',{sec:'Mở rộng A+B'}),
       F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '4': { name: 'Mode 4 – Hình thang 2 cụm lỗ', imgs: ['m4', 'cut'],
     cols: ['TenTam','H','C1','BottomEdge','TopEdge','D','OffsetLeft','HeightLeft','OffsetLeft2','KC2Left','HeightRight','GapFirstHoles','KC2Right','GapSecondHoles','CutP3','X','Y','Huong','SoLuong'],
-    fields: [F('TenTam','Tên tấm','text',{req:1,ex:'CTB1'}), F('H','Chiều cao H (mm)','num',{req:1,ex:'505'}), F('C1','Xiên ngang bên trái (mm)','num0',{req:1,ex:'292'}),
-      F('BottomEdge','Cạnh đáy','num',{req:1,ex:'1192'}), F('TopEdge','Cạnh trên','num',{req:1,ex:'1197'}), F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'16'}),
-      F('OffsetLeft','Lỗ L1: cách mép trái','num',{req:1,ex:'87'}), F('HeightLeft','Lỗ L1: cao từ đáy','num',{req:1,ex:'55'}),
-      F('OffsetLeft2','Lỗ L2: cách mép trái','num',{req:1,ex:'297'}), F('KC2Left','Lỗ L2: cách L1','num',{req:1,ex:'418'}),
-      F('HeightRight','Lỗ R1: cao từ đáy','num',{req:1,ex:'48'}), F('GapFirstHoles','Lỗ R1: cách L1','num',{req:1,ex:'1075'}),
-      F('KC2Right','Lỗ R2: cách R1','num',{req:1,ex:'418'}), F('GapSecondHoles','Lỗ R2: cách L2','num',{req:1,ex:'1075'}),
+    fields: [F('TenTam','Tên tấm','text',{req:1,ex:'CTB1'}), F('H','Chiều cao H (mm)','num',{req:1,ex:'505'}), F('C1','Nghiêng ngang bên trái (mm) – đỉnh trái lệch ngang so với chân','num0',{req:1,ex:'292'}),
+      F('BottomEdge','Cạnh đáy – dài đáy (mm)','num',{req:1,ex:'1192'}), F('TopEdge','Cạnh trên – dài mép trên (mm)','num',{req:1,ex:'1197'}), F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'16'}),
+      F('OffsetLeft','Lỗ trái 1 (L1): cách mép trái (mm)','num',{req:1,ex:'87'}), F('HeightLeft','Lỗ trái 1 (L1): cao từ đáy (mm)','num',{req:1,ex:'55'}),
+      F('OffsetLeft2','Lỗ trái 2 (L2): cách mép trái (mm)','num',{req:1,ex:'297'}), F('KC2Left','Lỗ trái 2 (L2): cách L1 theo phương ngang (mm)','num',{req:1,ex:'418'}),
+      F('HeightRight','Lỗ phải 1 (R1): cao từ đáy (mm)','num',{req:1,ex:'48'}), F('GapFirstHoles','Lỗ phải 1 (R1): cách L1 theo phương ngang (mm)','num',{req:1,ex:'1075'}),
+      F('KC2Right','Lỗ phải 2 (R2): cách R1 theo phương ngang (mm)','num',{req:1,ex:'418'}), F('GapSecondHoles','Lỗ phải 2 (R2): cách L2 theo phương ngang (mm)','num',{req:1,ex:'1075'}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}), F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '5': { name: 'Mode 5 – Tự do (bản vẽ tay: dốc + đoạn ngang…)', imgs: ['m5', 'm5h', 'cut'],
     cols: ['TenTam','H','Day','DauTrai','DauPhai','D','KhoangLo','Lo','LoPhu','CutP3','X','Y','Huong','SoLuong'],
     fields: [F('TenTam','Tên tấm','text',{req:1,ex:'PKV1'}), F('H','H – cao (hoặc trái/phải: 900/1285; để ? nếu thợ không ghi, app tự tính cao đầu còn lại, vd ?/1220)','h5',{req:1,ex:'770'}),
-      F('Day','Đáy: N700 + DL1500/1250 (dài dốc/ngang) + DX395x309 (ngang x chênh cao)…','day',{req:1,ex:'DL2218/1790+N965'}),
-      F('DauTrai','Đầu trái: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}), F('DauPhai','Đầu phải: 0 / X770 / C411 / T1195 / V','end',{ex:'0'}),
+      F('Day','Đáy: N700 = đoạn ngang + DL1500/1250 = Dốc ↗ (dài/ngang) + DX395x309 = Dốc ↘ (ngang x chênh cao)…','day',{req:1,ex:'DL2218/1790+N965'}),
+      F('DauTrai','Đầu trái: 0 = thẳng · X770 = cạnh xiên 770 · C411 = nghiêng ngang 411 · T1195 = tổng cạnh trên 1195 · V = vuông góc đáy','end',{ex:'0'}), F('DauPhai','Đầu phải: 0 = thẳng · X770 = cạnh xiên 770 · C411 = nghiêng ngang 411 · T1195 = tổng cạnh trên 1195 · V = vuông góc đáy','end',{ex:'0'}),
       F('D','Đường kính lỗ φ (mm)','num',{req:1,ex:'22'}), F('KhoangLo','Khoảng cách các đường lỗ: 110-932-920-?-200 (? = tự tính, @ = cách đầu trái, @P = đo từ đầu phải)','kl',{ex:'110-?-200'}),
-      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo dọc; T30 = lỗ cách mép TRÊN, vd 80/T30)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50 (@P25/100 = đo từ mép PHẢI; /T100 = từ mép TRÊN; /B980 = từ ĐÁY; mặc định từ trái, từ trên)','lophu',{ex:''}),
+      F('Lo','Lỗ từng đường: 30/130-30/130 (V = đo thẳng đứng; Mép trên: T30 = lỗ cách mép TRÊN 30, vd 80/T30)','groups',{ex:'30/130-30/130'}), F('LoPhu','Lỗ phụ: 16@15/50 (@P25/100 = đo từ mép PHẢI; /T100 = từ mép TRÊN; /B980 = từ ĐÁY; mặc định từ trái, từ trên)','lophu',{ex:''}),
       F('CutP3','Sửa góc – ghép bằng / (vd 70/L345)','cut',{ex:'70/L345'}), F('Huong','Hướng nghiêng','sel',{opts:HUONG}), F('SoLuong','Số lượng','int',{ex:'1'})] },
   '6': { name: 'Mode 6 – CTKINH (tấm thường + tấm góc)', imgs: ['m6', 'm6goc'],
     cols: ['TenTam','H','A','C','D','Offset55','KhoanCheo1','KhoanCheo2','HuongNghieng','HuongDoLo','X','Y','GocHSub','GocCSub','GocALeft','GocOffset','GocKC1','GocKC2','GocKieu','SoLuong'],
@@ -3093,14 +3093,14 @@ const MODES = {
       F('GocHSub','Phần mở rộng: cao, đo vuông góc với cạnh dốc (mm)','num',{sec:'Tấm góc',ex:'535'}), F('GocCSub','Phần mở rộng: đoạn dọc theo cạnh dốc, tới đỉnh (mm)','num',{sec:'Tấm góc',ex:'340'}),
       F('GocALeft','Phần mở rộng: đáy xiên, tới đường lỗ (mm)','num',{sec:'Tấm góc',ex:'310'}), F('GocOffset','Phần mở rộng: đường lỗ cách góc (mm)','num',{sec:'Tấm góc',ex:'45'}),
       F('GocKC1','Phần mở rộng: lỗ đầu cách đáy xiên (mm)','num',{sec:'Tấm góc',ex:'70'}), F('GocKC2','Phần mở rộng: bước giữa 2 lỗ (mm)','num',{sec:'Tấm góc',ex:'410'}),
-      F('GocKieu','Phần mở rộng: nhô lên hay xuống','sel',{sec:'Tấm góc',opts:[['','—'],['T','Nhô lên – cao hơn thân (T)'],['D','Nhô xuống – thấp hơn thân (D)']]}),
+      F('GocKieu','Phần mở rộng: nhô lên hay xuống','sel',{sec:'Tấm góc',opts:[['','—'],['T','Nhô lên – cao hơn thân'],['D','Nhô xuống – thấp hơn thân']]}),
       F('SoLuong','Số lượng','int',{ex:'1'})] },
 };
 // T59: Mode 1 do CANH XIEN + GOC (so tho Manh OD): cot CanhXien = L (do doc canh xien) + cot C = V<phi> (goc voi phuong DUNG)
 //   -> H = L·cos phi, C = L·sin phi (form + lisp 17 tu tinh; H de trong). Cot tim theo TEN -> CSV cu khong doi.
 const SEC_XG = 'Đo cạnh xiên + góc';
 MODES['1'].cols.push('CanhXien');
-MODES['1'].fields.push(F('CanhXien', 'Cạnh xiên L – đo dọc cạnh xiên (dùng cùng C = V36: góc với cạnh đứng; H tự tính)', 'num', { sec: SEC_XG, ex: '1250' }));
+MODES['1'].fields.push(F('CanhXien', 'Cạnh xiên L – đo dọc cạnh xiên (dùng cùng ô nghiêng ghi Góc đứng, vd V36 = 36° với cạnh đứng; H tự tính)', 'num', { sec: SEC_XG, ex: '1250' }));
 // H, C (so) cua Mode 1 tu o nhap: C so mm | G<a> (goc voi DAY) | V<phi> (goc voi phuong DUNG, T59) | CanhXien + V<phi> (T59: H, C tu L)
 function m1Slant(v) {
   v = v || {};
@@ -4353,13 +4353,13 @@ function qMarks00(mode, shp, v) {
     add('C1', -1, -1, 'slope', 'Xiên ngang bên trái (góc trên-trái)', [C1 / 2, H], [0, -15]);
     add('BottomEdge', -1, -1, 'num', 'Cạnh đáy', [BE / 2, 0], [0, 15]);
     add('TopEdge', -1, -1, 'num', 'Cạnh trên', [C1 + TE / 2, H], [0, -15]);
-    add('OffsetLeft', -1, -1, 'num', 'Lỗ L1: cách mép trái', [(C1 * L1[1] / (H || 1) + L1[0]) / 2, L1[1]], [0, -12]);
-    add('HeightLeft', -1, -1, 'num', 'Lỗ L1: cao từ đáy', [L1[0], L1[1] / 2], [14, 0]);
-    add('OffsetLeft2', -1, -1, 'num', 'Lỗ L2: cách mép trái', [(C1 * L2[1] / (H || 1) + L2[0]) / 2, L2[1]], [0, -12]);
+    add('OffsetLeft', -1, -1, 'num', 'Lỗ trái 1 (L1): cách mép trái (mm)', [(C1 * L1[1] / (H || 1) + L1[0]) / 2, L1[1]], [0, -12]);
+    add('HeightLeft', -1, -1, 'num', 'Lỗ trái 1 (L1): cao từ đáy (mm)', [L1[0], L1[1] / 2], [14, 0]);
+    add('OffsetLeft2', -1, -1, 'num', 'Lỗ trái 2 (L2): cách mép trái (mm)', [(C1 * L2[1] / (H || 1) + L2[0]) / 2, L2[1]], [0, -12]);
     add('KC2Left', -1, -1, 'num', 'Lỗ L2: cách L1 (bước)', mid(L1, L2), [16, 0]);
     add('GapFirstHoles', -1, -1, 'num', 'Khoảng 2 cụm (dưới) L1 → R1', mid(L1, R1), [0, 12]);
     add('GapSecondHoles', -1, -1, 'num', 'Khoảng 2 cụm (trên) L2 → R2', mid(L2, R2), [0, -12]);
-    add('HeightRight', -1, -1, 'num', 'Lỗ R1: cao từ đáy', [R1[0], R1[1] / 2], [-14, 0]);
+    add('HeightRight', -1, -1, 'num', 'Lỗ phải 1 (R1): cao từ đáy (mm)', [R1[0], R1[1] / 2], [-14, 0]);
     add('KC2Right', -1, -1, 'num', 'Lỗ R2: cách R1 (bước)', mid(R1, R2), [16, 0]);
     add('D', -1, -1, 'num', 'φ đường kính lỗ', [(bx0 + bx1) / 2, by1], [-40, -15]);
     corners([[0, 0], [BE, 0], [BE + C2, H], [C1, H]], false);
@@ -8223,7 +8223,7 @@ function xgLayout() {
   const wL = eL.parentNode, wH = eH.parentNode, wC = eC.parentNode, lab = (w, t) => { const l = w.querySelector('label'); if (l) l.innerHTML = t; };
   if (on) {
     if (wL.parentNode !== wH.parentNode) wH.parentNode.insertBefore(wL, wH);
-    wH.style.display = 'none'; lab(wL, 'Cạnh xiên L – đo dọc cạnh xiên *'); lab(wC, 'Góc với cạnh đứng * (gõ 36 → tự lưu V36)'); eC.placeholder = 'vd 36';
+    wH.style.display = 'none'; lab(wL, 'Cạnh xiên L – đo dọc cạnh xiên *'); lab(wC, 'Góc đứng * – góc với cạnh đứng, độ (gõ 36 → app tự ghi V36)'); eC.placeholder = 'vd 36';
     let hn = $('xgH'); if (!hn) { hn = document.createElement('div'); hn.id = 'xgH'; hn.className = 'cuthint'; hn.style.color = '#888'; wL.appendChild(hn); }
     const x = m1Slant(readForm()); hn.textContent = x ? 'H ≈ ' + Math.round(x.H) + ' (tự tính)' : 'H tự tính từ L và góc';
   } else if (wL.parentNode === wH.parentNode) {
@@ -8977,7 +8977,7 @@ function q5Opts(m, v) {
     const vv = /^V/i.test(String((grpToks(v.Lo)[m.t] || [])[0] || '').trim()), fs = m5FootSeg(v, m.t);
     const endsV = ['DauTrai', 'DauPhai'].every(k => /^0?$/.test(String(v[k] || '').trim())) && !String(v.TruLo || '').trim();
     if (fs && fs.k === 'N' && endsV && !vv) { /* khuc ngang: vuong goc = thang dung, khong can nut */ }
-    else if (fs && fs.k === 'D') o += q5Btn(vv, 'q5LoV(true)', 'Đo thẳng đứng (V)', 'qk') + q5Btn(!vv, 'q5LoV(false)', 'Đo vuông góc cạnh dốc');
+    else if (fs && fs.k === 'D') o += q5Btn(vv, 'q5LoV(true)', 'Đo thẳng đứng', 'qk') + q5Btn(!vv, 'q5LoV(false)', 'Đo vuông góc cạnh dốc');
     else o += q5Btn(!vv, 'q5LoV(false)', 'Đo vuông góc đáy') + q5Btn(vv, 'q5LoV(true)', 'Đo thẳng đứng', 'qk');
   }
   if (m.k === 'D' || m.k === 'H') o += q5Btn(false, 'lpOpen()', '+ Lỗ phụ (lỗ lẻ góc)', 'qk') + (DG.tren !== false || String(v.Tren || '').trim() ? q5Btn(false, 'tpOpen()', 'Cạnh trên riêng') : '');
@@ -10450,11 +10450,26 @@ function setFcur(el) {
   const w = el.closest('.fields>div'); if (w) w.classList.add('fcur');
   const d = el.closest('details.sec'); if (d) d.classList.add('hasf');
 }
+// T303: chu nho duoi tung phim phu - moi ky hieu 1 nghia bang tieng Viet (chi chu hien; phim van chen ky hieu cu vao o)
+function kCap(el, k) {
+  const id = el.id.replace(/^[fc]_/, ''), f = (MODES[cur].fields.find(x => x.k === id) || {}), t = f.type;
+  if (id === 'C' && k === 'G') return 'góc đáy';
+  if (k === '.' || k === 'MT') return '';
+  if (id === 'TG_LoThem') return ({ T: 'mép trên', X: 'xiên', H: 'cao', '/': 'lỗ kế', '@': 'từ trái', '-': 'lỗ kế' })[k] || '';
+  if (id === 'Lo' || t === 'groups') return ({ T: 'mép trên', V: 'đo đứng', A: 'dọc trục', '/': 'lỗ kế', '-': 'đường kế', '@': 'φ riêng' })[k] || '';
+  if (t === 'day') return ({ DL: 'dốc ↗', DX: 'dốc ↘', N: 'ngang', x: 'chênh cao', '+': 'nối', '/': 'dài/ngang' })[k] || '';
+  if (t === 'end') return ({ X: 'xiên', C: 'nghiêng', T: 'tổng trên', V: 'vuông đáy', G: 'góc đáy', '-': 'âm' })[k] || '';
+  if (t === 'kl') return ({ '?': 'tự tính', '@': 'từ trái', '@P': 'từ phải', '@D': 'dọc đáy T', '@PD': 'dọc đáy P', '-': 'kế' })[k] || '';
+  if (t === 'lophu') return ({ '@': 'từ trái', '@P': 'từ phải', T: 'mép trên', B: 'từ đáy', '/': 'ngăn', '-': 'kế' })[k] || '';
+  if (t === 'h5') return ({ '/': 'trái/phải', '?': 'tự tính', P: 'phải' })[k] || '';
+  if (cur === '3' && k === '?') return 'tự tính';
+  return '';
+}
 let KBX = false;      // T190: hang phim phu (⋯ them) dang mo
 function updateBar(el, keepX) {
   if (!keepX) KBX = false;
   let keys = keysFor(el), cut = el.id === 'f_CutP3', b = $('kbar'), extra = [];
-  const cap = k => cut ? CUTCAP[k] : (k === 'G' && el.id === 'f_C' ? 'góc' : '');
+  const cap = k => cut ? CUTCAP[k] : kCap(el, k);      // T303: chu nho duoi phim = nghia that (CSV khong doi)
   if (keys.length > 4) {   // T190: gon 1 hang: giu 3 phim hay dung ('.' luon o lai), phan con lai vao nut ⋯ (khong mat phim nao)
     const main = keys.filter(k => k === '.').concat(keys.filter(k => k !== '.')).slice(0, 3);
     extra = keys.filter(k => main.indexOf(k) < 0); keys = keys.filter(k => main.indexOf(k) >= 0);
@@ -14995,7 +15010,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261031101855';
+var CTK_BUILD = '20261031102329';
 (function () {
   function chk() {
     try {
