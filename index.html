@@ -451,12 +451,27 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 .msheet .mlist li{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e3e9ef}
 .msheet .mlist li button{min-height:38px;padding:2px 10px}
 .msheet .mnote{font-size:13px;color:#5f6b6c;margin:4px 0}
+/* T311: dien thoai - Khung ten gap vao ☰ (hien thanh bang), thu gon dau trang de o nhap len dau */
+.menub{display:none}
+@media(max-width:899px){
+  .menub{display:inline-block;min-width:44px;font-size:20px;line-height:1;padding:4px 10px}
+  #infoCard{display:none}
+  body.infoSheet #infoCard{display:block;position:fixed;left:8px;right:8px;top:8px;z-index:70;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow:auto;box-shadow:0 6px 28px #0007}
+  body.infoSheet::after{content:"";position:fixed;inset:0;background:#0006;z-index:65}
+  #infoCard summary{pointer-events:none}
+  .infoX{display:block;width:100%;min-height:48px;margin-top:8px;font-size:17px;font-weight:bold;background:#1e7a46;color:#fff;border:0;border-radius:10px}
+  main{padding:6px;gap:6px}
+  #prodCard{padding:6px 8px}
+  #prodCard .prodsw button{min-height:40px;padding:6px;font-size:16px}
+}
+@media(min-width:900px){.infoX{display:none}}
 .m5grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:6px 0}
 .m5grid .shcard{width:100%;cursor:pointer}
 .m5grid .shcard svg{height:52px}
 @media(min-width:900px){.msheet{left:16px;right:auto;bottom:72px;width:410px;border:2px solid #1f4e79;border-radius:12px}}
 </style></head><body>
 <header>
+  <button type="button" class="menub" id="menuB" onclick="infoMenu(true)" title="Menu: Khung tên (đại lý, khách, loại kính, φ mặc định)" aria-label="Menu: Khung tên">&#9776;</button>
   <h1>Nhập liệu CTKinh</h1>
   <button class="nw" onclick="newJob()" title="Công trình mới"><span class="hide-s">Công trình mới</span><span class="only-s">Mới</span></button>
   <button onclick="document.getElementById('fin').click()">Mở<span class="hide-s"> file</span> CSV</button>
@@ -478,6 +493,7 @@ body.cua{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
       <div id="i4wrap"><label for="i4">Đường kính lỗ mặc định φ (mm)</label><input id="i4" inputmode="decimal" autocomplete="off" placeholder="vd 18 – tấm mới tự điền D" enterkeyhint="done"></div>
       <div id="ksHead" style="display:none"></div>
     </div>
+    <button type="button" class="infoX" onclick="infoMenu(false)">Xong</button>
   </details>
   <section class="card" id="edCard">
     <div class="edhead"><h2 id="edTitle">2. Nhập tấm</h2><span class="pnav" id="pnav"><button type="button" id="pPrev" onclick="panelNav(-1)" aria-label="Tấm trước">‹</button><span id="pPos"></span><button type="button" id="pNext" onclick="panelNav(1)" aria-label="Tấm sau">›</button></span></div>
@@ -8113,11 +8129,17 @@ function shThumb(id, left, gk) {
         const nx = d.n[0], ny = -d.n[1], o = Math.max(2.4, Math.min(5, (d.off || 40) * k));
         const A2 = [A[0] + nx * o, A[1] + ny * o], B2 = [Bp[0] + nx * o, Bp[1] + ny * o];
         let ang = Math.atan2(B2[1] - A2[1], B2[0] - A2[0]) * 180 / Math.PI; if (ang > 90.1) ang -= 180; if (ang <= -90.1) ang += 180;
-        const txt = String(d.text || ''), tw = txt.length * fs * 0.56, mx = (A2[0] + B2[0]) / 2 + nx * (fs * 0.62), my = (A2[1] + B2[1]) / 2 + ny * (fs * 0.62);
-        if (!txt || tw > len + 1) continue;          // chu dai hon doan dim -> bo
-        const ca = Math.abs(Math.cos(ang * Math.PI / 180)), sa = Math.abs(Math.sin(ang * Math.PI / 180)), bx = [mx, my, (ca * tw + sa * fs) / 2 + 0.4, (sa * tw + ca * fs) / 2 + 0.2];
-        if (bx[0] - bx[2] < 0 || bx[0] + bx[2] > 100 || bx[1] - bx[3] < 0 || bx[1] + bx[3] > 60 || boxes.some(b2 => hit(bx, b2))) continue;
+        const txt = String(d.text || ''), tw = txt.length * fs * 0.56; if (!txt) continue;
+        // T310: chu dai hon doan dim -> KHONG bo nua: dua chu ra NGOAI 2 dau doan (keo dai duong dim lam duong dan), hoac ra xa hon theo phap tuyen
+        const ux = (B2[0] - A2[0]) / len, uy = (B2[1] - A2[1]) / len, ca = Math.abs(Math.cos(ang * Math.PI / 180)), sa = Math.abs(Math.sin(ang * Math.PI / 180));
+        const cmx = (A2[0] + B2[0]) / 2 + nx * (fs * 0.62), cmy = (A2[1] + B2[1]) / 2 + ny * (fs * 0.62), sh = len / 2 + tw / 2 + 1;
+        const cand = tw > len + 1 ? [[cmx + ux * sh, cmy + uy * sh, 1], [cmx - ux * sh, cmy - uy * sh, -1], [cmx + nx * fs * 1.1, cmy + ny * fs * 1.1, 0]] : [[cmx, cmy, 0]];
+        let mx = 0, my = 0, bx = null, ce = 0;
+        for (const c of cand) { const b0 = [c[0], c[1], (ca * tw + sa * fs) / 2 + 0.4, (sa * tw + ca * fs) / 2 + 0.2];
+          if (b0[0] - b0[2] < 0 || b0[0] + b0[2] > 100 || b0[1] - b0[3] < 0 || b0[1] + b0[3] > 60 || boxes.some(b2 => hit(b0, b2))) continue; mx = c[0]; my = c[1]; bx = b0; ce = c[2]; break; }
+        if (!bx) continue;          // het cho trong the (khong de chu khac) -> bo
         boxes.push(bx);
+        if (ce) out += '<path d="M' + (ce > 0 ? B2 : A2)[0].toFixed(1) + ' ' + (ce > 0 ? B2 : A2)[1].toFixed(1) + ' L' + (mx - nx * fs * 0.62 + ux * ce * tw / 2).toFixed(1) + ' ' + (my - ny * fs * 0.62 + uy * ce * tw / 2).toFixed(1) + '" style="fill:none;stroke:#a9b3bd;stroke-width:.5"/>';      // duong dan = duong dim keo dai toi het chu
         out += '<path d="M' + A[0] + ' ' + A[1] + ' L' + (A2[0] + nx * 0.8).toFixed(1) + ' ' + (A2[1] + ny * 0.8).toFixed(1) + ' M' + Bp[0] + ' ' + Bp[1] + ' L' + (B2[0] + nx * 0.8).toFixed(1) + ' ' + (B2[1] + ny * 0.8).toFixed(1) +
           ' M' + A2[0].toFixed(1) + ' ' + A2[1].toFixed(1) + ' L' + B2[0].toFixed(1) + ' ' + B2[1].toFixed(1) + '" style="fill:none;stroke:#a9b3bd;stroke-width:.5"/>';
         out += '<text x="' + mx.toFixed(1) + '" y="' + my.toFixed(1) + '" dy="0.35em" text-anchor="middle"' + (Math.abs(ang) > 0.5 ? ' transform="rotate(' + ang.toFixed(1) + ' ' + mx.toFixed(1) + ' ' + my.toFixed(1) + ')"' : '') + ' style="' + ty + '">' + esc(txt) + '</text>';
@@ -8209,7 +8231,7 @@ function pickShape(id) {
   SHAPE = id; try { localStorage.setItem(SHKEY, id); } catch (e) {}
   live(); markMode();
   if (snap0) toastUndo('Hình: ' + s.name + ' – số cũ đã xoá', () => restoreSnap(snap0)); else toast('Hình: ' + s.name);
-  if (id === 'tudo' && !M5_PICK && !window.T236_NOSHEET) setTimeout(m5DangOpen, 0);      // T236: the Ve tu do -> hoi dang tam
+  if (id === 'tudo' && !M5_PICK && !window.T236_NOSHEET) setTimeout(m5DangOpen, 0); else setTimeout(autoQ, 120);      // T236: the Ve tu do -> hoi dang tam
 }
 
 // ---------- form ----------
@@ -8392,11 +8414,11 @@ function drawPreview(v) {
   if (q) { q.qhas = {}; qd.forEach(d => { if (d.qi >= 0) q.qhas[d.qi] = 1; }); }
   // T55 (C1): sua goc (cat / cong / khoet) chi la SO MAU (tam chua co CutP3) -> vien dam = tam chua sua goc, phan sua goc = net dut xam
   let bpoly = null; if (q && q.gf && q.gf.CutP3) { try { bpoly = geom(cur, Object.assign({}, q.vd, { CutP3: '' })).poly; } catch (e) { bpoly = null; } }
-  const R = q ? renderPV(cur, q.vd, W, H, { g: Object.assign({}, q.g, { shape: Object.assign({}, q.g.shape, { dims: qd }) }), dims: true, full: true, q: true, qsel: QSEL || fsel, pad: 22, padTop: QSEL ? 8 : 14, fs: 12, small: pvSmall(), basePoly: bpoly })
+  const R = q ? renderPV(cur, q.vd, W, H, { g: Object.assign({}, q.g, { shape: Object.assign({}, q.g.shape, { dims: qd }) }), dims: true, full: true, q: true, qsel: QSEL || fsel, pad: 22, padTop: QSEL ? 8 : 14, fs: 12, small: pvSmall(), basePoly: bpoly, stack: true })
     : (() => {      // T49: dang nhap lo tu do -> ve lo dang nhap (so mau khi chua co) + dim cua so dang nhap sang cam
         const lw = GOCP && GOCK === 'lt' ? ltWork(v) : null, cw = GOCP && GOCK === 'cx' ? cxWork(v) : null, vv = lw ? lw.v : cw ? cw.v : v, gg = lw || cw ? geom(cur, vv) : null;
         if (gg && gg.shape && gg.shape.dims) gg.shape.dims.forEach(d => { if (lw && d.src === 'LoTuDo' && d.lt === lw.i && d.ls === lw.s) d.qon = true; if (cw && d.src === 'CatGoc' && d.cg === cw.n && d.cgk === cw.k) d.qon = true; });      // T157: dim X / Y dang nhap sang cam
-        return renderPV(cur, vv, W, H, { g: gg || undefined, full: H >= 200 && W >= 260, dims: pvDimOn(), dimLv: pvLv(), rev: PVREV, fs: 12, pick: GOCP && GOCK !== 'cat' ? (GOCK === 'bo' ? 'bo' : GOCK === 'lt' ? 'lt' : GOCK === 'cx' ? 'cx' : true) : false });
+        return renderPV(cur, vv, W, H, { g: gg || undefined, full: H >= 200 && W >= 260, dims: pvDimOn(), dimLv: pvLv(), rev: PVREV, fs: 12, stack: true, pick: GOCP && GOCK !== 'cat' ? (GOCK === 'bo' ? 'bo' : GOCK === 'lt' ? 'lt' : GOCK === 'cx' ? 'cx' : true) : false });
       })();
   PVDOTS = R.dots || []; PVR = R;
   $('pvnote').textContent = GOCP ? (GOCK === 'cat' ? 'Chạm vào hình tại điểm cắt (gần cột lỗ thì hít vào tâm cột) – nét đứt cam = đường cắt.' : GOCK === 'lt' ? 'Chạm đỉnh làm mốc để thêm lỗ; chạm lỗ tự do (tím) để sửa / xoá.' : GOCK === 'cx' ? 'Chạm vào đỉnh để cắt góc X/Y (xanh = đã cắt). X dọc cạnh NGANG, Y dọc cạnh ĐỨNG.' : GOCK === 'bo' ? 'Chạm vào đỉnh để nhập bán kính bo góc R (xanh = đã bo).' : 'Chạm vào đỉnh để bật/tắt đo góc (cam = đã chọn, xám = đã có sẵn).') + (R.note ? ' ' + R.note : '') : q ? '' : R.note;
@@ -9641,6 +9663,7 @@ const PV_ST_SC = { '012': 1, '010-ok': 25 / 30, '015-ok': 37.5 / 30, '020-ok': P
 const pvSc = d => !d ? 1 : (PV_ST_SC[d.st] || 1) * (d.st === '010-ok' && +d.val < 80 ? 1.25 : 1);
 const PV_MANY = 12;      // T195: chuoi dim > PV_MANY dim (vd hang tram lo vi buoc lo dang go do) -> che do xep nhanh
 let PV_OV = 0;      // T132: so cap chu con de nhau sau khi da giam co chung toi san (hinh qua nho) -> renderPV ghi chu 'bam Phong to'
+let PV_FLOOR = 0; const PV_FLOOR_PX = 12, PV_STK_FS = 13;      // T310: san co chu dim xem truoc tren may / co chu nhan lo xep chong
 let PV_FMIN = PV_MIN_FONT;      // T130: san co chu chung (renderPV dat theo opt.fmin: anh/PDF phong 2,4 -> nho hon)
 function pvLayout(dims, k, fs, poly) { const m = typeof window !== 'undefined' ? (window.PV_XEP || (window.PV_XEP_CU ? 'cu' : '')) : '';
   return m === 'cu' ? pvLayoutCu(dims, k, fs, poly) : m === 't84' ? pvLayoutT84(dims, k, fs, poly) : pvLayoutCAD(dims, k, fs, poly); }
@@ -9708,7 +9731,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     return p; };
   // T130: BO thu nho chu tung dim (T124/T126) - anh Dampt 18/10: co chu khong deu, so khong thang hang. Moi dim = fs; chu cung chuoi chat nhau -> bam Phong to.
   const geo = x => { const d = x.d, A = x.A, B = x.B, len = x.len, t = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], dn = x.nn || d.n, n = [dn[0], -dn[1]];      // T130: chuoi dung chung 1 phap tuyen (dim cung chuoi song song tuyet doi)
-    const f0 = fz(d) * pvSc(d), f = f0;      // T138: dim TONG (020-ok/015-ok) = PV_TOTAL_SCALE x co chung
+    const f0 = Math.max(fz(d) * pvSc(d), PV_FLOOR), f = f0;      // T310: PV_FLOOR      // T138: dim TONG (020-ok/015-ok) = PV_TOTAL_SCALE x co chung
     const W = tw(d.text, f), Hh = (f + 2) / 2, ho = f * 0.5 + 2, o0 = x.P - dot(d.a, dn) * k;      // T130: tam chu cach duong dim 0,5f+2 ~ 0,9 x cao chu (CAD: DIMGAP 12 + nua chu 15 = 27/30) - giong nhau moi dim
     const at = o => { const D1 = [A[0] + n[0] * o, A[1] + n[1] * o], D2 = [B[0] + n[0] * o, B[1] + n[1] * o], m = [(D1[0] + D2[0]) / 2, (D1[1] + D2[1]) / 2]; return { D1, D2, m }; };
     // T233: d.tat = diem dat CHU (mm) doc truc dim (lo phu 25/37: chu keo vao trong long tam, nhu CAD TextPosition) -> sh = do lech chu (px) theo t
@@ -9767,6 +9790,20 @@ function pvLayoutCAD(dims, k, fs, poly) {
           if (texts.some(z => z !== s.tb && pvHit(z, tb)) || EG.some(e => segBox(e, tb))) continue;
           const ti = texts.indexOf(s.tb); tb.x = s.tb.x; if (ti >= 0) texts[ti] = tb;
           Object.assign(s, { tb, tc, tout: true, short: true, ld2: [m, [m[0] + s.t[0] * (off + W / 2) * sg, m[1] + s.t[1] * (off + W / 2) * sg]] }); break; } } }); }
+    // T310: XEM TRUOC tren may (PV_FLOOR > 0, chu co dinh khong thu nho): 2 chu dim con DE NHAU (khac chuoi / dim xien ngan) -> dua chu dim NGAN hon ra xa duong dim
+    //   (theo phap tuyen, ca 2 phia) + duong dan manh tu giua duong dim toi chu - KHONG bo dim, KHONG thu nho chu
+    if (PV_FLOOR > 0) { const its = items.filter(it => it.tb && it.D1 && it.len);
+      const hitT = (b, me) => texts.some(z => z !== me && pvHit({ c: z.c, t: z.t, hw: z.hw + 1.5, hh: z.hh + 0.5 }, b));
+      for (let pass = 0; pass < 2; pass++) for (let i = 0; i < its.length; i++) for (let j = i + 1; j < its.length; j++) { const a = its[i], b = its[j];
+        if (!pvHit({ c: a.tb.c, t: a.tb.t, hw: a.tb.hw + 1.5, hh: a.tb.hh + 0.5 }, b.tb)) continue;
+        for (const s of (a.len <= b.len ? [a, b] : [b, a])) { if (s.lift) continue;
+          const m = [(s.D1[0] + s.D2[0]) / 2, (s.D1[1] + s.D2[1]) / 2], W = tw(s.d.text, s.f), ho = s.f * 0.5 + 2; let done = false;
+          for (const st of [1.3, -1.3, 2.4, -2.4, 3.5, -3.5, 4.6]) { const o = ho + st * (s.f + 2) * (st > 0 ? 1 : 1), dir = st > 0 ? 1 : -1, oo = Math.abs(o) * dir;
+            const tc = [m[0] + s.n[0] * oo, m[1] + s.n[1] * oo], tb = pvBox(tc, s.t, W / 2, (s.f + 2) / 2);
+            if (hitT(tb, s.tb) || EG.some(e => segBox(e, tb))) continue;
+            const ti = texts.indexOf(s.tb); tb.x = s.tb.x; if (ti >= 0) texts[ti] = tb;
+            const e0 = Math.abs(oo) - (s.f + 2) / 2; Object.assign(s, { tb, tc, tout: true, lift: true, ld2: [m, [m[0] + s.n[0] * e0 * dir, m[1] + s.n[1] * e0 * dir]] }); done = true; break; }
+          if (done) break; } } }
   };
   // T132: co chu CHUNG giam deu (KHONG tung dim) khi hinh nho (xem truoc): thu 12 -> ... -> san PV_FMIN, chon co TO NHAT khong con 2 chu de nhau / chu de canh kinh
   //   (truoc: chi xet cap CANH NHAU cung chuoi -> 185 de 875 o goc, ca chu khac chuoi; phong to chu nho so voi hinh nen khong de). Moi dim van cung 1 co.
@@ -9784,7 +9821,7 @@ function pvLayoutCAD(dims, k, fs, poly) {
     let bestF = f0, bestN = Infinity;
     for (const f of F) { fD = f; placeAll(); const n = nOv(); if (n < bestN) { bestN = n; bestF = f; } if (nTT === 0 && nLL <= 1) break; }      // du tot: khong de chu, toi da 1 cho cham net manh -> giu co chu to nhat
     if (fD !== bestF) { fD = bestF; placeAll(); }
-    nOv(); PV_OV = nTT > 0 || nLL >= 2 ? nTT + nLL : 0; }      // ghi chu 'Dim day' khi con chu de chu / canh kinh hoac >= 2 cho cham duong dim khac
+    nOv(); PV_OV = nTT > 0 || (nLL >= 2 && !PV_FLOOR) ? nTT + nLL : 0; }      // T310: xem truoc tren may chi bao khi CHU DE CHU / canh kinh; ghi chu 'Dim day' khi con chu de chu / canh kinh hoac >= 2 cho cham duong dim khac
   pre.forEach(d => { const f = fz(d); pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
   lab.forEach(d => { const f = fs;      // T130: nhan ten tam (khong phai dim) giu co fs
     pvPlaceOther(d, k, fs, poly, texts, lines, items, f, tw(d.text, f), (f + 2) / 2); });
@@ -10061,11 +10098,31 @@ function renderPV(mode, v, W, H, opt) {
   const base = (opt.dims && opt.dimLv === 'chinh' && sh.dims) ? sh.dims.filter(d => !pvIsHoleDim(d) || revSet.has(d)) : sh.dims;
   const p1 = d => d.pri === 1 || (sh.cutInfo && d.kind === 'nhan');      // T159: bang cat doi - 2 nhan tam khong bi bo khi khung chat
   const sets = opt.noBox ? [[]] : opt.q ? qSets(base, w, h) : (opt.dims && base && base.length) ? (opt.full ? [base, base.filter(p1)] : [base.filter(p1)]).concat([box2]) : [box2];
+  // T310: XEM TRUOC tren may (opt.stack): dim lo nam TREN truc lo -> KHONG ve dim xoay nho nua ma NHAN 2 SO XEP CHONG canh truc (tren = khoang / lo tren, duoi = cach day),
+  //   chu co dinh 13 px (khong theo ti le hinh); bo khoi bo cuc dim (khong lam hinh nho / chu nho). Anh / PDF (khong opt.stack) giu nhu cu.
+  const stAx = new Map(), stOf = new Map();
+  if (opt.stack && (sh.axes || []).length) {
+    const axs = sh.axes;
+    const hS = d => !!d.src && d.src.split(' ').every(t => HOLE_SRC.has(t)), onH = p => g.holes.some(h => Math.hypot(h[0] - p[0], h[1] - p[1]) < 0.6);      // ke ca dim lo 'keep' (Mode 6 khoan cheo)
+    const isStk = d => { if (!d || !d.a || !d.b || !hS(d) || ['xien', 'doc', 'ngang'].indexOf(d.kind) < 0 || Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]) < 0.5) return false;
+      // thuoc truc i: SONG SONG truc va 2 dau chieu len nam trong truc; uu tien truc gan nhat (dim nam TREN truc = 0; Mode 5 chu nhat CAD dat dim lo o mep tam -> truc dau)
+      const dl = Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]), dv = [(d.b[0] - d.a[0]) / dl, (d.b[1] - d.a[1]) / dl]; let i = -1, bd = Infinity;
+      axs.forEach((a, j) => { if (!a || !a.a || !a.b) return; const ul = Math.hypot(a.b[0] - a.a[0], a.b[1] - a.a[1]); if (ul < 1) return; const u = [(a.b[0] - a.a[0]) / ul, (a.b[1] - a.a[1]) / ul];
+        if (Math.abs(u[0] * dv[1] - u[1] * dv[0]) > 0.02) return; const pr = p => (p[0] - a.a[0]) * u[0] + (p[1] - a.a[1]) * u[1], pd = Math.abs((d.a[0] - a.a[0]) * u[1] - (d.a[1] - a.a[1]) * u[0]);
+        if (Math.min(pr(d.a), pr(d.b)) < -1 || Math.max(pr(d.a), pr(d.b)) > ul + 1) return; if (pd < bd - 0.5) { bd = pd; i = j; } });
+      if (i < 0) {      // Mode 3: lo cach day do DUNG (dim doc tu canh day toi lo nam tren truc nghieng) -> cung nhan cua truc do
+        for (const [p, q] of [[d.a, d.b], [d.b, d.a]]) { if (!onH(p)) continue; const j = axs.findIndex(a => a && a.a && a.b && pvSegD(p, a.a, a.b) < 0.6);
+          if (j >= 0 && !axs.some(a => a && a.a && a.b && pvSegD(q, a.a, a.b) < 0.6)) { stAx.set(d, j); return true; } }
+        return false; }
+      stAx.set(d, i); return true; };
+    for (let i = 0; i < sets.length; i++) if (sets[i] !== box2 && sets[i]) { const st = sets[i].filter(isStk); if (st.length) { const f = sets[i].filter(d => !stAx.has(d)); stOf.set(f, st); sets[i] = f; } }
+  }
   let dims = sets[0];
   // tim ti le k (px/mm) LON NHAT de hinh + toan bo dim lot khung (chu dim giu co pixel) - chia doi
   const pt = opt.padTop == null ? 30 : opt.padTop;     // chua cho nhan kich thuoc / nut Dim / phong to o tren
   const AW = W - 2 * pad, AH = H - pad - pt, k0 = Math.max(1e-6, Math.min(AW / w, AH / h));
-  PV_FMIN = opt.fmin || PV_MIN_FONT;      // T130: san co chu chung (anh/PDF: opt.fmin)
+  PV_FMIN = opt.fmin || (opt.stack ? fs : PV_MIN_FONT);      // T130: san co chu chung (anh/PDF: opt.fmin); T310: xem truoc tren may KHONG thu nho chu (chu ngan ra ngoai + duong dan)
+  PV_FLOOR = opt.stack ? PV_FLOOR_PX : 0;      // T310: moi chu dim xem truoc >= 12 px (ke ca dim lo 010-ok)
   PV_OBS = { holes: g.holes.map((p, i) => [p, (sh.holes[i] && sh.holes[i].d) || (parseFloat(v.D) || 18)]), segs: [] };
   g.lines.concat(g.ref || []).forEach(l => PV_OBS.segs.push([l[0], l[1]]));
   (sh.fillets || []).forEach(f => { const m = [(f.t1[0] + f.t2[0]) / 2 - f.c[0], (f.t1[1] + f.t2[1]) / 2 - f.c[1]], ml = Math.hypot(m[0], m[1]) || 1, q = [f.c[0] + m[0] / ml * f.r, f.c[1] + m[1] / ml * f.r]; PV_OBS.segs.push([f.t1, q], [q, f.t2]); });
@@ -10091,6 +10148,7 @@ function renderPV(mode, v, W, H, opt) {
   // T41: BO phong 1,35 lan cua T40b - luon giu ca tam trong khung khi dang go (dim dang nhap chi to chu, khong cat hinh)
   const fx = null;
   const L = E.l, bx0 = E.bx0, bx1 = E.bx1, by0 = E.by0, by1 = E.by1;
+  const STK = stOf.get(dims) || [];      // T310: dim lo ve thanh nhan xep chong
   let ox = fx ? fx[0] : (W - (bx1 - bx0)) / 2 - bx0, oy = fx ? fx[1] : pt + (AH - (by1 - by0)) / 2 - by0;
   if (qClamp) { ox = Math.min(Math.max(ox, pad - x0 * k), W - pad - x1 * k); oy = Math.min(Math.max(oy, pt + y1 * k), H - pad + y0 * k); }      // T46: hinh luon nam trong khung
   const X = p => (p[0] * k + ox).toFixed(1), Y = p => (-p[1] * k + oy).toFixed(1), P = p => X(p) + ',' + Y(p);
@@ -10154,13 +10212,15 @@ function renderPV(mode, v, W, H, opt) {
       if (hit) extSup.set(s.it, (extSup.get(s.it) || []).concat([s.j]));
     });
   }
-  const qbox = [], qhit = {}, qsel = opt.qsel != null && L.items.some(it => it.d.qon);
+  const qbox = [], qhit = {}, qsel = opt.qsel != null && (L.items.some(it => it.d.qon) || STK.some(d => d.qon));
+  const dcOf = dd => { const qs = dd.qs;
+    return qs ? (dd.qon ? '#d35400' : qs === 'q' ? '#a9b3bd' : (qs === 'ok' || (pvIsTotal(dd) && !dd.ref)) ? dcol : '#8e9aa6') : dd.qon ? '#d35400' : revSet.has(dd) ? '#e67e22' : dcol; };      // T49: dim lo tu do dang nhap = cam; T305: so nhap (ok) + dim tong = xanh 30,122,70, code tinh (calc) = xam #8e9aa6
+  const opOf = dd => { const qs = dd.qs; return !qs ? 1 : dd.qon ? 1 : qsel ? (qs === 'q' ? 0.3 : 0.45) : (qs === 'q' ? 0.8 : 1); };
   for (const it of L.items) {
     const dd = it.d, qs = dd.qs;
     // T41: che do ghi so - chua nhap = SO MAU xam nhat, chu nghieng, net mo; da nhap = xanh dam dam; app tu tinh = xam;
     //   dang nhap = DUNG 1 dim cam dam, net day, chu ~1,3 lan, nhap nhay nhe (#pv .qon) - cac dim khac mo them
-    const dc = qs ? (dd.qon ? '#d35400' : qs === 'q' ? '#a9b3bd' : (qs === 'ok' || (pvIsTotal(dd) && !dd.ref)) ? dcol : '#8e9aa6') : dd.qon ? '#d35400' : revSet.has(dd) ? '#e67e22' : dcol;      // T49: dim lo tu do dang nhap = cam; T305: so nhap (ok) + dim tong = xanh 30,122,70, code tinh (calc) = xam #8e9aa6
-    const op = !qs ? 1 : dd.qon ? 1 : qsel ? (qs === 'q' ? 0.3 : 0.45) : (qs === 'q' ? 0.8 : 1);
+    const dc = dcOf(dd), op = opOf(dd);      // T310: mau / do mo dung chung voi nhan lo xep chong
     const at = ' class="dm' + (dd.qon ? ' qon' : '') + '" stroke="' + dc + '" stroke-width="' + (dd.qon ? 2.6 : 0.9) + '" fill="none"' + (op < 1 ? ' opacity="' + op + '"' : '') + (dd.src ? ' data-field="' + dd.src + '"' : '');
     if (qs && dd.qi >= 0) qhit[dd.qi] = 1;
     if (qs && it.tc) { const c = Q(it.tc).split(','), tw = String(dd.text).length * it.f * 0.6 + 6, th = it.f + 6, ca = Math.abs(Math.cos((it.ang || 0) * Math.PI / 180)), sa = Math.sqrt(1 - ca * ca);
@@ -10197,6 +10257,62 @@ function renderPV(mode, v, W, H, opt) {
       '<path d="M' + Q(L1) + ' L' + Q(L2) + '"' + (thin ? ' stroke-width="0.75" stroke-opacity="0.7"' : '') + '/>' + (it.ld ? '<path d="M' + it.ld.map(Q).join(' L') + '" stroke-width="0.8"/>' : '') + (it.ld2 ? '<path d="M' + it.ld2.map(Q).join(' L') + '" stroke-width="0.75" stroke-opacity="0.7"/>' : '') +      /* T130: dim cuc hep chu ra ngoai - duong dim keo dai duoi chu */      // T83b: duong dan + gach ngang (chu chat ca 2 dau)
       (it.short ? arrow(it.D1, t, dc, thin) + arrow(it.D2, [-t[0], -t[1]], dc, thin) : arrow(it.D1, [-t[0], -t[1]], dc, thin) + arrow(it.D2, t, dc, thin)) +
       tx(it.tc, it.ang, it.f, qs ? dc : (pvIsTotal(dd) && col === dc && !dd.qon ? PV_TOTAL_COL : col), dd.text, pvIsTotal(dd) ? 'T' : qs === 'q' && !dd.qon ? false : thin || dd.st === '020-ok' || dd.st === '015-ok' || qs === 'ok' || dd.qon, qs === 'q') + qTgt(it, dd) + '</g>';
+  }
+  // T310: NHAN LO 2 SO XEP CHONG canh truc (giong so tay tho: tren = khoang / lo tren, duoi = cach day) - chu 13 px co dinh, nen trang;
+  //   moi so co duong dan manh toi giua doan cua no tren truc; dat ben phai / trai truc, nhich len / xuong de KHONG de chu dim, nhan khac, lo; luon trong khung.
+  if (STK.length) {
+    const SP = p => [p[0] * k + ox, -p[1] * k + oy], axs = sh.axes || [];
+    const obs = [];      // hop chan [cx, cy, hw, hh, nang]
+    L.items.forEach(it => { const b = it.tb; if (b && b.c) { const c0 = Math.abs(b.t[0]), s0 = Math.abs(b.t[1]); obs.push([b.c[0] + ox, b.c[1] + oy, c0 * b.hw + s0 * b.hh, s0 * b.hw + c0 * b.hh, 100]); }
+      else { const c = it.tc || it.c; if (c && it.d && it.d.text != null) { const hw = String(it.d.text).length * (it.f || 12) * 0.31 + 3; obs.push([c[0] + ox, c[1] + oy, hw, (it.f || 12) * 0.6 + 1, 100]); } } });      // goc / duong kinh / nhan: chu tai tc
+    const segs = [];      // net chan [a, b, nang]: duong dim + gion dim khac, canh tam, truc lo
+    L.items.forEach(it => { if (it.D1 && it.D2) segs.push([[it.D1[0] + ox, it.D1[1] + oy], [it.D2[0] + ox, it.D2[1] + oy], 25]); });
+    g.poly.forEach((p, i) => segs.push([SP(p), SP(g.poly[(i + 1) % g.poly.length]), 8]));
+    const holesPx = g.holes.map((p, i) => [SP(p), Math.max(((sh.holes[i] && sh.holes[i].d) || d) / 2 * k, 2.5) + 2]);
+    const segBx = (a, b, x, y, hw, hh) => { for (let i = 0; i <= 10; i++) { const t = i / 10, px = a[0] + (b[0] - a[0]) * t, py = a[1] + (b[1] - a[1]) * t; if (Math.abs(px - x) < hw && Math.abs(py - y) < hh) return true; } return false; };
+    const byAx = {}; STK.forEach(dd => { const i = stAx.get(dd); (byAx[i] = byAx[i] || []).push(dd); });
+    const order = Object.keys(byAx).map(Number).sort((a, b) => a - b);
+    order.forEach(ai => {
+      const ax = axs[ai]; if (!ax) return;
+      const ul = Math.hypot(ax.b[0] - ax.a[0], ax.b[1] - ax.a[1]) || 1, u = [(ax.b[0] - ax.a[0]) / ul, (ax.b[1] - ax.a[1]) / ul], pos = p => (p[0] - ax.a[0]) * u[0] + (p[1] - ax.a[1]) * u[1];
+      let ds = byAx[ai].map(dd => { const p1 = pos(dd.a), p2 = pos(dd.b); return { dd, lo: Math.min(p1, p2), hi: Math.max(p1, p2) }; });
+      // dim BAO = TONG cac dim nho cung truc lap kin (vd 205 = 60 + 145) chi la so kiem -> bo; GIU dim cong don (cum), dim la o nhap (qi) va dim dang nhap
+      const tiled = x => { const ins = ds.filter(y => y !== x && y.lo >= x.lo - 0.5 && y.hi <= x.hi + 0.5 && (y.hi - y.lo) < (x.hi - x.lo) - 0.5).sort((p, q) => p.lo - q.lo); let e = x.lo;
+        for (const y of ins) { if (y.lo > e + 1) return false; e = Math.max(e, y.hi); } return ins.length > 1 && e >= x.hi - 1; };
+      ds = ds.filter(x => x.dd.cum || x.dd.qon || (x.dd.qs && x.dd.qi >= 0) || !tiled(x));
+      if (!ds.length) return;
+      ds.sort((p, q) => (q.hi - p.hi) || ((p.hi - p.lo) - (q.hi - q.lo)));      // tren -> duoi
+      const fz = PV_STK_FS, lh = Math.round(fz * 1.3), rows = ds.map(x => { const on = !!x.dd.qon, f = on ? fz + 2 : fz; return { x, on, f, txt: String(x.dd.text), col: dcOf(x.dd), op: opOf(x.dd) }; });
+      const w = Math.max(...rows.map(r => r.txt.length * r.f * 0.6)) + 12, h = rows.length * lh + 6;
+      const lo = Math.min(...ds.map(x => x.lo)), hi = Math.max(...ds.map(x => x.hi)), at = t => SP([ax.a[0] + u[0] * t, ax.a[1] + u[1] * t]);
+      const par = dd => { const dl = Math.hypot(dd.b[0] - dd.a[0], dd.b[1] - dd.a[1]) || 1; return Math.abs(u[0] * (dd.b[1] - dd.a[1]) / dl - u[1] * (dd.b[0] - dd.a[0]) / dl) < 0.02; };
+      const M = at((lo + hi) / 2), tps = rows.map(r => par(r.x.dd) ? at((r.x.lo + r.x.hi) / 2) : SP([(r.x.dd.a[0] + r.x.dd.b[0]) / 2, (r.x.dd.a[1] + r.x.dd.b[1]) / 2]));      // dim doc (Mode 3) -> giua dim that
+      let best = null;
+      const DY = [0]; for (let j = 1; j <= 20; j++) DY.push((j % 2 ? -1 : 1) * Math.ceil(j / 2) * Math.max(4, h / 4));      // nhich doc tung 1/4 nhan, toi +-2,5 nhan
+      [1, -1].forEach(side => DY.forEach(dy => [6, 16, 30].forEach((gp, gi) => {
+        let cx = M[0] + side * (gp + w / 2), cy = M[1] + dy;
+        const cl = Math.max(w / 2 + 1, Math.min(W - w / 2 - 1, cx)), ct = Math.max(h / 2 + 1, Math.min(H - h / 2 - 1, cy)), moved = Math.abs(cl - cx) + Math.abs(ct - cy); cx = cl; cy = ct;
+        let sc = Math.abs(dy) * 0.3 + gi * 4 + (side < 0 ? 2 : 0) + moved * 0.5 + Math.hypot(cx - M[0], cy - M[1]) * 0.15;      // gan truc + duong dan ngan
+        obs.forEach(o => { if (Math.abs(o[0] - cx) < o[2] + w / 2 + 3 && Math.abs(o[1] - cy) < o[3] + h / 2 + 2) sc += o[4]; });      // + 3 px vien trang chu
+        segs.forEach(sg => { if (segBx(sg[0], sg[1], cx, cy, w / 2, h / 2)) sc += sg[2]; });
+        holesPx.forEach(hp => { if (Math.abs(hp[0][0] - cx) < w / 2 + hp[1] && Math.abs(hp[0][1] - cy) < h / 2 + hp[1]) sc += 30; });
+        axs.forEach((a2, j) => { if (a2 && a2.a && a2.b && segBx(SP(a2.a), SP(a2.b), cx, cy, w / 2, h / 2)) sc += j === ai ? 14 : 8; });
+        if (!best || sc < best.sc) best = { sc, cx, cy, side: cx >= M[0] ? 1 : -1 };
+      })));
+      const { cx, cy } = best, ex = cx - best.side * w / 2, y0 = cy - h / 2 + 3 + lh / 2, anyOn = rows.some(r => r.on);
+      obs.push([cx, cy, w / 2, h / 2, 100]);
+      qbox.push({ x: cx, y: cy, w, h });
+      let gs = '<g class="stk" data-stk="' + ai + '">';
+      rows.forEach((r, i) => { const ty = y0 + i * lh, tp = tps[i]; gs += '<line x1="' + ex.toFixed(1) + '" y1="' + ty.toFixed(1) + '" x2="' + tp[0].toFixed(1) + '" y2="' + tp[1].toFixed(1) + '" stroke="' + (r.on ? '#d35400' : '#9aa5b1') + '" stroke-width="' + (r.on ? 1.4 : 0.8) + '" pointer-events="none"/>' +
+        '<circle cx="' + tp[0].toFixed(1) + '" cy="' + tp[1].toFixed(1) + '" r="1.8" fill="' + (r.on ? '#d35400' : '#9aa5b1') + '" pointer-events="none"/>'; });
+      gs += '<rect x="' + (cx - w / 2).toFixed(1) + '" y="' + (cy - h / 2).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="5" fill="#fff" fill-opacity="0.93" stroke="' + (anyOn ? '#e8590c' : '#c3ccd5') + '" stroke-width="' + (anyOn ? 1.6 : 1) + '"/>';
+      rows.forEach((r, i) => { const dd = r.x.dd, ty = y0 + i * lh, qs = dd.qs;
+        if (qs && dd.qi >= 0) qhit[dd.qi] = 1;
+        gs += '<g class="dm' + (r.on ? ' qon' : '') + '"' + (r.op < 1 ? ' opacity="' + r.op + '"' : '') + (dd.src ? ' data-field="' + dd.src + '"' : '') + '>' +
+          '<text x="' + cx.toFixed(1) + '" y="' + ty.toFixed(1) + '" dy="0.35em" text-anchor="middle" font-size="' + r.f + '" font-family="Arial,sans-serif" font-weight="' + (qs === 'q' && !r.on ? 600 : 800) + '"' + (qs === 'q' && !r.on ? ' font-style="italic"' : '') + ' fill="' + r.col + '">' + esc(r.txt) + '</text>' +
+          (qs && dd.qi >= 0 ? '<rect class="qt" data-q="' + dd.qi + '" x="' + (cx - Math.max(w, 40) / 2).toFixed(1) + '" y="' + (ty - Math.max(lh, 18) / 2).toFixed(1) + '" width="' + Math.max(w, 40).toFixed(1) + '" height="' + Math.max(lh, 18) + '" fill="transparent" stroke="none" onclick="qTap(event,' + dd.qi + ')"/>' : '') + '</g>'; });
+      s += gs + '</g>';
+    });
   }
   // T38: dim ban kinh "R.." o moi cung bo: mui ten cham giua cung, chu phia trong tam
   // T278: chu R thu ra NGOAI tam, tranh dim co san (chu, duong dim, lo, cung goc): thu nhieu huong/chieu dai, chon cho it dinh nhat
@@ -10840,9 +10956,9 @@ function panelNav(d) {
   if (snap) toastUndo('Đã bỏ phần đang nhập dở', () => restoreSnap(snap));
   navUpd();
 }
-function startNew() {
+function startNew(silent) {
   // T156 (anh Dampt 19/10): tam moi = XOA HET o nhap (khong mang so tam truoc sang). Chi giu: ten tam +1, phi mac dinh cong trinh (S.defD). "Luu + giong" tu fillForm lai SAU khi goi ham nay.
-  const snap0 = DIRTY ? snapForm() : null;
+  const snap0 = (DIRTY && !silent) ? snapForm() : null;     // T309: luc mo app khong hien toast 'Da xoa'
   editIdx = -1; DIRTY = false; $('bCancel').hidden = true; $('bSaveT').textContent = 'Lưu tấm'; $('edTitle').textContent = '2. Nhập tấm mới';
   QSEL = null; QACT = null; QCHN = []; QORIG = null; LT = null; CX = null; if (GOCP) { GOCP = false; updGocBtns(); }
   const lastAny = S.panels[S.panels.length - 1];
@@ -10854,6 +10970,7 @@ function startNew() {
   // tren dien thoai khong tu bat ban phim (de xem hinh truoc)
   if (t && !isNarrow()) { t.focus(); t.select(); }
   if (snap0) toastUndo('Đã xoá phần đang nhập dở', () => restoreSnap(snap0));
+  if (!silent) setTimeout(autoQ, 120);      // T311
 }
 // ---------- T282: xem truoc tam ngay tu danh sach (khong can bam Sua), luoi nhieu tam, mui ten truoc/sau ----------
 const TSEL = new Set(); const TPV = { ids: [], k: 0, grid: false, on: false };
@@ -10930,6 +11047,21 @@ function renderList() {
   $('sum').textContent = n ? ('Tổng: ' + n + ' dòng tấm · ' + q + ' tấm (tính số lượng)' + (sm.bad.length ? ' · ' + sm.bad.length + ' tấm lỗi' : '') + (sm.red.length ? ' · ' + sm.red.length + ' tấm ĐỎ' : '') + (sm.yellow.length ? ' · ' + sm.yellow.length + ' tấm vàng' : '')) : '';
   $('bCnt').textContent = n + ' tấm'; tpvBar(); navUpd();
 }
+function autoQ() {      // T311: dien thoai cao >= 700px - tam moi trong: "Nhap so" tu bat (khong can bam), vao thang so 1
+  try {
+    const b = document.body.classList;
+    if (window.T311_NOAUTOQ || !isNarrow() || innerHeight < 700 || !qOn() || editIdx >= 0 || DIRTY || QSEL || GOCP || b.contains('cua') || b.contains('ks') || b.contains('infoSheet')) return;
+    if ($('modesel').classList.contains('open')) return;
+    qNext();
+  } catch (e) {}
+}
+function infoMenu(on) {      // T311: dien thoai - Khung ten la bang mo bang ☰; may tinh de nguyen tren trang
+  if (!isNarrow()) { if (on) { $('infoCard').open = true; window.scrollTo({ top: 0, behavior: 'smooth' }); } return; }
+  $('infoCard').open = true; document.body.classList.toggle('infoSheet', !!on);
+  if (on) setTimeout(() => { const e = $('i2'); if (e) e.focus({ preventScroll: true }); }, 50);
+}
+function infoMenuKey(e) { if (e.key === 'Escape' && document.body.classList.contains('infoSheet')) infoMenu(false); }
+function infoToday() { const d = new Date(), p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); }
 function infoSummary() { const s = [S.info[2], S.info[3]].filter(Boolean).join(' · '); $('infoSum').textContent = s ? '– ' + s : ''; }
 function readInfo() {
   const oldD = S.defD || ''; S.info = [0, 1, 2, 3].map(i => $('i' + i).value.trim()); S.defD = fixComma('num', $('i4').value); infoSummary(); save();
@@ -10940,7 +11072,7 @@ function fillInfo() { [0, 1, 2, 3].forEach(i => $('i' + i).value = (i === 0 && /
 function newJob() {
   if (S.panels.length && !confirm('Xoá danh sách hiện tại để bắt đầu công trình mới? (Nên Xuất CSV trước)')) return;
   S = { info: ['', S.info[1] || '', '', S.info[3] || ''], panels: [], defD: S.defD || '' }; fillInfo(); save(); renderList(); startNew();
-  $('infoCard').open = true; window.scrollTo({ top: 0, behavior: 'smooth' });
+  infoMenu(true);
 }
 function asciiName(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 // ---------- T60: ten file theo cu phap xuong  ddmmyy_TenKH_TenDaiLy_LoaiKinh  (dung chung CSV / PDF / anh) ----------
@@ -11725,15 +11857,15 @@ document.addEventListener('DOMContentLoaded', () => {
   [0, 1, 2, 3, 4].forEach(i => $('i' + i).addEventListener('input', readInfo));
   $('i4').addEventListener('change', () => { const n = fixComma('num', $('i4').value); if (n !== $('i4').value.trim()) $('i4').value = n; readInfo(); });
   [0, 1, 2, 3].forEach(i => $('i' + i).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('i' + (i + 1)).focus(); } }));
-  $('i3').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (isNarrow()) $('infoCard').open = false; goEditor(); } });
+  $('i3').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (isNarrow()) infoMenu(false); else goEditor(); } });
   const lastMode = S.panels.length ? S.panels[S.panels.length - 1].mode : '1';
-  setMode(lastMode, false); renderList(); startNew();
+  setMode(lastMode, false); renderList(); startNew(true);
   if (!S.panels.length) toggleModes(true);     // T12: chua co tam -> mo san bang 10 hinh
-  if (isNarrow() && (S.panels.length || S.info[2] || S.info[1] || S.info[3])) $('infoCard').open = false;   // da co thong tin -> thu gon (T78: chi can co 1 o khung ten)
+  $('i0').placeholder = 'Hôm nay ' + infoToday() + ' (để trống = tự lấy ngày)'; document.addEventListener('keydown', infoMenuKey);      // T311: khung ten nam trong ☰, ngay hom nay tu dien
   if (DR) {      // T78: khoi phuc tam dang nhap dang do
     try { restoreSnap(DR); DIRTY = true; draftSave(); toast('Đã khôi phục tấm đang nhập dở (chưa Lưu)', 3500); if (!S.panels.length) toggleModes(false); } catch (e) {}
   }
-  $('i4').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (isNarrow()) $('infoCard').open = false; goEditor(); } });
+  $('i4').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); if (isNarrow()) infoMenu(false); else goEditor(); } });
   dtab(UI.tab || 'pv'); if (UI.dmin) dockMin(true);
   sizeDock(); window.addEventListener('resize', sizeDock);
   window.addEventListener('scroll', trackDock, { passive: true });
@@ -11757,6 +11889,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pvRe = () => { const r = $('pv').getBoundingClientRect(); if (r.width > 0 && Math.round(r.width) + 'x' + Math.round(r.height) !== PVSZ) drawPreview(PVV || readForm()); };
   if (window.ResizeObserver) { try { new ResizeObserver(() => requestAnimationFrame(pvRe)).observe($('pv')); } catch (e) {} }
   window.addEventListener('resize', () => setTimeout(pvRe, 220));
+  setTimeout(autoQ, 150);      // T311
 });
 
 // ---- Form field highlighting when focused
@@ -14932,9 +15065,9 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
       busy = false; var c = (e && e.code) || '';
       if (c === 'ma-loi') return loi(e.hienLoi);
       ghiLoi('nhap-ma', e);
-      loi(c === 'permission-denied' ? 'Máy chủ từ chối mã (mã đã dùng, hết hạn nhập hoặc luật chưa cấp). Thử lại sau; nếu vẫn lỗi báo anh Dampt. [permission-denied]' :
+      loi(c === 'permission-denied' ? 'Máy chủ từ chối mã (mã đã dùng, hết hạn nhập hoặc luật chưa cấp). Thử lại sau; nếu vẫn lỗi báo anh Dampt.' :
         c === 'chua-dang-nhap' ? 'Chưa đăng nhập xong, đợi vài giây rồi thử lại.' :
-        'Chưa kích hoạt được (không có mạng?). Thử lại. [' + (c || (e && e.message) || 'loi') + ']');
+        'Chưa kích hoạt được (không có mạng?). Thử lại.');
     });
   }
   function showHet(ly) {
@@ -14955,10 +15088,16 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
     try { showHet(r.ly); } catch (e) {}
     return false;
   };
+  var daNhac = false;
+  function nhacDangNhap() {                           /* T309: dai nho khong chan, 1 lan/phien, khi xuat ma chua dang nhap */
+    if (daNhac || (st && st.uid) || !elBar) return; daNhac = true;
+    msg = 'Đăng nhập Google để hạn dùng thử đi theo tài khoản (không bắt buộc).'; draw();
+    setTimeout(function () { msg = ''; draw(); }, 8000);
+  }
   function gan() {                                    /* boc cac ham tao/luu/xuat: chan khi het han; xem + CSV cu van chay */
-    ['savePanel', 'ksSavePanel', 'openImgSheet', 'ksReview', 'ksExportJet', 'makeImgs', 'makePdf', 'xuatNhieu'].forEach(function (n) {
+    ['savePanel', 'ksSavePanel', 'openImgSheet', 'ksReview', 'ksExportJet', 'makeImgs', 'makePdf', 'xuatNhieu', 'exportCSV'].forEach(function (n) {
       var o = window[n]; if (typeof o !== 'function' || o.ctkGan) return;
-      var w = function () { if (!window.ctkDuocTao()) return (n === 'ksSavePanel' || n === 'savePanel') ? false : undefined; return o.apply(this, arguments); };
+      var w = function () { nhacDangNhap(); if (n === 'exportCSV') return o.apply(this, arguments); if (!window.ctkDuocTao()) return (n === 'ksSavePanel' || n === 'savePanel') ? false : undefined; return o.apply(this, arguments); };
       w.ctkGan = true; window[n] = w;
     });
   }
@@ -15003,10 +15142,10 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
   function baoLoi(e, buoc) {
     busy = false; ghiLoi(buoc, e); var c = (e && e.code) || (e && e.message) || '';
     loi(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' ? 'Đã huỷ đăng nhập.' :
-      c === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên rồi thử lại. [' + c + ']' :
-      c === 'auth/unauthorized-domain' ? 'Địa chỉ web chưa được cấp phép trong Firebase (báo anh Dampt). [' + c + ']' :
-      c === 'cho-het-gio' ? 'Chưa nhận được đăng nhập sau 45 giây. Thử lại: đóng cửa sổ Google nếu còn mở, bấm lại nút đăng nhập; hoặc mở trang bằng Chrome/Safari (không mở trong ứng dụng khác). [cho-het-gio]' :
-      'Chưa đăng nhập được [' + (c || 'loi-mang') + ']. Bấm "Chép thông tin lỗi" gửi anh Dampt. App vẫn dùng bình thường.');
+      c === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên rồi thử lại.' :
+      c === 'auth/unauthorized-domain' ? 'Địa chỉ web chưa được cấp phép trong Firebase (báo anh Dampt).' :
+      c === 'cho-het-gio' ? 'Chưa nhận được đăng nhập sau 45 giây. Thử lại: đóng cửa sổ Google nếu còn mở, bấm lại nút đăng nhập; hoặc mở trang bằng Chrome/Safari (không mở trong ứng dụng khác).' :
+      'Chưa đăng nhập được. Bấm "Chép thông tin lỗi" gửi anh Dampt. App vẫn dùng bình thường.');
   }
   function veNutGis() {
     var box = document.getElementById('tkGsi'); if (!box) return;
@@ -15014,7 +15153,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
       google.accounts.id.initialize({ client_id: gisId(), callback: onGisCred, auto_select: false, cancel_on_tap_outside: true, use_fedcm_for_prompt: true });
       var b = document.getElementById('tkGsi'); if (!b) return;
       google.accounts.id.renderButton(b, { type: 'standard', theme: 'outline', size: 'large', text: 'signin_with', locale: 'vi', width: Math.min(300, Math.max(200, b.clientWidth || 280)) });
-    }).catch(function (e) { ghiLoi('gis-nap', e); loi('Không nạp được Google Identity (' + (e && e.message) + '). Dùng nút "Cách khác".'); var g = document.getElementById('tkGsi'); if (g) g.style.display = 'none'; });
+    }).catch(function (e) { ghiLoi('gis-nap', e); loi('Chưa nạp được nút Google. Dùng nút "Cách khác".'); var g = document.getElementById('tkGsi'); if (g) g.style.display = 'none'; });
   }
   function choHan(p, ms) {
     return new Promise(function (ok, no) {
@@ -15095,7 +15234,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
       document.addEventListener('visibilitychange', function () { if (!document.hidden) { chamGio(); draw(); if (navigator.onLine && st && st.uid && !fb) setTimeout(function () { nap().catch(function () {}); }, 500); } });
       window.addEventListener('online', function () { if (st && st.uid) nap().then(function () { if (userNow) dongBo(false); }).catch(function () {}); });
       if (!st || !st.uid) {
-        if (navigator.onLine) setTimeout(function () { if (!dismissed && !elOv) showCard(); }, 1200);
+        /* T309: KHONG tu hien hop dang nhap khi mo app; chi nhac khi xuat (nhacDangNhap) hoac bam chip */
         if (navigator.onLine) setTimeout(function () { nap().catch(function () {}); }, 2500);     /* de dang nhap nhanh khi bam */
       } else if (navigator.onLine) {
         setTimeout(function () { nap().catch(function () {}); }, 3000);                          /* dong bo lan cuoi, nhe */
@@ -15107,7 +15246,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261101150149';
+var CTK_BUILD = '20261101172733';
 (function () {
   function chk() {
     try {
