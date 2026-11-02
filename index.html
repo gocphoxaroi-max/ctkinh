@@ -6227,7 +6227,11 @@ function geom5(v, m, rev) {
   const groups5 = hasT5 ? gT5.map(g => g.filter(k => !(k < 0) && k > 0)) : lGroups(loClean), nL = groups5.length;
   const tops5 = hasT5 ? gT5.map(g => g.filter(k => k < 0).map(k => ({ k: -k, phi: k.phi || 0 })).reverse()) : [], tpD = [];
   const toks = klStr !== '' ? klStr.split('-').map(t => t.trim()) : [];
-  const hasR = nL > 0 && toks.length > nL;
+  let hasR = nL > 0 && toks.length > nL;
+  // T316: so thua cuoi la SO KIEM TONG (vd @329-@1400-@2190-@3251, 3251 = dai day) hoac duong lo nam tren mep trai -> KHONG phai khoang toi dau phai: bo qua, khong dat lo o x=0
+  let totTok = false;
+  if (hasR) { const tk = toks[nL], sR0 = solve(fnR, num5(tk)), sL0 = (/^@/.test(tk) && !atP(tk)) ? solve(fnL, num5(tk)) : null;
+    if (sR0 === null || sR0 <= 3 || (sL0 !== null && sL0 >= tot - 3)) { hasR = false; totTok = true; } }
   let s = Array(nL).fill(null), q = null, i = 0, flagIdx = null, flagR = false;
   // T230 (anh Dampt 27/10, 9A "150 | 700"): so TRAN ngay sau "@"/"@P" (hoac sau 1 so tran nhu vay) = KHOANG NGANG tu duong lo truoc
   //   (cung moc trai/phai voi "@" goc) -> dim hien dung khoang tho ghi (700), khong doi sang so cong don (850). Lisp: 16 (c5ch).
@@ -6259,6 +6263,7 @@ function geom5(v, m, rev) {
   let qIv = null; if (q !== null && s[q] !== null && (q === 0 || s[q - 1] !== null)) { const a0 = q > 0 ? s[q - 1] : 0, b0 = s[q]; qIv = rev ? [tot - b0, tot - a0] : [a0, b0]; }      // T305: khoang do "?" tinh ra (xam)
   out.s5 = s.slice(); out.tot5 = tot;      // T291: chan duong lo do DOC DAY tu goc TRAI ban ve cuoi (truoc khi doi rev) - doi kieu nhap cong don
   if (rev) s = s.map(sv => sv !== null ? tot - sv : null);
+  if (totTok && q !== null) out.warn.push('Có "?" nhưng số cuối là số kiểm tổng – không tính được "?", bỏ "?" hoặc ghi số tới đầu phải.');
   if (toks.length > nL + 1) out.warn.push('KhoangLo có ' + toks.length + ' số nhưng cột Lo chỉ có ' + nL + ' nhóm lỗ.');
   else if (toks.length && toks.length < nL) out.warn.push('Cột Lo có ' + nL + ' nhóm nhưng KhoangLo chỉ có ' + toks.length + ' số – các đường lỗ cuối không xác định được vị trí.');
   // giao duong thang (P0, dir) voi canh da giac (CTK5-LinePoly): [{t, p, a, b}] theo t tang
@@ -15377,7 +15382,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261102075614';
+var CTK_BUILD = '20261102081304';
 (function () {
   function chk() {
     try {
