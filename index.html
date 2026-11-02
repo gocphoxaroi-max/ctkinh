@@ -309,6 +309,14 @@ body.kbf .toast{bottom:calc(var(--kbh,60px) + 10px)}
 .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
 @media(max-width:560px){.fields{grid-template-columns:1fr}}
 details.sec{margin-top:10px;border:1px dashed #b9c6d3;border-radius:10px;padding:8px 10px}
+/* T317: nhan ngan + nut ⓘ; khoi "Tuy chon them" chu nho hon o chinh nhung >= 13px, o >= 46px */
+.lrow{display:flex;align-items:center;justify-content:space-between;gap:6px}.lrow label{margin-bottom:3px;min-width:0}
+.ftb{flex:none;border:0;background:none;color:#1f4e9c;font-size:17px;line-height:1;min-width:44px;min-height:44px;margin:-14px -8px -14px 0;padding:0;cursor:pointer;border-radius:50%}
+.fqty{display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}.fqty>.lrow,.fqty>.err{grid-column:1/-1}.fqty>input{grid-column:1}.fqty>.qchips{grid-column:2;grid-row:2;margin:0}.fqty .qhint{display:none}
+.ftb.on{background:#e3eefb}.ftip{margin:0 0 5px}
+body.kbf .ftb,body.kbf .ftip{display:none}
+details.adv{border-style:dashed;background:#fafcfe}details.adv summary small{font-weight:normal;color:#5b6772;font-size:13px}
+details.adv label{font-size:13px;font-weight:600;color:#34495e}
 details.sec summary{cursor:pointer;font-weight:bold;color:#1e8449;padding:12px 0;min-height:44px;box-sizing:border-box}
 .warns{margin-top:8px;color:#8a5a00;font-size:14px}
 .warns .wr{color:#c0392b;font-weight:bold}.warns .wy{color:#8a5a00}
@@ -3228,7 +3236,24 @@ MODES['5'].fields.push(F('Tren', 'Cạnh trên tự do (chỉ khi trên có đo�
 for (const m in MODES) {
   MODES[m].cols.push('CatGoc');
   MODES[m].fields.push(F('CatGoc', 'Cắt góc X/Y – đỉnh:X số/Y số (X dọc cạnh NGANG, Y dọc cạnh ĐỨNG; bấm "Cắt góc X/Y" rồi chạm đỉnh trên hình)', 'text', { sec: 'Cắt góc X/Y', ex: 'p1:X30/Y50' }));
-}function m3C(v) { return /^C/i.test(String((v || {}).LoCheo == null ? '' : v.LoCheo).trim()); }
+}
+// T317: THU GON o phu. CHI doi cach hien (nhan ngan `short` + chu giai thich dai dua vao nut ⓘ; o `adv` gom vao khoi "＋ Tuỳ chọn thêm" gap). KHONG doi `label` (qWords / thu tu nhap tuan tu), `cols`, toCSV/fromCSV.
+const SHORT_ALL = { TenTam: null, GocDo: 'Đo góc – tên đỉnh', BoGoc: 'Bo góc – đỉnh:R', LoTuDo: 'Lỗ tự do', Cat: 'Cắt đôi băng', CongDon: 'Kiểu nhập cộng dồn (tự ghi)', CatGoc: 'Cắt góc X/Y – đỉnh:X/Y', KiemTong: 'Tổng đáy thợ đo', KiemNgang: 'Tổng ngang thợ đo', KiemSoLo: 'Số lỗ thợ đếm', KiemXien: 'Cạnh xiên thợ đo',
+  CutP3: 'Sửa góc (ghép bằng /)', D: 'Lỗ φ (mm)', SoLuong: null, Huong: null,
+  DistBaseList: 'Đáy phần mở rộng', HoleGroupsB: 'Lỗ phần mở rộng', EdgeQ1Q2: 'Cạnh Q1–Q2 (mm)', CanhXien: 'Cạnh xiên L (mm)' };
+const SHORT_MODE = {
+  '1': { AList: 'Đáy – từng đoạn từ góc trái', H: 'Cao H (mm)', C: 'Nghiêng ngang (mm)', DTren: 'Lỗ hàng trên: φ riêng', HoleGroups: 'Lỗ từng đường' },
+  '2': { W: 'Tổng rộng W (mm)', AList: 'Khoảng ngang tới từng lỗ', C1: 'Xiên ngang bên trái', C2: 'Xiên ngang bên phải', HoleYList: 'Cao từng lỗ (mm)' },
+  '3': { H: 'Cao H (mm)', DiagLen: 'Cạnh xiên đo thật (mm)', OffsetLeft: 'Xiên → đường lỗ đầu (mm)', AKnownList: 'Đoạn đáy ở giữa', Total: 'Tổng đáy (mm)', HoleHeights: 'Lỗ từng đường' },
+  '4': { H: 'Cao H (mm)', C1: 'Nghiêng ngang trái (mm)', BottomEdge: 'Cạnh đáy (mm)', TopEdge: 'Cạnh trên (mm)', OffsetLeft: 'L1: cách mép trái (mm)', HeightLeft: 'L1: cao từ đáy (mm)', OffsetLeft2: 'L2: cách mép trái (mm)', KC2Left: 'L2: cách L1 ngang (mm)',
+    HeightRight: 'R1: cao từ đáy (mm)', GapFirstHoles: 'R1: cách L1 ngang (mm)', KC2Right: 'R2: cách R1 ngang (mm)', GapSecondHoles: 'R2: cách L2 ngang (mm)' },
+  '5': { H: 'Cao H (mm)', Day: 'Đáy', DauTrai: 'Đầu trái', DauPhai: 'Đầu phải', KhoangLo: 'Khoảng cách các đường lỗ', Lo: 'Lỗ từng đường', LoPhu: 'Lỗ phụ', TruLo: 'Trục lỗ chạy song song cạnh', Tren: 'Cạnh trên tự do' },
+  '6': { H: 'Cao H (mm)', A: 'Khoảng giữa 2 đường lỗ', C: 'Nghiêng ngang (mm)', Offset55: 'Đường lỗ cách góc (mm)', GocHSub: 'Mở rộng: cao vuông góc (mm)', GocCSub: 'Mở rộng: đoạn dọc dốc (mm)', GocALeft: 'Mở rộng: đáy xiên (mm)',
+    GocOffset: 'Mở rộng: đường lỗ cách góc', GocKC1: 'Mở rộng: lỗ đầu cách đáy', GocKC2: 'Mở rộng: bước 2 lỗ (mm)', GocKieu: 'Mở rộng: nhô lên / xuống' } };
+const ADV_MODE = { '1': ['DTren', 'CutP3', 'Huong'], '2': ['CutP1X', 'CutP1Y', 'CutP3', 'Huong'], '3': ['CutP3', 'Huong'], '4': ['CutP3', 'Huong'], '5': ['LoPhu', 'TruLo', 'CutP3', 'Huong'], '6': [] };
+// o phu "dang co gia tri" = khac mac dinh (0 / trong / lua chon dau) -> khoi "Tuỳ chọn thêm" tu mo
+function advHas(el) { if (!el) return false; const v = String(el.value == null ? '' : el.value).trim(); if (el.tagName === 'SELECT') return !!el.options.length && el.selectedIndex > 0 && v !== ''; return v !== '' && !/^0+(\.0*)?$/.test(v); }
+function m3C(v) { return /^C/i.test(String((v || {}).LoCheo == null ? '' : v.LoCheo).trim()); }
 // T11: 3 o "so kiem" (tho ghi tren giay: tong day, so lo dem duoc, canh xien) - CHI de doi chieu, KHONG co trong cols nen KHONG ghi vao CSV
 for (const m in MODES) {
   const SK = 'Số kiểm (thợ ghi trên giấy – chỉ để đối chiếu, không ghi vào CSV)';
@@ -3237,6 +3262,12 @@ for (const m in MODES) {
     F('KiemSoLo', 'Số lỗ thợ đếm (vd "× 4 lỗ")', 'int', { sec: SK, ex: '4' }),
     F('KiemXien', 'Cạnh xiên thợ đo (cạnh xiên trái, nếu có)', 'num0', { sec: SK, ex: '770' }));
 }
+for (const m in MODES) MODES[m].fields.forEach(f => {
+  const sh = (SHORT_MODE[m] || {})[f.k] || SHORT_ALL[f.k];
+  if (sh) { f.short = sh; if (/[–:(]/.test(String(f.label).replace(/\s*\(mm\)/g, '')) || f.hint) f.tip = String(f.label) + (f.hint ? ' ' + f.hint : ''); }
+  else if (f.hint) f.tip = f.hint;
+  if (ADV_MODE[m].includes(f.k)) f.adv = 1;
+});
 const INFO_LABELS = ['Ngày vẽ', 'Tên Đại Lý', 'Tên KH', 'Loại Kính'];
 
 // ---- T12: 10 HINH MAU (tho chon hinh thay vi chon Mode). Chi la bang mo ta: hinh -> mode + gia tri dat san.
@@ -8314,7 +8345,7 @@ function pickShape(id) {
   for (const k of s.clr || []) { const el = $('f_' + k); if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; }
   if (s.c0clr) { const el = $('f_C'); if (el && /^0+(\.0*)?$/.test(el.value.trim())) el.value = ''; }
   for (const k in s.set || {}) { const el = $('f_' + k); if (el) el.value = s.set[k]; }
-  document.querySelectorAll('#form details').forEach(d => { const t = d.querySelector('summary').textContent; if (s.sec && t.indexOf(s.sec) === 0) d.open = true; else if ([...d.querySelectorAll('input')].every(e => !e.value)) d.open = false; });
+  document.querySelectorAll('#form details').forEach(d => { const t = d.querySelector('summary').textContent; if (s.sec && t.indexOf(s.sec) === 0) d.open = true; else if (!secOpen(d)) d.open = false; });
   document.querySelectorAll('#form .fhint').forEach(x => x.classList.remove('fhint'));
   if (s.hl) { const el = $('f_' + s.hl); if (el) { el.parentNode.classList.add('fhint'); setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80); } }
   else if (s.sec) { const d = [...document.querySelectorAll('#form details')].find(d => d.open); if (d) setTimeout(() => d.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80); }
@@ -8340,8 +8371,11 @@ function fieldHTML(f) {
   const cm = !cd && cumFieldHas(cur, f.k);      // T302: Mode 1/3/6 - nut Khoang | Cong don + o chu cong don
   const cmTop = cm ? '<div class="m5kd" id="cmk_' + f.k + '"></div>' : '';
   const cmIn = cm ? '<input id="cc_' + f.k + '" hidden autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" enterkeyhint="next" inputmode="decimal" autocapitalize="characters" placeholder="' + esc(cumPh(f.k)) + '" oninput="cumIn(\'' + f.k + '\',this)" onblur="setTimeout(cumSync,0)"><div class="m5csv" id="cn_' + f.k + '" hidden></div>' : '';
-  return '<div><label for="' + id + '">' + esc(f.label) + (f.req ? ' *' : '') + '</label>' + (f.hint ? '<div class="fnote">' + esc(f.hint) + '</div>' : '') + cdTop + cmTop + inp + cdIn + cmIn + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
+  const tipB = f.tip ? '<button type="button" class="ftb" aria-label="Giải thích ô này" onmousedown="event.preventDefault()" onclick="ftipT(this)">ⓘ</button>' : '';      // T317: nhan ngan + nut ⓘ mo chu giai thich dai
+  return '<div' + (f.k === 'SoLuong' ? ' class="fqty"' : '') + '><div class="lrow"><label for="' + id + '">' + esc(f.short || f.label) + (f.req ? ' *' : '') + '</label>' + tipB + '</div>' + (f.tip ? '<div class="fnote ftip" hidden>' + esc(f.tip) + '</div>' : '') + cdTop + cmTop + inp + cdIn + cmIn + '<div class="err" id="e_' + f.k + '"></div>' + cut + qty + '</div>';
 }
+function ftipT(b) { const t = b.closest('.lrow').nextElementSibling; if (t && t.classList.contains('ftip')) { t.hidden = !t.hidden; b.classList.toggle('on', !t.hidden); } }
+function secOpen(d) { const ad = d.classList.contains('adv'); return [...d.querySelectorAll('input,select')].some(e => ad ? advHas(e) : (e.value && e.value !== '' && e.tagName === 'INPUT')); }      // T317
 function toggleRB() {
   const t = $('rbT'); t.hidden = !t.hidden; $('rbB').textContent = t.hidden ? 'Đọc lại số đo' : 'Ẩn đọc lại';
   if (!t.hidden) live();
@@ -8362,9 +8396,10 @@ function renderImgs() {
 function setMode(m, keepVals) {
   const old = keepVals ? readForm() : null;
   cur = m; if (!keepVals) setNoLo(false);
-  const M = MODES[m], main = M.fields.filter(f => !f.sec), secs = {};
+  const M = MODES[m], main = M.fields.filter(f => !f.sec && !f.adv), advF = M.fields.filter(f => !f.sec && f.adv), secs = {};
   M.fields.filter(f => f.sec).forEach(f => (secs[f.sec] = secs[f.sec] || []).push(f));
   let h = '<div class="fields">' + main.map(fieldHTML).join('') + '</div>';
+  if (advF.length) h += '<details class="sec adv" id="sec_TuyChonThem"><summary>＋ Tuỳ chọn thêm <small>(' + esc(advF.map(f => f.short || f.label).join(' · ')) + ')</small></summary><div class="fields">' + advF.map(fieldHTML).join('') + '</div></details>';      // T317
   for (const s in secs) h += '<details class="sec" id="sec_' + s.replace(/\W/g, '') + '"><summary>' + esc(s) + ' (tuỳ chọn)</summary><div class="fields">' + secs[s].map(fieldHTML).join('') + '</div></details>';
   $('form').innerHTML = h;
   renderImgs(); markMode();
@@ -8385,7 +8420,7 @@ function readForm() { const v = {}; for (const f of MODES[cur].fields) { const e
 function fillForm(v) {
   setNoLo(false);      // T125
   for (const f of MODES[cur].fields) { const el = $('f_' + f.k); if (el) el.value = v[f.k] || (f.type === 'sel' ? f.opts[0][0] : ''); }
-  document.querySelectorAll('#form details').forEach(d => { d.open = [...d.querySelectorAll('input,select')].some(e => e.value && e.value !== '' && e.tagName === 'INPUT'); });
+  document.querySelectorAll('#form details').forEach(d => { d.open = secOpen(d); });
   live();
 }
 // T61: the "do canh xien + goc": o "Canh xien L" (bat buoc) thay cho o H (an; H tu tinh, chi hien chu xam), o C = "Goc voi canh dung"
@@ -8394,12 +8429,12 @@ function xgLayout() {
   const wL = eL.parentNode, wH = eH.parentNode, wC = eC.parentNode, lab = (w, t) => { const l = w.querySelector('label'); if (l) l.innerHTML = t; };
   if (on) {
     if (wL.parentNode !== wH.parentNode) wH.parentNode.insertBefore(wL, wH);
-    wH.style.display = 'none'; lab(wL, 'Cạnh xiên L – đo dọc cạnh xiên *'); lab(wC, 'Góc đứng * – góc với cạnh đứng, độ (gõ 36 → app tự ghi V36)'); eC.placeholder = 'vd 36';
+    wH.style.display = 'none'; lab(wL, 'Cạnh xiên L (mm) *'); lab(wC, 'Góc đứng (độ) *'); eC.placeholder = 'vd 36';
     let hn = $('xgH'); if (!hn) { hn = document.createElement('div'); hn.id = 'xgH'; hn.className = 'cuthint'; hn.style.color = '#888'; wL.appendChild(hn); }
     const x = m1Slant(readForm()); hn.textContent = x ? 'H ≈ ' + Math.round(x.H) + ' (tự tính)' : 'H tự tính từ L và góc';
   } else if (wL.parentNode === wH.parentNode) {
     const sec = document.querySelector('#sec_' + SEC_XG.replace(/\W/g, '') + ' .fields'); if (sec) sec.appendChild(wL);
-    wH.style.display = ''; lab(wL, esc(F0('CanhXien').label)); lab(wC, esc(F0('C').label) + ' *'); eC.placeholder = 'vd ' + F0('C').ex; const hn = $('xgH'); if (hn) hn.remove();
+    wH.style.display = ''; lab(wL, esc(F0('CanhXien').short || F0('CanhXien').label)); lab(wC, esc(F0('C').short || F0('C').label) + ' *'); eC.placeholder = 'vd ' + F0('C').ex; const hn = $('xgH'); if (hn) hn.remove();
   }
 }
 // T207: the "tam co phan mo rong" (Mode 6 + GocHSub): AN HAN o C (hinh suy tu GocHSub/GocCSub; C bi bo qua o web + CAD)
@@ -9460,7 +9495,7 @@ function cumSync() {
       if (document.activeElement !== cp || swap) { cp.value = cumTxt(cur, k, v); cp.dataset.perr = ''; }
       if (cp.dataset.perr !== '1') { cp.classList.toggle('bad', el.classList.contains('bad')); nt.innerHTML = csvTail(el, ax ? 'Cộng dồn từ góc ' + (CUM.side === 'R' ? 'PHẢI' : 'TRÁI') + ': gõ số tăng dần tới từng đường lỗ, số cuối = tổng đáy' : 'Lỗ 2 = cách đáy (không phải khoảng giữa 2 lỗ)'); }
       cp.placeholder = cumPh(k);
-      if (lb) lb.textContent = ax ? 'Các đoạn đáy – CỘNG DỒN từ góc ' + (CUM.side === 'R' ? 'phải' : 'trái') + ' tới từng đường lỗ' : 'Lỗ từng đường – lỗ đầu cách đáy / lỗ 2 cách đáy (cộng dồn)';
+      if (lb) lb.textContent = ax ? 'Đáy – cộng dồn từ góc ' + (CUM.side === 'R' ? 'phải' : 'trái') : 'Lỗ từng đường – lỗ 2 cách đáy';
     } else { cp.classList.remove('bad'); cp.dataset.perr = ''; nt.innerHTML = ''; if (lb) lb.textContent = lb.dataset.l0; }
     nt.hidden = nt.innerHTML === '';
     if (swap && document.activeElement === (on ? el : cp)) { const n = on ? cp : el; n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} }
@@ -9502,7 +9537,7 @@ function m5CdSync() {
         nt.innerHTML = csvTail(el, k === 'KhoangLo' ? m5KlNote(v, K, p, R, cp.value) : 'Mỗi đường lỗ: lỗ cách đáy 80/180 (V = đo thẳng đứng)');
       }
       if (k === 'KhoangLo') cp.placeholder = K === 'chuoi' ? 'vd 130/892/910/127/170' : K === 'goc' ? 'vd 1765/1020/260' : 'vd 400/1305/2240';
-      if (lb) lb.textContent = k === 'KhoangLo' ? (K === 'chuoi' ? 'Khoảng lỗ – từng khoảng (vd 130/892/910/?/200)' : K === 'goc' ? 'Khoảng lỗ – đo từ góc, cộng dồn NGANG (vd 1765/1020/260)' : 'Khoảng lỗ – số cộng dồn dọc đáy (vd 400/1305/2240)') : 'Lỗ – cách đáy cộng dồn (vd 80/180, đường sau cách dấu -)';
+      if (lb) lb.textContent = k === 'KhoangLo' ? (K === 'chuoi' ? 'Khoảng lỗ – từng khoảng' : K === 'goc' ? 'Khoảng lỗ – đo từ góc' : 'Khoảng lỗ – cộng dồn') : 'Lỗ – cách đáy cộng dồn';
     } else {
       cp.classList.remove('bad'); cp.dataset.perr = '';
       nt.innerHTML = want && String(el.value || '').trim() !== '' ? 'Ô đang có ký hiệu kiểu cũ (?, @, @P, số tới đầu phải…) – bấm «Cộng dồn» để đổi' : '';
@@ -15382,7 +15417,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261102081304';
+var CTK_BUILD = '20261102084526';
 (function () {
   function chk() {
     try {
