@@ -12054,6 +12054,25 @@ document.addEventListener('DOMContentLoaded', () => {
   $('qpad').addEventListener('mousedown', e => e.preventDefault());      // T312: giu focus o go so
   $('qpad').addEventListener('click', e => { const t = e.target.closest('button[data-k]'); if (t) qPad(t.getAttribute('data-k')); });
   $('qin').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); qNext(); } else if (e.key === 'Escape') { e.preventDefault(); qClose(); } });
+  // T318: may tinh - Tab chi qua o nhap (input/select/summary dang hien); nut phu tabindex=-1; thanh qin: Tab=Tiep, Shift+Tab=Lui
+  (function () {
+    const fm = $('form'); if (!fm) return;
+    const noTab = () => { fm.querySelectorAll('button:not([tabindex="-1"])').forEach(b => b.setAttribute('tabindex', '-1')); };
+    noTab();
+    if (window.MutationObserver) { try { new MutationObserver(noTab).observe(fm, { childList: true, subtree: true }); } catch (e) {} }
+    const vis = el => !el.hidden && !el.disabled && el.type !== 'hidden' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Tab' || e.ctrlKey || e.altKey || e.metaKey) return;
+      const t = e.target;
+      if (t && t.id === 'qin') { e.preventDefault(); if (e.shiftKey) qPrev(); else qNext(); return; }
+      if (!t || !fm.contains(t)) return;
+      const list = Array.prototype.filter.call(fm.querySelectorAll('input,select,summary'), vis);
+      let nx = null;
+      if (e.shiftKey) { for (let i = list.length - 1; i >= 0; i--) { if (list[i] !== t && (list[i].compareDocumentPosition(t) & 4)) { nx = list[i]; break; } } }
+      else { for (let i = 0; i < list.length; i++) { if (list[i] !== t && (list[i].compareDocumentPosition(t) & 2)) { nx = list[i]; break; } } }
+      if (nx) { e.preventDefault(); nx.focus(); }
+    }, true);
+  })();
   // T08a: khung xem truoc doi co (Nho/Vua/Lon, ban phim, xoay may) -> ve lai de chu dim giu dung co pixel
   updDimBtn();
   GOCPHU = UI.gocPhu === true; updGocPhuBtn();          // T85
@@ -15417,7 +15436,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261102084526';
+var CTK_BUILD = '20261102141036';
 (function () {
   function chk() {
     try {
