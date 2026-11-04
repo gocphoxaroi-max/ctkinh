@@ -189,6 +189,11 @@ input[hidden]{display:none}
 .qopt button.on{background:#1f4e79;color:#fff;border-color:#1f4e79}
 .qopt button.kb,.m5kd button.kb{min-width:72px;min-height:44px;padding:2px 6px;font-size:12px;line-height:1.1}
 .kb svg{pointer-events:none}
+.tgbox{grid-column:1/-1;border:1px solid #b9c6d3;border-radius:10px;padding:8px 10px;background:#fafcfe}.tghd{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:4px}.tghd b{color:#1f4e79}.tgsub{font-size:13px;color:#5b6772}
+.tgc{border:1px dashed #9fb3c8;border-radius:10px;padding:6px 8px;margin:8px 0;background:#fff}.tgch{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tgch b{flex:1 1 auto}.tgwarn{font-size:13px;color:#a35400;font-weight:600}
+.tgdel,.tgadd{min-height:44px;padding:6px 12px;font-size:15px;border-radius:10px;border:1px solid #b9c6d3;background:#f4f7fa;color:#1f4e79}.tgadd{width:100%;font-weight:bold;margin-top:4px}
+.tgl{font-size:13px;font-weight:600;color:#34495e;margin:6px 0 4px}.tgin{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 10px;margin:6px 0}.tgf label{display:block;font-size:13px;color:#34495e;margin-bottom:2px}
+.tgbox .m5kd button.kb{min-width:84px}#tgMui{margin-top:8px}
 .qopt button.qk{min-width:40px;font-size:18px;font-weight:bold}
 .qopt .catnm{display:flex;gap:6px;flex-wrap:wrap;width:100%}
 .qopt .catnm label{display:flex;align-items:center;gap:4px;font-size:13px;color:#1f4e79}
@@ -3840,6 +3845,7 @@ function cumFromTxt(mode, k, s, v) {
   return o.join('-');
 }
 function qGet0(v, m) {
+  if (m.tg) return tgGetM(v, m);      // T325: hang lo canh huyen tam TG
   if (m.nm) return nmGet(v, m);      // T229: o tam Nhat Minh - bo tien to P / G / @D / @PD / A / N (tho chi thay so)
   if (m.cd) { const p = m5CdParse(v); if (p && m5KindOf(v) === 'chuoi') return m5ChGap(p, m.t); return p && p.c[m.t] != null ? p.c[m.t] : ''; }      // T291 / T300 (chuoi: khoang noi tiep)
   if (m.lcd) { const p = m5LoCdParse(v); return p && p[m.t] && p[m.t].c[m.s] != null ? p[m.t].c[m.s] : ''; }      // T291
@@ -3917,6 +3923,7 @@ function nmGhost(v, vd, gf, G) {
 function qSet0(mode, v, m, val) {
   val = String(val == null ? '' : val).trim();
   if (m.nm) return nmSet(v, m, val);      // T229
+  if (m.tg) return tgSetM(v, m, val);      // T325
   if (m.cd) {      // T291: so cong don doc day -> KhoangLo ky hieu cu
     const p = m5CdParse(v) || { side: M5CD.side === 'R' ? 'R' : 'L', c: [] };
     if (m5KindOf(v) === 'chuoi') {      // T300: so = khoang tu vach truoc (go a+b neu tho ghi tach tai diem gay)
@@ -4263,6 +4270,7 @@ function qGhost(mode, shp, v) {
     const has = String(v[f.k] == null ? '' : v[f.k]).trim() !== '';
     if (has || f.type === 'sel' || f.k === 'TenTam' || f.k === 'SoLuong') continue;
     if (shp === 'gocnghi' && f.k === 'C') continue;      // T207: the phan mo rong khong dung o C -> khong so mau C
+    if (shp === 'tamgiac' && f.k === 'TG_LoThem') continue;      // T325: hang lo canh huyen = tho tu them (khong lo mau)
     if (/^Kiem/.test(f.k) || (shp === 'xiengoc' && f.k === 'H')) continue;      // T59: so kiem chi la so mau o nhap (qSmp); the xien+goc khong nhap H
     const use = f.req || (sh.sec && f.sec === sh.sec) || G[f.k] != null;
     if (!use || f.k === 'AList' || f.k === 'AKnownList' || f.k === 'HoleGroups' || f.k === 'HoleHeights') continue;
@@ -4346,6 +4354,9 @@ function qGhost(mode, shp, v) {
       const f = M.fields.find(x => x.k === k), g = G[k] != null ? G[k] : f.req ? f.ex : '';
       if (g) { vd[k] = g; gf[k] = 1; ghost = true; }
     }
+  }
+  if (mode === '1' && shp === 'tamgiac' && String(v.TG_LoThem || '').trim()) {      // T325: hang da chon cach do, chua go so -> so mau mo
+    const P = tgParse(v.TG_LoThem); if (tgGhostRows(vd, P.rows)) { vd.TG_LoThem = tgStr(P.rows, P.rest); gf.TG_LoThem = 1; ghost = true; }
   }
   if (isNoLo(mode, v)) noLoKeys(mode).forEach(k => { if (k in v) vd[k] = v[k]; else delete vd[k]; delete gf[k]; });      // T125: khong lo -> khong so mau lo
   return { vd, ghost, gf };
@@ -4623,6 +4634,7 @@ function qMarks00(mode, shp, v) {
     const ft = (MODES[mode].fields.find(x => x.k === k) || {}).type;
     add(k, -1, -1, kind || (['num', 'num0', 'int'].includes(ft) ? 'num' : 'field'), fLabel(mode, k), p, o);
   });
+  if (mode === '1' && shp === 'tamgiac') tgMarks(vd, S, add, by1);      // T325
   return res;
 }
 
@@ -4660,7 +4672,7 @@ function qMarks(mode, shp, v) {
 // ---- T41: THU TU NHAP (anh Dampt chot 10/10/2026): kich thuoc bao -> do nghieng -> chuoi day -> cac duong lo. T55: phi len DAU.
 //   Phan tuy chon (sua goc "+", bo goc, so kiem) KHONG nam trong chuoi (chi khi tho cham). Sap xep on dinh (giu thu tu qMarks trong cung 1 nhom).
 const QORD_SIZE = { H: 1, H1: 1, H2: 1, W: 1, TG_CanhTren: 1, CanhXien: 1 }, QORD_SLOPE = { C: 1, C1: 1, C2: 1, DiagLen: 1 };
-const QORD_HOLE = { HoleGroups: 1, HoleHeights: 1, HoleYList: 1, KhoanCheo1: 1, KhoanCheo2: 1, KhoangLo: 1, Lo: 1, HeightLeft: 1, OffsetLeft2: 1, KC2Left: 1,
+const QORD_HOLE = { TG_LoThem: 1, HoleGroups: 1, HoleHeights: 1, HoleYList: 1, KhoanCheo1: 1, KhoanCheo2: 1, KhoangLo: 1, Lo: 1, HeightLeft: 1, OffsetLeft2: 1, KC2Left: 1,
   GapFirstHoles: 1, GapSecondHoles: 1, HeightRight: 1, KC2Right: 1, GocKC1: 1, GocKC2: 1 };
 function qRank(mode, m) {
   if (m.k === 'D') return -1;             // T55 (C5): phi len BUOC DAU (co phi mac dinh cong trinh -> so hien san, bam Tiep la qua)
@@ -4922,6 +4934,7 @@ function checkSmart(mode, v, ctx, hasErr) {
   if (mode === '6' && !String(v.GocHSub || '').trim() && c.soLo < 4 && !noHoleVals(mode, v)) red.push('Chỉ vẽ được ' + c.soLo + '/4 lỗ – có lỗ rơi ngoài tấm. Kiểm tra lại lỗ đầu (KhoanCheo1), bước lỗ (KhoanCheo2), H.');
   // lo: ngoai tam / cham mep (DO), qua sat mep (VANG), 2 lo qua sat / chong (DO / VANG)
   if (S.tgWarn) S.tgWarn.forEach(w => red.push(w));      // T298: lo them TG khong dung duoc
+  if (mode === '1' && String(v.TG_LoThem || '').trim()) tgParse(v.TG_LoThem).rows.forEach((r, i) => { if (!r.x || !r.y) yel.push('Hàng lỗ cạnh huyền ' + (i + 1) + ': chưa chọn cách đo (X / Y) – chạm nút chọn rồi nhập số.'); else if (!r.n.length || r.n[0] === '') yel.push('Hàng lỗ cạnh huyền ' + (i + 1) + ': chưa có số – nhập vị trí trục và lỗ.'); });      // T325
   const hs = S.holes, nLoMsg = { r: [], y: [] };
   const lab = (h, i) => 'Lỗ thứ ' + (i + 1) + (h.src === 'B' ? ' (phần mở rộng)' : h.src === 'L' ? ' (phần cộng trái)' : h.src === 'TG' ? ' (lỗ thêm TG)' : h.src === 'F' ? ' (lỗ tự do ' + (h.axis + 1) + ')' : '');
   hs.forEach((h, i) => {
@@ -5009,7 +5022,7 @@ function toCSV(info, panels) {
     const ps = panels.filter(p => p.mode === m);
     if (!ps.length) continue;
     L.push('', '#MODE ' + m, MODES[m].cols.join(','));
-    for (const p of ps) L.push(MODES[m].cols.map(c => clean(c === 'CutP3' ? normCut(p.v[c]) : (c === 'C' && m === '6' && String(p.v.GocHSub == null ? '' : p.v.GocHSub).trim() !== '') ? '0' : c === 'GocDo' ? [gocTokens(m, p.v), gocPhuTokens(m, p.v)].filter(Boolean).join('-') : c === 'BoGoc' ? boTokens(m, p.v) : c === 'CatGoc' ? cgTokens(m, p.v) : c === 'LoTuDo' ? ltTokens(m, p.v) : p.v[c])).join(','));
+    for (const p of ps) L.push(MODES[m].cols.map(c => clean(c === 'CutP3' ? normCut(p.v[c]) : (c === 'C' && m === '6' && String(p.v.GocHSub == null ? '' : p.v.GocHSub).trim() !== '') ? '0' : c === 'GocDo' ? [gocTokens(m, p.v), gocPhuTokens(m, p.v)].filter(Boolean).join('-') : c === 'BoGoc' ? boTokens(m, p.v) : c === 'CatGoc' ? cgTokens(m, p.v) : c === 'LoTuDo' ? ltTokens(m, p.v) : c === 'TG_LoThem' ? tgCsv(p.v[c]) : p.v[c])).join(','));      // T325: bo hang lo Q chua co so
   }
   return '﻿' + L.join('\r\n') + '\r\n';
 }
@@ -6027,6 +6040,129 @@ function diamDim(out, c, phi, st, src, u) {      // T233: u = huong chu (vector 
     text: '⌀' + fmtDim(phi, st), src, pri: 2 };
   out.push(d); return d;
 }
+/// ---- T325: HANG LO VUNG CANH HUYEN (tam TG) - tho TU CHON cach do X (vi tri truc) + Y (lo tren truc), khong mac dinh ----
+//   1 hang = 1 token trong TG_LoThem (cach "-"). Token cu giu nguyen nghia: T<x>/<sau> = ngang + tu canh tren (1 lo),
+//   X<x>/<n1>/<kc>.. = ngang + offset canh huyen (vuong goc), H<s>/<y1>/<kc>.. = doc canh huyen + tu diem cat (do dung).
+//   Token MOI: Q<x><y><so>/<so>..[@phi]; x: N = ngang tu canh dung | X = doc canh huyen tu chan (sA); y: T = tu canh tren |
+//   C = tu diem truc cat canh huyen (do dung) | O = offset vuong goc canh huyen; '?' = chua chon (chi o form, toCSV bo token Q khong so).
+//   Quy uoc day du: _Team/bao-cao/T325-QUY-UOC.md (lisp T326).
+const TG_XT = { N: 'Ngang từ cạnh đứng', X: 'Dọc cạnh huyền' }, TG_YT = { T: 'Từ cạnh trên', C: 'Từ điểm cắt cạnh huyền', O: 'Offset cạnh huyền' };
+function tgTokParse(t0) {
+  const t = String(t0 == null ? '' : t0).trim(); if (!t) return null;
+  let x, y, rest, q = false;
+  const m = /^Q([NX?])([TCO?])(.*)$/i.exec(t);
+  if (m) { x = m[1].toUpperCase(); y = m[2].toUpperCase(); rest = m[3]; q = true; if (x === '?') x = ''; if (y === '?') y = ''; }
+  else if (/^[TXH]/i.test(t)) { const c = t[0].toUpperCase(); x = c === 'H' ? 'X' : 'N'; y = c === 'T' ? 'T' : c === 'X' ? 'O' : 'C'; rest = t.slice(1); }
+  else return null;
+  let phi = ''; const at = rest.indexOf('@'); if (at >= 0) { phi = rest.slice(at + 1).trim(); rest = rest.slice(0, at); }
+  const n = rest.trim() === '' ? [] : rest.split('/').map(s => s.trim());
+  return { x, y, n, phi, q };
+}
+function tgParse(s) {      // -> {rows, rest}: rows theo thu tu token (= thu tu truc trong geomTG), rest = token khong doc duoc (giu nguyen, ghi cuoi)
+  const rows = [], rest = [];
+  String(s == null ? '' : s).split('-').forEach(t => { if (!t.trim()) return; const r = tgTokParse(t); if (r) rows.push(r); else rest.push(t.trim()); });
+  return { rows, rest };
+}
+function tgTok(r) {
+  const n = (r.n || []).slice(); while (n.length && String(n[n.length - 1]).trim() === '') n.pop();
+  const body = n.join('/') + (String(r.phi || '').trim() ? '@' + String(r.phi).trim() : '');
+  const ok = n.length && n[0] !== '';
+  if (ok && r.x === 'N' && r.y === 'T' && n.length <= 2) return 'T' + body;      // lisp cu ve dung (1 lo treo)
+  if (ok && r.x === 'N' && r.y === 'O') return 'X' + body;
+  if (ok && r.x === 'X' && r.y === 'C') return 'H' + body;
+  return 'Q' + (r.x || '?') + (r.y || '?') + body;
+}
+function tgStr(rows, rest) { return rows.map(tgTok).concat(rest || []).join('-'); }
+// CSV: bo token Q chua co so (hang moi them, chua chon cach do / chua go so). Chuoi khong co Q -> GIU NGUYEN tung byte (CSV cu)
+function tgCsv(s) {
+  s = String(s == null ? '' : s);
+  if (!/(^|-)\s*Q/i.test(s)) return s;
+  return s.split('-').filter(t => !(/^\s*Q/i.test(t) && !/\d/.test(t))).join('-');
+}
+// khung tam TG chua lat (nhu geomTG): dau dung, chan/dinh canh huyen sA/sB
+function tgFrame(v) {
+  const a = lNums(v.AList), H = lNum(v, 'H', 600), topLen = lNum(v, 'TG_CanhTren', 1000), stp = lNum(v, 'TG_Buoc', 0);
+  const sideT = String(v.TG_Phia || '').trim().toUpperCase() === 'T', bot = a.reduce((s, x) => s + x, 0);
+  const sA = sideT ? [0, stp] : [bot, stp], sB = sideT ? [bot - topLen, H] : [topLen, H];
+  return { H, bot, topLen, stp, sideT, sA, sB, Ls: V2.dist(sA, sB), slDir: topLen >= bot ? 1 : -1, dx: p => sideT ? bot - p[0] : p[0] };
+}
+// so mau (mo) cho hang da chon cach do nhung chua go so - vi tri chia deu doc canh huyen
+function tgGhostRows(vd, rows) {
+  const F = tgFrame(vd); let ch = false;
+  rows.forEach((r, i) => {
+    if (!r.x || !r.y) return;
+    const fr = (i + 1) / (rows.length + 1), P = V2.add(F.sA, V2.sub(F.sB, F.sA), fr), Lv = Math.max(60, F.slDir > 0 ? F.H - P[1] : P[1]);
+    const rd = x => String(Math.max(1, Math.round(x)));
+    if (r.n[0] == null || r.n[0] === '') { r.n[0] = rd(r.x === 'X' ? fr * F.Ls : F.dx(P)); ch = true; }
+    if (r.n[1] == null || r.n[1] === '') { r.n[1] = rd(Math.min(r.y === 'T' ? 100 : r.y === 'C' ? 60 : 50, Lv * 0.3)); ch = true; if (r.n[2] == null || r.n[2] === '') r.n[2] = rd(Math.min(140, Lv * 0.4)); }
+    for (let j = 2; j < r.n.length; j++) if (r.n[j] === '') { r.n[j] = rd(Math.min(140, Lv * 0.4)); ch = true; }
+  });
+  return ch;
+}
+// o nhap tuan tu (mark m.tg): m.t = hang, m.s = -2 (chon cach do) | 0 (X) | 1 (lo 1) | 2.. (tim lo)
+function tgGetM(v, m) {
+  const r = tgParse(v.TG_LoThem).rows[m.t]; if (!r) return '';
+  if (m.s === -2) return r.x && r.y ? r.x + r.y : '';
+  return r.n[m.s] != null ? r.n[m.s] : '';
+}
+function tgSetM(v, m, val) {
+  const P = tgParse(v.TG_LoThem), r = P.rows[m.t]; if (!r || m.s < 0) return null;
+  if (val !== '' && !/^\d+(\.\d+)?$/.test(val)) return null;
+  while (r.n.length <= m.s) r.n.push('');
+  r.n[m.s] = val;
+  return tgStr(P.rows, P.rest);
+}
+// ghi cach do (x | y) cho hang i -> chuoi TG_LoThem moi (i = so hang moi -> them hang)
+function tgSetKind(s, i, xk, yk) {
+  const P = tgParse(s); while (P.rows.length <= i) P.rows.push({ x: '', y: '', n: [], phi: '', q: true });
+  const r = P.rows[i]; if (xk != null) r.x = xk; if (yk != null) r.y = yk;
+  return tgStr(P.rows, P.rest);
+}
+// mui nhon tam TG = dinh goc NHON nhat (< 89,5 do); bo R = cot BoGoc, cat dung vao L = cot CatGoc (X = L doc canh ngang, Y = L / cos goc) - lisp da co
+function tgTip(v) {
+  let g; try { g = geom('1', Object.assign({}, v, { BoGoc: '', CatGoc: '', GocDo: '', LoTuDo: '' })); } catch (e) { return null; }
+  const info = gocInfo((g.shape && g.shape.verts) || []); let b = null;
+  info.forEach(q => { if (q.val < 89.5 && (!b || q.val < b.val)) b = q; });
+  return b;
+}
+function tgMui(v) {      // -> {n, val, k: '' | 'bo' | 'cat' | 'khac', L}
+  const q = tgTip(v); if (!q) return null;
+  const r = boGet(v.BoGoc, q.n), c = cgParse(v.CatGoc).find(x => x.n.toUpperCase() === String(q.n).toUpperCase());
+  const cs = Math.cos(q.val * Math.PI / 180);
+  if (c) return { n: q.n, val: q.val, k: cs > 1e-6 && Math.abs(c.y - c.x / cs) < 0.05 ? 'cat' : 'khac', L: String(+c.x.toFixed(2)) };
+  if (r) return { n: q.n, val: q.val, k: 'bo', L: r };
+  return { n: q.n, val: q.val, k: '', L: '' };
+}
+function tgMuiSet(v, k, L) {      // -> {BoGoc, CatGoc} moi (k: '' | 'bo' | 'cat'); L sai -> null
+  const q = tgTip(v); if (!q) return null;
+  L = String(L == null ? '' : L).trim().replace(',', '.');
+  if (L !== '' && !(/^\d+(\.\d+)?$/.test(L) && +L > 0)) return null;
+  const bo = boSet(v.BoGoc, q.n, k === 'bo' ? L : '');
+  const cg = cgParse(v.CatGoc).filter(x => x.n.toUpperCase() !== String(q.n).toUpperCase());
+  if (k === 'cat' && L !== '') { const cs = Math.cos(q.val * Math.PI / 180); if (cs > 1e-6) cg.push({ n: q.n, x: +L, y: +L / cs }); }
+  return { BoGoc: bo == null ? String(v.BoGoc || '') : bo, CatGoc: cgStr(cg) };
+}
+// "?" nhap tuan tu cho tung hang lo canh huyen (sau duong lo day): chua chon cach do -> 1 buoc chon (cham nut); da chon -> X, lo 1, tim lo
+const TG_YH = { T: 'đo đứng từ cạnh trên xuống tâm lỗ', C: 'đo đứng từ điểm trục cắt cạnh huyền tới tâm lỗ gần nhất', O: 'đo vuông góc từ cạnh huyền tới tâm lỗ gần nhất' };
+function tgMarks(vd, S, add, by1) {
+  const rows = tgParse(vd.TG_LoThem).rows, sl = S.tgSl, ax = S.axes || [], mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  rows.forEach((r, i) => {
+    const n = i + 1, base = 'Hàng lỗ ' + n, ex = { tg: 1, req: false };
+    const fr = (i + 1) / (rows.length + 1), P0 = sl ? V2.add(sl[0], V2.sub(sl[1], sl[0]), fr) : [0, 0];
+    if (!r.x || !r.y) { add('TG_LoThem', i, -2, 'tgpick', base + ' cạnh huyền: chọn cách đo', P0, [0, 16], Object.assign({ sh: 'Hàng ' + n + ': cách đo', lg: base + ' cạnh huyền: chọn cách đo – chạm nút X (vị trí trục) và Y (lỗ trên trục)' }, ex)); return; }
+    const A = ax.find(a => a.src === 'TG' && a.row === i), hs = (S.holes || []).filter(h => h.src === 'TG' && h.axis === i).map(h => [h.x, h.y]);
+    const st = A ? A.a : P0, x0 = A ? A.a[0] : P0[0];
+    const pX = r.x === 'X' && sl ? mid(sl[0], V2.add(sl[0], V2.u(sl[0], sl[1]), lAtof(r.n[0]))) : [x0, by1];
+    add('TG_LoThem', i, 0, 'num', base + ': vị trí trục', pX, r.x === 'X' ? [0, 16] : [0, -15], Object.assign({ sh: 'Hàng ' + n + ' trục',
+      lg: base + ': vị trí trục – ' + (r.x === 'X' ? 'đo dọc cạnh huyền từ chân cạnh huyền tới trục' : 'đo ngang từ cạnh đứng tới trục') }, ex));
+    add('TG_LoThem', i, 1, 'num', base + ': lỗ 1', hs[0] ? mid(st, hs[0]) : st, [16, 0], Object.assign({ sh: 'Hàng ' + n + ' lỗ 1', lg: base + ': lỗ 1 – ' + TG_YH[r.y] }, ex));
+    for (let s = 2; s <= Math.max(2, r.n.length - 1); s++) {
+      const p = hs[s - 1] && hs[s - 2] ? mid(hs[s - 2], hs[s - 1]) : hs[hs.length - 1] || st;
+      add('TG_LoThem', i, s, 'num', base + ': tim lỗ', p, [16, 0], Object.assign({ sh: 'Hàng ' + n + ' tim ' + (s - 1) + '→' + s,
+        lg: base + ': tim lỗ ' + (s - 1) + '→' + s + ' – khoảng tâm 2 lỗ trên trục (bỏ trống = 1 lỗ)', soft: s === 2 && r.n.length <= 2 }, ex));
+    }
+  });
+}
 // ---- Tam TG (Mode 1, TG_CanhTren > 0): CTK-DrawTGPanel ----
 //   dau DUNG cao H, canh tren TG_CanhTren, day = tong AList, dau kia: doan dung TG_Buoc roi canh XIEN.
 //   TG_Phia P = tam giac ben phai (dau dung ben trai) / T = ben trai. Nghieng trai (Huong T): lisp dao chuoi
@@ -6051,6 +6187,7 @@ function geomTG(v, flip) {
   G.forEach((p, i) => { const q = out.verts[out.verts.length - 1]; if (!q || V2.dist(q.p, p) > 0.01) out.verts.push(nm('G' + i, p)); });
   if (out.verts.length > 1 && V2.dist(out.verts[0].p, out.verts[out.verts.length - 1].p) <= 0.01) out.verts.pop();
   const uS = V2.u(sA, sB), vx = dd => sideT ? bot - dd : dd, dims = out.dims;
+  out.sl = [sA, sB];      // T325: canh huyen (dat o nhap tuan tu hang lo)
   // T298: canh xien la bien DUOI (canh tren dai hon day: tam giac nho ra NGOAI day) -> lo X/H di LEN tu canh xien; nguoc lai (canh tren ngan hon day) di XUONG
   const slDir = topLen >= bot ? 1 : -1, sx0 = Math.min(sA[0], sB[0]), sx1 = Math.max(sA[0], sB[0]);
   let nMain = 0; const extraD = [], tgDiam = [];
@@ -6077,8 +6214,48 @@ function geomTG(v, flip) {
     if (hs.length > 1) holeDimAdd(dims, foot, hs[hs.length - 1], V2.dist(foot, hs[hs.length - 1]), 110, false, 'HoleGroups', 2);
   });
   // lo them vung tam giac: T<dd>/<sau>[@phi] = lo treo tu canh tren; X<dd>/<cach canh xien>/<kc>..[@phi]; H<s doc canh xien>/<lo1 dung>/<kc>..[@phi]
-  const lst = [];
-  extra.split('-').forEach((t0, ti) => {
+  const lst = [], tgSl = []; let rI = -1, nH = 0;
+  // T325: hang lo MOI (token Q / T nhieu lo): x N = ngang tu dau dung | X = doc canh huyen tu chan sA; y T = tu canh tren (lo di vao trong) |
+  //   C = tu diem truc cat canh huyen (do dung) | O = offset vuong goc canh huyen (lo 1), cac lo sau do dung cach nhau kc
+  const tgPush = (hs, phi, ti) => hs.forEach(h => {
+    out.holes.push({ x: h[0], y: h[1], d: phi, src: 'TG', axis: ti });
+    if (Math.abs(phi - D) <= 0.01) nMain++;
+    else { const hc = String(Math.floor(phi + 0.5)), e = extraD.find(q => q[0] === hc); if (e) e[1]++; else extraD.push([hc, 1]); tgDiam.push([h, phi]); }
+  });
+  const tgNew = (rq, ti) => {
+    const nb = rq.n.map(s => s === '' ? NaN : lAtof(s)), a = nb[0], ks = [];
+    for (let j = 1; j < nb.length && isFinite(nb[j]); j++) ks.push(nb[j]);
+    if (!rq.x || !rq.y || !isFinite(a)) return;          // chua chon cach do / chua co so: khong ve
+    const phi = String(rq.phi || '').trim() !== '' ? lAtof(rq.phi) : D, nmH = 'Hàng lỗ cạnh huyền ' + (ti + 1);
+    let xx, E = null;
+    if (rq.x === 'X') {
+      const Ls = V2.dist(sA, sB);
+      if (!(Ls > 1e-6 && a >= 0 && a <= Ls + 1e-6)) { out.warn.push(nmH + ': trục đo dọc cạnh huyền ' + a + ' mm vượt chiều dài cạnh huyền (' + _r1(Ls) + ' mm) – không vẽ được, kiểm tra lại.'); return; }
+      E = V2.add(sA, uS, a); xx = E[0]; if (a > 0.01) tgSl.push([a, E]);
+    } else {
+      xx = vx(a);
+      const onS = sx1 - sx0 > 1e-6 && xx >= sx0 - 1e-6 && xx <= sx1 + 1e-6;
+      E = onS ? V2.inters(sA, sB, [xx, 0], [xx, H]) : null; lst.push(a);
+    }
+    const top = rayTop([xx, -1], [0, 1], G);
+    if (!top) { out.warn.push(nmH + ': trục cách cạnh đứng ' + a + ' mm nằm NGOÀI tấm – không vẽ được, kiểm tra lại.'); return; }
+    if (rq.y !== 'T' && !E) { out.warn.push(nmH + ': trục không cắt cạnh huyền – lỗ không đo từ cạnh huyền được (chọn "Từ cạnh trên" hoặc kiểm tra số).'); return; }
+    const st = rq.y === 'T' ? top : E, dir = rq.y === 'T' ? -1 : slDir, hs = []; let prev = null;
+    ks.forEach(k => {
+      let h;
+      if (prev) { h = [xx, prev[1] + dir * k]; holeDimAdd(dims, prev, h, k, 45, sideT, 'TG_LoThem', 2); }
+      else if (rq.y === 'O') { h = [xx, E[1] + slDir * k / Math.max(1e-6, Math.abs(uS[0]))]; const pa = V2.add(sA, uS, V2.dot(V2.sub(h, sA), uS)); holeDimAdd(dims, pa, h, k, 45, !sideT, 'TG_LoThem', 2); }
+      else { h = [xx, st[1] + dir * k]; holeDimAdd(dims, st, h, k, 55, !sideT, 'TG_LoThem', 2); }
+      hs.push(h); prev = h;
+    });
+    if (hs.length > 1) holeDimAdd(dims, st, prev, V2.dist(st, prev), 110, sideT, 'TG_LoThem', 2);
+    if (hs.length) out.axes.push({ a: st, b: prev, src: 'TG', row: ti });
+    tgPush(hs, phi, ti);
+  };
+  extra.split('-').forEach((t0) => {
+    const rq = tgTokParse(t0); if (!rq) return;
+    const ti = ++rI;
+    if (rq.q || (rq.x === 'N' && rq.y === 'T' && rq.n.length > 2)) { tgNew(rq, ti); return; }
     let tok = t0.trim().toUpperCase();
     if (!(tok.length > 1 && /^[TXH]/.test(tok))) return;
     const typ = tok[0]; tok = tok.slice(1); let phi = D;
@@ -6093,15 +6270,15 @@ function geomTG(v, flip) {
       if (!(Ls > 1e-6 && dd >= 0 && dd < Ls)) out.warn.push('Lỗ thêm TG "' + t0.trim() + '": chân trục ' + dd + ' mm vượt chiều dài cạnh xiên (' + _r1(Ls) + ' mm) – không vẽ được, kiểm tra lại.');
       else {          // T74: cho H0 (truc qua dung chan canh huyen)
         const E = V2.add(sA, V2.u(sA, sB), dd);       // T70: do tu CHAN canh huyen (sA)
-        if (dd > 0.01) holeDimAdd(dims, sA, E, dd, 45, !sideT, 'TG_LoThem', 2);
+        if (dd > 0.01) { holeDimAdd(dims, sA, E, dd, 45, !sideT, 'TG_LoThem', 2); nH++; }
         let prev = null;
         ns.slice(1).forEach(k => { const h = [E[0], (prev || E)[1] + slDir * k]; holeDimAdd(dims, prev || E, h, k, 55, sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
         if (hs.length > 1) holeDimAdd(dims, E, prev, V2.dist(E, prev), 110, sideT, 'TG_LoThem', 2);
-        if (hs.length) out.axes.push({ a: E, b: prev, src: 'TG' });
+        if (hs.length) out.axes.push({ a: E, b: prev, src: 'TG', row: ti });
       }
     } else if (typ === 'T') {
       const dep = ns.length > 1 ? ns[1] : 0, h = [xx, H - dep], top = [xx, H];
-      hs.push(h); out.axes.push({ a: h, b: top, src: 'TG' });
+      hs.push(h); out.axes.push({ a: h, b: top, src: 'TG', row: ti });
       holeDimAdd(dims, h, top, dep, 55, !sideT, 'TG_LoThem', 2);
     } else {
       // T298: truc DUNG tai xx lay theo canh THAT no cat: trong khoang canh xien -> lo 1 cach canh xien (vuong goc), di vao trong tam;
@@ -6111,7 +6288,7 @@ function geomTG(v, flip) {
       if (!onS && onB) {
         const foot = [xx, 0]; let prev = null;
         ns.slice(1).forEach(k => { const h = [xx, (prev || foot)[1] + k]; holeDimAdd(dims, prev || foot, h, k, prev ? 45 : 55, prev ? sideT : !sideT, 'TG_LoThem', 2); hs.push(h); prev = h; });
-        if (hs.length) out.axes.push({ a: foot, b: prev, src: 'TG' });
+        if (hs.length) out.axes.push({ a: foot, b: prev, src: 'TG', row: ti });
       } else if (!E) out.warn.push('Lỗ thêm TG "' + t0.trim() + '": đường lỗ cách đầu đứng ' + dd + ' mm nằm NGOÀI tấm – không vẽ được, kiểm tra lại.');
       if (E) {
         let prev = null;
@@ -6121,7 +6298,7 @@ function geomTG(v, flip) {
           else { const pa = V2.add(sA, uS, V2.dot(V2.sub(h, sA), uS)); holeDimAdd(dims, pa, h, k, 45, !sideT, 'TG_LoThem', 2); }
           hs.push(h); prev = h;
         });
-        if (hs.length) out.axes.push({ a: E, b: hs[hs.length - 1], src: 'TG' });
+        if (hs.length) out.axes.push({ a: E, b: hs[hs.length - 1], src: 'TG', row: ti });
       }
     }
     hs.forEach(h => {
@@ -6130,6 +6307,8 @@ function geomTG(v, flip) {
       else { const hc = String(Math.floor(phi + 0.5)), e = extraD.find(q => q[0] === hc); if (e) e[1]++; else extraD.push([hc, 1]); tgDiam.push([h, phi]); }   // T08c: CTK-TGDiam (them o cuoi dims)
     });
   });
+  // T325: dim doc canh huyen (chan sA -> chan truc) cua hang moi: phan tang 45 + 45n (sau cac dim H cu), song song canh huyen
+  tgSl.sort((p, q) => p[0] - q[0]).forEach((e, n) => holeDimAdd(dims, sA, e[1], e[0], 45 + 45 * (n + nH), !sideT, 'TG_LoThem', 2));
   // dim canh: chuoi day (-70) + tong day (-145), buoc dung (60), H dau dung (80, 020-ok)
   x = 0;
   a.forEach(ai => { dimAdd(dims, [x, 0], [x + ai, 0], [x, -70], '012', 'AList', 1); x += ai; });
@@ -7604,6 +7783,7 @@ function geom(mode, v) {
       // T10: tam TG - chep CTK-DrawTGPanel (15-mode1-TG.lsp). Lisp bo qua CutP3 / mo rong A+B voi tam TG.
       const r = geomTG(v, flip);
       S.verts = r.verts; S.holes = r.holes; S.axes = r.axes; S.dims = r.dims; if (r.warn.length) S.tgWarn = r.warn;      // T298
+      S.tgSl = r.sl;      // T325
       const ig = [(v.CutP3 || '').trim() && 'CutP3 (sửa góc)', (v.DistBaseList || '').trim() && 'mở rộng A+B'].filter(Boolean);
       if (ig.length) S.ignored.push(ig.join(', ') + ' (tấm TG)');
     } else if (mode === '1' || mode === '3') {
@@ -7851,6 +8031,7 @@ function geom(mode, v) {
       S.verts = S.verts.map(p => nm(p.n, fx(p.p)));
       S.holes.forEach(h => { h.x = X - h.x; });
       if (S.sl) S.sl = { a: fx(S.sl.a), b: fx(S.sl.b) };
+      if (S.tgSl) S.tgSl = S.tgSl.map(fx);      // T325
       if (S.phuSub) S.phuSub = { c: fx(S.phuSub.c), a: fx(S.phuSub.a), b: fx(S.phuSub.b), val: S.phuSub.val };      // T207
       if (S.cut) S.cut = { a: fx(S.cut.a), b: fx(S.cut.b) };      // T147
       if (S.frameBox) S.frameBox = Object.assign({}, S.frameBox, { xL: X - S.frameBox.xR, xR: X - S.frameBox.xL });      // T167: khung phoi net dut cung phai lat guong (tong phoi tam nghieng trai)
@@ -8495,10 +8676,139 @@ function subLayout() {
   const eC = $('f_C'); if (!eC || cur !== '6') return;
   eC.parentNode.style.display = curShape() === 'gocnghi' ? 'none' : '';
 }
+// ---------- T325: TAM GIAC - KHUNG NHAP RIENG (chi o cua tam giac, theo thu tu tho doc ban ve) + hang lo canh huyen + mui nhon ----------
+//   Khong doi o CSV: cac o van la f_* cu (doi cho / doi nhan / an o Mode 1 khong dung); hang lo ghi vao f_TG_LoThem (tgStr, form_logic).
+const TG_ORDER = ['TenTam', 'H', 'TG_CanhTren', 'AList', 'TG_Buoc', 'TG_Phia', 'D', 'HoleGroups'];
+const TG_LAB = { H: 'Cạnh đứng – cao H (mm)', TG_CanhTren: 'Cạnh trên – tổng (mm)', AList: 'Cạnh đáy – từng đoạn tới đường lỗ (mm)', TG_Buoc: 'Bước đứng chân cạnh huyền (0 = không)',
+  TG_Phia: 'Phía tam giác', HoleGroups: 'Lỗ hàng đáy – cách đáy/khoảng 2 lỗ' };
+let TGL = null, TGR_LAST = null, TG_MUI_OPEN = false, TG_MUI_K = '';
+function tgOn() { return cur === '1' && curShape() === 'tamgiac'; }
+function tgLayout() {
+  const on = tgOn(), box = $('tgBox');
+  if (on && !box) {
+    const first = $('form').querySelector('.fields'), hg = $('f_HoleGroups'), lt = $('f_TG_LoThem'); if (!first || !hg || !lt) return;
+    TGL = { mv: [], lab: [], hid: [] };
+    TG_ORDER.slice().reverse().forEach(k => { const el = $('f_' + k); if (!el) return; const w = el.parentNode; TGL.mv.push([w, w.parentNode, w.nextSibling]); first.insertBefore(w, first.firstChild);
+      const l = w.querySelector('label'); if (TG_LAB[k] && l) { TGL.lab.push([l, l.innerHTML]); l.textContent = TG_LAB[k] + (F0(k).req ? ' *' : ''); } });
+    const hide = w => { if (w && w.style.display !== 'none') { TGL.hid.push([w, w.style.display]); w.style.display = 'none'; } };
+    ['C', 'CutP3'].forEach(k => { const el = $('f_' + k); if (el) hide(el.parentNode); });
+    [lt, $('f_DistBaseList')].forEach(el => { const d = el && el.closest('details'); if (d) hide(d); });      // muc "Tấm TG" (con o ky hieu) + "Mở rộng A+B" (lisp bo qua voi tam TG)
+    const b = document.createElement('div'); b.id = 'tgBox'; b.className = 'tgbox'; first.insertBefore(b, hg.parentNode.nextSibling); TGR_LAST = null;
+  } else if (!on && box) {
+    box.remove();
+    if (TGL) { TGL.mv.slice().reverse().forEach(x => x[1].insertBefore(x[0], x[2])); TGL.lab.forEach(x => { x[0].innerHTML = x[1]; }); TGL.hid.forEach(x => { x[0].style.display = x[1]; }); }
+    TGL = null;
+  }
+}
+function tgIcon(k) {      // hinh nho: tam giac (canh dung trai, canh tren, canh huyen duoi) + dim xanh = so tho do
+  const P = '<path d="M3 3H37L3 25Z" fill="#e8f1fa" stroke="currentColor" stroke-width="1.2"/>', ax = '<path d="M22 3V12.7" stroke="currentColor" stroke-width=".8" stroke-dasharray="2 1.5" opacity=".6"/>', h = '<circle cx="22" cy="8" r="1.8" fill="currentColor"/>';
+  const dm = d => '<path d="' + d + '" stroke="#1e7a46" stroke-width="1.6" fill="none"/>';
+  const b = { xN: dm('M3 1H22M3 0V2M22 0V2'), xX: dm('M4.5 27.5L23.5 15.2'), yT: dm('M26 3V8M25 3H27M25 8H27'), yC: dm('M26 8V12.7M25 8H27M25 12.7H27'), yO: dm('M22.6 8.4L24.3 11.1') }[k] || '';
+  return '<svg viewBox="0 0 40 29" width="40" height="29" aria-hidden="true" style="display:block;margin:0 auto">' + P + ax + h + b + '</svg>';
+}
+function tgBtn(on, fn, k, txt) { return '<button type="button" class="kb' + (on ? ' on' : '') + '" onmousedown="event.preventDefault()" onclick="' + fn + '">' + tgIcon(k) + '<span>' + esc(txt) + '</span></button>'; }
+function tgKindBtns(r, i, which) {
+  let o = '';
+  if (which !== 'y') o += tgBtn(r.x === 'N', 'tgKind(' + i + ",'x','N')", 'xN', 'X: Ngang từ cạnh đứng') + tgBtn(r.x === 'X', 'tgKind(' + i + ",'x','X')", 'xX', 'X: Dọc cạnh huyền');
+  if (which !== 'x') o += tgBtn(r.y === 'T', 'tgKind(' + i + ",'y','T')", 'yT', 'Y: Từ cạnh trên') + tgBtn(r.y === 'C', 'tgKind(' + i + ",'y','C')", 'yC', 'Y: Từ điểm cắt cạnh huyền') + tgBtn(r.y === 'O', 'tgKind(' + i + ",'y','O')", 'yO', 'Y: Offset cạnh huyền');
+  return o;
+}
+const TG_YL = { T: 'Từ cạnh trên xuống lỗ 1 (đo đứng)', C: 'Từ điểm cắt cạnh huyền tới lỗ 1 (đo đứng)', O: 'Cách cạnh huyền tới lỗ 1 (vuông góc)' };
+function tgInp(i, s, val, ph, lab, cls) {
+  return '<div class="tgf' + (cls ? ' ' + cls : '') + '"><label for="tg_' + i + '_' + s + '">' + esc(lab) + '</label><input id="tg_' + i + '_' + s + '" inputmode="decimal" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" enterkeyhint="next" value="' + esc(val || '') + '" placeholder="' + esc(ph ? 'vd ' + ph : '') + '" oninput="tgIn(' + i + ",'" + s + "',this)" + '"></div>';
+}
+function tgCard(r, i, g) {
+  const ok = !!(r.x && r.y), n = i + 1;
+  let h = '<div class="tgc" id="tgc_' + i + '"><div class="tgch"><b>Hàng lỗ ' + n + '</b>' + (ok ? '' : '<span class="tgwarn">Chọn cách đo X và Y trước</span>') + '<button type="button" class="tgdel" onclick="tgDel(' + i + ')">✕ Bỏ hàng</button></div>';
+  h += '<div class="tgl">X – vị trí trục</div><div class="m5kd">' + tgKindBtns(r, i, 'x') + '</div><div class="tgl">Y – lỗ trên trục</div><div class="m5kd">' + tgKindBtns(r, i, 'y') + '</div>';
+  if (ok) {
+    const gn = (g && g.n) || [];
+    h += '<div class="tgin">' + tgInp(i, 0, r.n[0], gn[0], r.x === 'X' ? 'Dọc cạnh huyền: từ chân tới trục (mm)' : 'Ngang: từ cạnh đứng tới trục (mm)') + tgInp(i, 1, r.n[1], gn[1], TG_YL[r.y] + ' (mm)');
+    for (let s = 2; s <= Math.max(2, r.n.length - 1); s++) h += tgInp(i, s, r.n[s], gn[s], 'Tim lỗ ' + (s - 1) + '→' + s + ' (mm' + (s === 2 ? ', trống = 1 lỗ' : '') + ')');
+    h += tgInp(i, 'phi', r.phi, '', 'φ riêng (trống = φ chung)', 'tgphi') + '</div>';
+    h += '<div class="m5kd"><button type="button" onclick="tgHole(' + i + ',1)">＋ lỗ trên trục</button>' + (r.n.length > 3 ? '<button type="button" onclick="tgHole(' + i + ',-1)">− lỗ</button>' : '') + '</div>';
+  }
+  return h + '</div>';
+}
+function tgMuiHTML(v) {
+  const m = tgMui(v); if (!m) return '';
+  const k = m.k || TG_MUI_K, open = !!m.k || TG_MUI_OPEN || !!TG_MUI_K, b = (on, fn, t) => '<button type="button" class="' + (on ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="' + fn + '">' + esc(t) + '</button>';
+  let h = '<details class="sec" id="tgMui"' + (open ? ' open' : '') + ' ontoggle="TG_MUI_OPEN=this.open"><summary>＋ Tuỳ chọn thêm <small>(mũi nhọn: bo R / cắt đứng)</small></summary>';
+  h += '<div class="m5kd">' + b(!k, "tgMuiK('')", 'Để nhọn') + b(k === 'bo', "tgMuiK('bo')", 'Bo góc R') + b(k === 'cat', "tgMuiK('cat')", 'Cắt đứng vào L') + '</div>';
+  if (k === 'bo' || k === 'cat') h += '<div class="tgf"><label for="tgMuiL">' + (k === 'bo' ? 'Bán kính bo R (mm)' : 'Cắt thẳng đứng: từ điểm nhọn vào L (mm, đo ngang)') + '</label><input id="tgMuiL" inputmode="decimal" autocomplete="off" value="' + esc(m.k === k ? m.L : '') + '" placeholder="vd ' + (k === 'bo' ? '30' : '50') + '" oninput="tgMuiIn(this)"></div>';
+  if (k === 'khac') h += '<div class="fnote">Mũi nhọn đang cắt X/Y riêng (mục Cắt góc X/Y) – chọn lại để đổi.</div>';
+  return h + '<div class="fnote">Mũi nhọn = góc ' + Math.round(m.val) + '° (đỉnh ' + esc(m.n) + ').' + (k === 'cat' ? ' Cắt đứng: bản vẽ CAD làm ở bước sau (hiện có trên web).' : '') + '</div></details>';
+}
+function tgRender(force) {
+  const box = $('tgBox'), el = $('f_TG_LoThem'); if (!box || !el) return;
+  const s = el.value, ae = document.activeElement, typing = ae && ae.tagName === 'INPUT' && box.contains(ae);
+  if (!force && (s === TGR_LAST || typing)) { if (!typing) { const mu = $('tgMui'), x = document.createElement('div'); x.innerHTML = tgMuiHTML(readForm()); if (mu && x.firstChild) mu.replaceWith(x.firstChild); else if (!mu && x.firstChild) box.appendChild(x.firstChild); } return; }
+  TGR_LAST = s;
+  const P = tgParse(s), G = QVD ? tgParse(QVD.TG_LoThem).rows : [];
+  let h = '<div class="tghd"><b>Hàng lỗ cạnh huyền</b><span class="tgsub">' + (P.rows.length ? P.rows.length + ' hàng · mỗi hàng 1 trục lỗ' : 'chưa có – bấm ＋ nếu có lỗ gần cạnh huyền') + '</span></div>';
+  P.rows.forEach((r, i) => { h += tgCard(r, i, G[i]); });
+  h += '<button type="button" class="tgadd" onclick="tgAdd()">＋ Hàng lỗ cạnh huyền</button>';
+  if (P.rest.length) h += '<div class="fnote">Ký hiệu chưa đọc được (giữ nguyên trong CSV): ' + esc(P.rest.join('-')) + '</div>';
+  box.innerHTML = h + tgMuiHTML(readForm());
+}
+function tgSave(s, msg) { const el = $('f_TG_LoThem'); if (!el) return; el.value = s; DIRTY = true; tgRender(true); live(); if (msg) toast(msg); }
+function tgIn(i, s, el) {
+  const f = $('f_TG_LoThem'); if (!f) return;
+  const P = tgParse(f.value), r = P.rows[i]; if (!r) return;
+  const val = el.value.trim().replace(',', '.'), ok = val === '' || /^\d+(\.\d+)?$/.test(val);
+  el.classList.toggle('bad', !ok); if (!ok) return;
+  if (s === 'phi') r.phi = val; else { const k = +s; while (r.n.length <= k) r.n.push(''); r.n[k] = val; }
+  f.value = tgStr(P.rows, P.rest); TGR_LAST = f.value; DIRTY = true; live();
+}
+function tgKind(i, ax, k) {
+  const f = $('f_TG_LoThem'); if (!f) return;
+  const s = tgSetKind(f.value, i, ax === 'x' ? k : null, ax === 'y' ? k : null), r = tgParse(s).rows[i];
+  const m = qMark(), wasPick = m && m.tg && m.t === i && m.s === -2;
+  tgSave(s, (ax === 'x' ? 'X: ' + TG_XT[k] : 'Y: ' + TG_YT[k]) + (r && r.x && r.y ? '' : ' – chọn tiếp ' + (r && r.x ? 'Y' : 'X')));
+  if (m && m.tg && m.t === i) q5Repick(r && r.x && r.y ? (wasPick ? 'TG_LoThem:' + i + ':0' : m.id) : 'TG_LoThem:' + i + ':-2');
+}
+function tgAdd() {
+  const f = $('f_TG_LoThem'); if (!f) return;
+  const i = tgParse(f.value).rows.length; tgSave(tgSetKind(f.value, i, null, null), 'Thêm hàng lỗ ' + (i + 1) + ' – chọn cách đo X và Y');
+  if (QSEL) q5Repick('TG_LoThem:' + i + ':-2'); else { const c = $('tgc_' + i); if (c) setTimeout(() => c.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60); }
+}
+function tgDel(i) {
+  const f = $('f_TG_LoThem'); if (!f) return;
+  const old = f.value, P = tgParse(old); if (!P.rows[i]) return;
+  P.rows.splice(i, 1); QSEL = null; tgSave(tgStr(P.rows, P.rest));
+  toastUndo('Đã bỏ hàng lỗ ' + (i + 1), () => tgSave(old));
+}
+function tgHole(i, d) {
+  const f = $('f_TG_LoThem'); if (!f) return;
+  const P = tgParse(f.value), r = P.rows[i]; if (!r) return;
+  while (r.n.length < 2) r.n.push('');
+  if (d > 0) { const last = r.n.length > 2 ? r.n[r.n.length - 1] : ''; r.n.push(last && last !== '' ? last : '140'); }
+  else if (r.n.length > 3) r.n.pop();
+  tgSave(tgStr(P.rows, P.rest), d > 0 ? 'Thêm 1 lỗ trên trục (sửa số tim lỗ nếu khác)' : 'Bớt 1 lỗ');
+  const m = qMark(); if (m && m.tg && m.t === i) q5Repick('TG_LoThem:' + i + ':' + (d > 0 ? r.n.length - 1 : Math.min(m.s, r.n.length - 1)));
+}
+function tgMuiK(k) {
+  TG_MUI_K = k; TG_MUI_OPEN = true;
+  const v = readForm(), m = tgMui(v);
+  if (!k || (m && m.k && m.k !== k)) { const o = tgMuiSet(v, '', ''); if (o) { const b = $('f_BoGoc'), c = $('f_CatGoc'); if (b) b.value = o.BoGoc; if (c) c.value = o.CatGoc; DIRTY = true; } }
+  const box = $('tgBox'), mu = $('tgMui'); if (box && mu) { const x = document.createElement('div'); x.innerHTML = tgMuiHTML(readForm()); mu.replaceWith(x.firstChild); }
+  live(); const e = $('tgMuiL'); if (e) e.focus();
+}
+function tgMuiIn(el) {
+  const o = tgMuiSet(readForm(), TG_MUI_K, el.value); el.classList.toggle('bad', !o); if (!o) return;
+  const b = $('f_BoGoc'), c = $('f_CatGoc'); if (b) b.value = o.BoGoc; if (c) c.value = o.CatGoc; DIRTY = true; live();
+}
+// thanh nhap tuan tu: buoc chon cach do (cham nut) + nut doi cach / them lo / them hang
+function tgQOpts(m, v) {
+  const P = tgParse(v.TG_LoThem), r = P.rows[m.t]; if (!r) return '';
+  let o = m.s === -2 ? tgKindBtns(r, m.t) : m.s === 0 ? tgKindBtns(r, m.t, 'x') : m.s === 1 ? tgKindBtns(r, m.t, 'y') : q5Btn(false, 'tgHole(' + m.t + ',1)', '＋ lỗ trên trục') + (r.n.length > 3 ? q5Btn(false, 'tgHole(' + m.t + ',-1)', '− lỗ') : '');
+  if (m.t === P.rows.length - 1) o += q5Btn(false, 'tgAdd()', '＋ Hàng lỗ cạnh huyền', 'qk');
+  return o + q5Btn(false, 'tgDel(' + m.t + ')', '✕ Bỏ hàng ' + (m.t + 1));
+}
 function F0(k) { return MODES[cur].fields.find(f => f.k === k) || {}; }
 document.addEventListener('change', e => { if (e.target && e.target.id === 'f_C' && cur === '1' && curShape() === 'xiengoc') { const t = e.target.value.trim().replace(',', '.'); if (/^\d+(\.\d+)?$/.test(t)) { e.target.value = 'V' + t; live(); } } });
 function live() {
-  xgLayout(); subLayout(); m5Layout();
+  xgLayout(); subLayout(); m5Layout(); tgLayout();      // T325
   const v = readForm(), r =validate(cur, v, { panels: S.panels, idx: editIdx, skipQty: true, loaiKinh: S.info[3], shape: SHAPE });     // T11: ctx = ca danh sach (trung ten, so voi tam khac)
   for (const f of MODES[cur].fields) {
     const el = $('f_' + f.k), e = $('e_' + f.k); if (!el) continue;
@@ -8510,6 +8820,7 @@ function live() {
   const dc = $('d_CutP3'); if (dc) dc.textContent = r.err.CutP3 ? '' : describeCut(v.CutP3);
   m5CdSync();      // T292
   cumSync();      // T302
+  tgRender(false);      // T325
   drawPreview(v); markFlip(); draftSave();
   const bs = $('bSave'); if (bs) bs.classList.toggle('notyet', Object.keys(r.err).length > 0);     // T34: du so bat buoc -> nut Luu sang
   return r;
@@ -8709,6 +9020,7 @@ function qPick(i) {
     QCT = c ? c.type : r ? 'R' : CORNER_TYPES[m.corner][0]; inp.value = c ? c.val : r; }
   else if (m.kind === 'bo') inp.value = boGet(v.BoGoc, m.n);
   else if (m.kind === 'slope') inp.value = slopeRead(qKind(), qGet(v, m), parseFloat(v.H));
+  else if (m.kind === 'tgpick') inp.value = '';      // T325
   else inp.value = qGet(v, m);
   inp.classList.remove('bad');
   qInputMode(m);
@@ -8757,7 +9069,7 @@ function qImEff(im) { return (im === 'decimal' || im === 'numeric') && qPadOk() 
 function qPadSync() {
   const p = $('qpad'), b = $('qbar'), q = $('qin'); if (!p || !b || !q) return false;
   if (!qPadOk() && q.getAttribute('inputmode') === 'none') q.setAttribute('inputmode', 'decimal');
-  const on = qPadOk() && !b.hidden && b.classList.contains('act') && b.getClientRects().length > 0 && q.getAttribute('inputmode') === 'none';
+  const on = qPadOk() && !q.readOnly && !b.hidden && b.classList.contains('act') && b.getClientRects().length > 0 && q.getAttribute('inputmode') === 'none';
   const was = !p.hidden; p.hidden = !on; document.body.classList.toggle('qpadon', on);
   if (on) document.documentElement.style.setProperty('--padh', p.offsetHeight + 'px');
   return was !== on;
@@ -8781,6 +9093,7 @@ function qBar0() {
   const on = qOn() || GOCP; b.hidden = !on;
   if (!on) { QSEL = null; return; }
   const m = qMark(), v = readForm();
+  { const qi = $('qin'); if (qi) qi.readOnly = !!(m && m.kind === 'tgpick'); }      // T325: buoc chon cach do = cham nut, khong go
   b.classList.toggle('act', !!m);
   { const was = $('dock').classList.contains('qtyp'); $('dock').classList.toggle('qtyp', !!m); if (was !== !!m) setTimeout(sizeDock, 0); }         // T40b: dang go 1 so -> an hang nut, thanh nhap 1 dong, khung hinh cao toi da
   if (m && m.kind === 'lt') { ltBar(v); return; }      // T49
@@ -8813,6 +9126,14 @@ function qBar0() {
   const flab = (MODES[cur].fields.find(x => x.k === m.k) || {}).label || m.k;
   { const w = qWords(m);      // T313: tieu de + 1 dong noi cach do
     $('qlab').innerHTML = (m.kind === 'field' || m.kind === 'corner') ? '<b>' + esc(m.lab) + '</b>' : '<b>' + esc(w[0]) + '</b><span class="qhow">' + esc(w[1]) + '</span>'; }
+  if (m.kind === 'tgpick') {
+    const r = tgParse(v.TG_LoThem).rows[m.t] || {};
+    $('qlab').innerHTML = '<b>Hàng lỗ ' + (m.t + 1) + ' cạnh huyền: chọn cách đo</b><span class="qhow">chạm 1 nút X (vị trí trục) + 1 nút Y (lỗ trên trục)</span>';
+    $('qin').placeholder = 'Chạm nút chọn cách đo';
+    $('qopt').innerHTML = tgQOpts(m, v);
+    $('qinfo').textContent = 'X: ' + (r.x ? TG_XT[r.x] : 'chưa chọn') + ' · Y: ' + (r.y ? TG_YT[r.y] : 'chưa chọn');
+    return;
+  }
   if (m.kind === 'bo') {    // T38
     $('qlab').innerHTML = '<b>' + esc(m.lab) + '</b> <small>– nhập R (mm)</small>';
     $('qopt').innerHTML = boGet(v.BoGoc, m.n) ? '<button type="button" onclick="qBoDel()">Bỏ bo góc</button>' : '';
@@ -8832,6 +9153,7 @@ function qBar0() {
     opt += '<button type="button" class="' + (dt ? 'on' : '') + '" onmousedown="event.preventDefault()" onclick="qTopPhi()">Lỗ hàng trên khoan φ ' + esc(dt || String(v.D || '').trim() || '…') + (dt ? '' : ' (chung)') + '</button>';
   }
   if (cur === '5') opt += q5Opts(m, v);      // T75
+  if (m.tg) opt += tgQOpts(m, v);      // T325
   if (m.cmb) opt += cumOpts(m);      // T302
   if (cur === '3' && q3Can(m)) opt += q5Btn(qGet(v, m) === '?', 'q3Q(qMark())', '? app tự tính', 'qk');      // T143
   opt += noLoBtn(m);      // T125
@@ -9214,6 +9536,7 @@ function qNext() {
   if (CX && QSEL === 'cx') { cxNext(); return; }      // T157: cat goc X/Y: X -> Y -> xong
   if (GOCP) { qClose(); return; }          // T38: dang nhap R o che do cham dinh -> Tiep = xong
   let a = qActMark();
+  if (a && a.kind === 'tgpick' && qGet(readForm(), a) === '') { toast('Chạm nút chọn cách đo X và Y trước (không có mặc định)'); return; }      // T325
   if (cur === '5' && a && !QACT && a.k === 'KhoangLo' && qGet(readForm(), a) === '' && q5Skip(a) === false) return;      // T75: bo trong + Tiep = "?" tu tinh / bo so dau phai
   if (cur === '3' && a && !QACT && q3Can(a) && qGet(readForm(), a) === '' && q3Q(a, true) === false) return;      // T143: bo trong + Tiep = "?" app tu tinh
   { const m0 = qMark(), qi = $('qin');      // T173: chu / so sai / bo trong o buoc bat buoc -> bao ro, khong cho Tiep
@@ -10904,7 +11227,7 @@ function kCap(el, k) {
   const id = el.id.replace(/^[fc]_/, ''), f = (MODES[cur].fields.find(x => x.k === id) || {}), t = f.type;
   if (id === 'C' && k === 'G') return 'góc đáy';
   if (k === '.' || k === 'MT') return '';
-  if (id === 'TG_LoThem') return ({ T: 'mép trên', X: 'xiên', H: 'cao', '/': 'lỗ kế', '@': 'từ trái', '-': 'lỗ kế' })[k] || '';
+  if (id === 'TG_LoThem') return ({ T: 'từ trên', X: 'offset', H: 'dọc huyền', '/': 'lỗ kế', '@': 'φ riêng', '-': 'hàng kế' })[k] || '';      // T325 (T324: nhan cu sai)
   if (id === 'Lo' || t === 'groups') return ({ T: 'mép trên', V: 'đo đứng', A: 'dọc trục', '/': 'lỗ kế', '-': 'đường kế', '@': 'φ riêng' })[k] || '';
   if (t === 'day') return ({ DL: 'dốc ↗', DX: 'dốc ↘', N: 'ngang', x: 'chênh cao', '+': 'nối', '/': 'dài/ngang' })[k] || '';
   if (t === 'end') return ({ X: 'xiên', C: 'nghiêng', T: 'tổng trên', V: 'vuông đáy', G: 'góc đáy', '-': 'âm' })[k] || '';
@@ -15512,7 +15835,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261104082207';
+var CTK_BUILD = '20261104090850';
 (function () {
   function chk() {
     try {
