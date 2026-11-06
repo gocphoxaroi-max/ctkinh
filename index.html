@@ -8552,10 +8552,9 @@ function csDims(r) {
     add('cnT' + i, 'lo', 'V', [xT, yc], [xT, yTD], xT - 130, F(c), '015-ok', true);
     add('cnP' + i, 'lo', 'V', [xP, yc], [xP, yTD], xP + 105, F(c), '015-ok', true);
   });
-  // T335: dim thong thuy (so tho nhap, mau xanh) trong o cua: rong TT canh giua khung, thap hon vung tay nam; cao TT tu day toi mep duoi tam dinh, doi xung dim canh T qua canh P
-  var xr = cp.x + cp.w;
-  add('ttR', 'kt', 'H', [(r.R - r.RTT) / 2, ct.y], [(r.R + r.RTT) / 2, ct.y], ct.y + 250, 'Rộng thông thuỷ:' + F(r.RTT), '020-ok');
-  add('ttC', 'kt', 'V', [xr, 0], [xr, r.CTT], xr - 530, 'Cao thông thuỷ:' + F(r.CTT), '020-ok');
+  // T335: dim thong thuy (so tho nhap, mau xanh, 020-ok nhu dim khao sat) NGOAI cua, xep tang CS_TIER: rong TT giua chuoi day va Do KS; cao TT sat hinh ben trai (nhu cua lua); chan dim bat dung mep mo thong thuy
+  add('ttR', 'kt', 'H', [(r.R - r.RTT) / 2, ct.y], [(r.R + r.RTT) / 2, ct.y], -265, 'Rộng thông thuỷ:' + F(r.RTT), '020-ok');
+  add('ttC', 'kt', 'V', [td.x, 0], [td.x, r.CTT], -130, 'Cao thông thuỷ:' + F(r.CTT), '020-ok');
   return o;
 }
 // T334: HINH block cua san trich tu maucua.dxf (kepL-T/P, kepduoi-T/P, tn600, tn400, khoa; khoa hatch + 'Khoa san' long san trong) - toa do mm tuong doi diem chen, y len
@@ -15670,7 +15669,7 @@ var CUA_TIER = { wVT: ['T', 0], wTD: ['T', 0], wVP: ['T', 0], rongKS: ['T', 1], 
   vP437: ['R', 0], hsVP515: ['R', 1], dcP: ['R', 2], vcP: ['R', 3],
   bVT: ['B', 0], bVP: ['B', 0], crC: ['B', 0] };
 // T334: tang dim cua san (trong -> ngoai): duoi = rong vach/canh, tong rong · tren = rong vach/dinh · trai = cao vach, tong cao · phai = cao vach phai. Dim con lai (cao canh/dinh, kep L, tay nam, khoa, chan nhen) nam trong hinh.
-var CS_TIER = { bVT: ['B', 0], bCT: ['B', 0], bCP: ['B', 0], bVP: ['B', 0], totR: ['B', 1], tVT: ['T', 0], tTD: ['T', 0], tVP: ['T', 0], hVT: ['L', 0], totC: ['L', 1], hVP: ['R', 0] };
+var CS_TIER = { bVT: ['B', 0], bCT: ['B', 0], bCP: ['B', 0], bVP: ['B', 0], ttR: ['B', 1], totR: ['B', 2], tVT: ['T', 0], tTD: ['T', 0], tVP: ['T', 0], ttC: ['L', 0], hVT: ['L', 1], totC: ['L', 2], hVP: ['R', 0] };
 var CUA_FMM = { B: 90, M: 55, S: 45 };
 var CUA_SHORT = { ctt: 'TT:', caoKS: 'Cao KS:', rongKS: 'Rộng KS:', ttR: 'Rộng TT:', ttC: 'Cao TT:' };
 function cuaDimPri(d) { return (d.sd ? 0 : 5) + ({ B: 0, M: 1, S: 2 })[d.fk]; }      // dat chu: dim tang ngoai truoc, chu lon (030) truoc      // chieu cao chu (mm ban ve) ~ ban mau
@@ -15748,7 +15747,7 @@ function cuaSvg(r, W, H, opt) {
       return { g: g, b: b, t: t, fs: fs };
     }
     var off = fs * 0.62 + 2, sg = d.o === 'H' ? Math.abs(d.b[0] - d.a[0]) * k : Math.abs(d.b[1] - d.a[1]) * k;
-    if (CUA_SHORT[d.id] && (tl > sg - 4 || (/^tt[RC]$/.test(d.id) && tl > sg * 0.4))) { t =CUA_SHORT[d.id] + d.t.split(':').pop(); tl = cuaTw(t, fs); }      // hinh nho: nhan dai khong vua doan dim -> nhan ngan (KS / TT)
+    if (CUA_SHORT[d.id] && tl > sg - 4) { t = CUA_SHORT[d.id] + d.t.split(':').pop(); tl = cuaTw(t, fs); }      // hinh nho: nhan dai khong vua doan dim -> nhan ngan (KS / TT)
     if (d.o === 'H') {
       var xa = X(d.a[0]), xb = X(d.b[0]), yE = Y(d.a[1]), yl = d.sd === 'T' ? Y(yT) - TP.T.p[d.ti] : d.sd === 'B' ? Y(yB) + TP.B.p[d.ti] : Y(d.L), up = yl < yE ? -1 : 1, seg = Math.abs(xb - xa), mid = d.tp != null ? X(d.tp) : (xa + xb) / 2, dir = xb >= xa ? 1 : -1;
       for (i = 0; i < 9; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (tl / 2 + 3); [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh, y: yl + sd * off, pen: Math.abs(sh) * 0.05 + j * (d.sd ? 40 : 2) }); }); }
@@ -16239,7 +16238,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261106155115';
+var CTK_BUILD = '20261106155843';
 (function () {
   function chk() {
     try {
