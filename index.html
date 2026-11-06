@@ -658,7 +658,7 @@ body.nang button{border-color:#000}
       <div class="cuag cuatt">
         <div><label for="cu_kh">Khách / công trình</label><input id="cu_kh" class="cut" placeholder="TQG-Tài Yến"></div>
         <div><label for="cu_kt">Ký hiệu cửa</label><input id="cu_kt" class="cut" placeholder="B2"></div>
-        <div class="cuaw2"><label for="cu_lk">Loại kính (in trên bản vẽ + khung tên)</label><input id="cu_lk" class="cut" placeholder="CL 12mm – Trong"></div>
+        <div class="cuaw2"><label for="cu_lk">Loại kính (in ở khung tên)</label><input id="cu_lk" class="cut" placeholder="CL 12mm – Trong"></div>
       </div>
       <!-- T290: cong tac dim gom vao menu ⋯ (giu o an de code/kiem tra cu dung duoc) -->
       <div hidden><input type="checkbox" id="cu_dimkt" onchange="cuaInput()" checked><input type="checkbox" id="cu_dimhl" onchange="cuaInput()" checked><input type="checkbox" id="cu_dimlo" onchange="cuaInput()"></div>
@@ -8267,6 +8267,7 @@ function cuaPkParse(s) {
 function cuaPkCheck(kho, tn) {
   var o = { err: '', warn: '' };
   if (!kho || !tn) return o;
+  if (tn === 'TA') { o.err = 'Khoá ' + kho + ' không đi cùng tay âm TA – chọn tay nắm đứng 600 hoặc 400.'; return o; }      // T335: anh Dampt 06/11 - chi ket hop tay nam dung 600/400 + khoa, vi tri khoa giu nguyen
   var a = CUA_PKBOX[kho], b = CUA_PKBOX[tn], gx = Math.max(a[0], b[0]) - Math.min(a[1], b[1]), gy = Math.max(a[2], b[2]) - Math.min(a[3], b[3]);
   if (gx < 0 && gy < 0) o.err = 'Khoá ' + kho + ' và tay nắm ' + tn + ' đè lên nhau.';
   else if (Math.max(gx, gy) < 15) o.warn = 'Khoá ' + kho + ' và tay nắm ' + tn + ' rất sát nhau (' + Math.max(gx, gy) + ' mm).';
@@ -8551,6 +8552,10 @@ function csDims(r) {
     add('cnT' + i, 'lo', 'V', [xT, yc], [xT, yTD], xT - 130, F(c), '015-ok', true);
     add('cnP' + i, 'lo', 'V', [xP, yc], [xP, yTD], xP + 105, F(c), '015-ok', true);
   });
+  // T335: dim thong thuy (so tho nhap, mau xanh) trong o cua: rong TT canh giua khung, thap hon vung tay nam; cao TT tu day toi mep duoi tam dinh, doi xung dim canh T qua canh P
+  var xr = cp.x + cp.w;
+  add('ttR', 'kt', 'H', [(r.R - r.RTT) / 2, ct.y], [(r.R + r.RTT) / 2, ct.y], ct.y + 250, 'Rộng thông thuỷ:' + F(r.RTT), '020-ok');
+  add('ttC', 'kt', 'V', [xr, 0], [xr, r.CTT], xr - 530, 'Cao thông thuỷ:' + F(r.CTT), '020-ok');
   return o;
 }
 // T334: HINH block cua san trich tu maucua.dxf (kepL-T/P, kepduoi-T/P, tn600, tn400, khoa; khoa hatch + 'Khoa san' long san trong) - toa do mm tuong doi diem chen, y len
@@ -15538,11 +15543,7 @@ function cuaSize() {
   if (vh < 500) h = Math.min(h, Math.round(vh * 0.4));      // xoay ngang
   return Math.max(80, h);
 }
-function cuaTitle() {      // nhan khung ten trong vach trai (nhu ban ve mau): ngay - khach | Lua <ray> - <ky hieu> | loai kinh
-  var v = CUAS.v || {}, d = new Date(), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
-  return [p2(d.getDate()) + p2(d.getMonth() + 1) + String(d.getFullYear()).slice(-2) + (v.kh ? ' - ' + v.kh : ''), (CUAS.kind === 'san' ? 'Sàn' : 'Lùa ' + (v.ray || 'HS')) + (v.kt ? ' - ' + v.kt : ''), v.lk || ''];
-}
-function cuaOpt(extra) { var v = CUAS.v || {}, o = { dimKt: v.dimkt !== false, dimHl: v.dimhl !== false, dimLo: !!v.dimlo, fs: 11, title: cuaTitle(), stat: {} }; for (var k in extra) o[k] = extra[k]; return o; }
+function cuaOpt(extra) { var v = CUAS.v || {}, o = { dimKt: v.dimkt !== false, dimHl: v.dimhl !== false, dimLo: !!v.dimlo, fs: 11, stat: {} }; for (var k in extra) o[k] = extra[k]; return o; }
 function cuaDraw() {
   var box = cuaEl('cuaPv'); if (!box || !CUAS.on) return;
   var H = cuaSize(), z = CUAS.z === 2 || CUAS.z === 3 ? CUAS.z : 1;      // T288: phong x2 / x3 (keo ngon tay de xem dim nho)
@@ -15552,7 +15553,7 @@ function cuaDraw() {
   if (H <= 0) return;
   var W = Math.max(260, box.clientWidth || 360);
   if (box.style.height !== H + 'px') box.style.height = H + 'px';
-  var o = cuaOpt(cuaEl('cuaDock').classList.contains('kb') ? { dimKt: false, dimHl: false, dimLo: false, title: null } : {}), s = cuaSvg(CUA_R, W * z, H * z, o);      // ban phim mo: hinh nho chi con dang cua (dim xem bang Xem truoc)
+  var o = cuaOpt(cuaEl('cuaDock').classList.contains('kb') ? { dimKt: false, dimHl: false, dimLo: false } : {}), s = cuaSvg(CUA_R, W * z, H * z, o);      // ban phim mo: hinh nho chi con dang cua (dim xem bang Xem truoc)
   if (s !== CUA_SVGH) { box.innerHTML = s; CUA_SVGH = s; var sv = box.firstChild; if (sv) { sv.style.width = W * z + 'px'; sv.style.height = H * z + 'px'; } }
   CUA_HID = o.stat.hid || 0;
   var pb = document.querySelector('#cuaBar .cupv'); if (pb) { var tx = '⤢ Xem trước' + (CUA_HID ? ' +' + CUA_HID : ''); if (pb.textContent !== tx) pb.textContent = tx; pb.title = CUA_HID ? CUA_HID + ' dim nhỏ đang ẩn vì hình chật – bấm để xem lớn (phóng to hiện đủ)' : 'Xem hình lớn toàn màn hình'; }
@@ -15585,7 +15586,8 @@ function cuaPage() {
     '<svg x="' + M + '" y="' + M + '" width="' + aw + '" height="' + ah + '" viewBox="0 0 ' + lw + ' ' + lh + '">' + inner + '</svg>';
   var nCn = r.chanNhen ? r.cns.length * 8 : 0, san = r.kind === 'san', nTn = san && r.tn ? 4 : 0, lo = san ? [nTn ? '⌀14×' + nTn : '', nCn ? '⌀18×' + nCn : ''].filter(Boolean).join('; ') : '⌀' + r.phi + '×' + r.nLo + (nCn ? '; ⌀18×' + nCn : '');
   var tl = o.stat.k > 0 ? '1:' + Math.round(1 / (o.stat.k * s * 0.15)) : '';
-  pg += khInfo(M, by, [imgDateStr(''), '', v.kh || '', v.lk || ''], 1, 1, { lo: lo, tong: '5/' + (san ? nTn + nCn : r.nLo + nCn), nT: 5, tl: tl }, W - 2 * M) + '</svg>';
+  var khT = [v.kh, v.kt].filter(Boolean).join(' · '), lkT = [v.lk, san ? 'Cửa sàn ' + r.nep : 'Cửa lùa ' + r.ray].filter(Boolean).join(' · ');      // T335: ky hieu + loai cua (truoc nam giua hinh) dua xuong dai khung ten
+  pg += khInfo(M, by, [imgDateStr(''), '', khT, lkT], 1, 1, { lo: lo, tong: '5/' + (san ? nTn + nCn : r.nLo + nCn), nT: 5, tl: tl }, W - 2 * M) + '</svg>';
   return { svg: pg, W: W, H: H, hid: o.stat.hid || 0 };
 }
 function cuaFn() { var v = CUAS.v || {}; return fnBase(['', '', v.kh || '', 'Cua' + (v.kt ? '-' + v.kt : '')]); }
@@ -15670,7 +15672,7 @@ var CUA_TIER = { wVT: ['T', 0], wTD: ['T', 0], wVP: ['T', 0], rongKS: ['T', 1], 
 // T334: tang dim cua san (trong -> ngoai): duoi = rong vach/canh, tong rong · tren = rong vach/dinh · trai = cao vach, tong cao · phai = cao vach phai. Dim con lai (cao canh/dinh, kep L, tay nam, khoa, chan nhen) nam trong hinh.
 var CS_TIER = { bVT: ['B', 0], bCT: ['B', 0], bCP: ['B', 0], bVP: ['B', 0], totR: ['B', 1], tVT: ['T', 0], tTD: ['T', 0], tVP: ['T', 0], hVT: ['L', 0], totC: ['L', 1], hVP: ['R', 0] };
 var CUA_FMM = { B: 90, M: 55, S: 45 };
-var CUA_SHORT = { ctt: 'TT:', caoKS: 'Cao KS:', rongKS: 'Rộng KS:' };
+var CUA_SHORT = { ctt: 'TT:', caoKS: 'Cao KS:', rongKS: 'Rộng KS:', ttR: 'Rộng TT:', ttC: 'Cao TT:' };
 function cuaDimPri(d) { return (d.sd ? 0 : 5) + ({ B: 0, M: 1, S: 2 })[d.fk]; }      // dat chu: dim tang ngoai truoc, chu lon (030) truoc      // chieu cao chu (mm ban ve) ~ ban mau
 function cuaDimCls(d) { return d.g === 'kt' ? 'K' : /^(kep|cn|hs78|hs32|hsPhi|bk|kh)/.test(d.id) ? 'C' : 'H'; }
 function cuaTw(t, fs) { var w = 0, s = String(t); for (var i = 0; i < s.length; i++) { var c = s.charAt(i); w += /[0-9]/.test(c) ? 0.57 : /[,.:;]/.test(c) ? 0.3 : c === ' ' ? 0.3 : /[A-ZĐÂÊÔƠƯ]/.test(c) ? 0.74 : /[mwMW]/.test(c) ? 0.9 : 0.62; } return w * fs + 3; }
@@ -15746,7 +15748,7 @@ function cuaSvg(r, W, H, opt) {
       return { g: g, b: b, t: t, fs: fs };
     }
     var off = fs * 0.62 + 2, sg = d.o === 'H' ? Math.abs(d.b[0] - d.a[0]) * k : Math.abs(d.b[1] - d.a[1]) * k;
-    if (CUA_SHORT[d.id] && tl > sg - 4) { t = CUA_SHORT[d.id] + d.t.split(':').pop(); tl = cuaTw(t, fs); }      // hinh nho: nhan dai khong vua doan dim -> nhan ngan (KS / TT)
+    if (CUA_SHORT[d.id] && (tl > sg - 4 || (/^tt[RC]$/.test(d.id) && tl > sg * 0.4))) { t =CUA_SHORT[d.id] + d.t.split(':').pop(); tl = cuaTw(t, fs); }      // hinh nho: nhan dai khong vua doan dim -> nhan ngan (KS / TT)
     if (d.o === 'H') {
       var xa = X(d.a[0]), xb = X(d.b[0]), yE = Y(d.a[1]), yl = d.sd === 'T' ? Y(yT) - TP.T.p[d.ti] : d.sd === 'B' ? Y(yB) + TP.B.p[d.ti] : Y(d.L), up = yl < yE ? -1 : 1, seg = Math.abs(xb - xa), mid = d.tp != null ? X(d.tp) : (xa + xb) / 2, dir = xb >= xa ? 1 : -1;
       for (i = 0; i < 9; i++) { sh = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (tl / 2 + 3); [up, -up].forEach(function (sd, j) { cl.push({ x: mid + sh, y: yl + sd * off, pen: Math.abs(sh) * 0.05 + j * (d.sd ? 40 : 2) }); }); }
@@ -15770,7 +15772,7 @@ function cuaSvg(r, W, H, opt) {
   // T321: luat mau dim = web Mode 1-6: xanh CHI so co trong o nhap (R, C, CTT, bao trai / phai, kep, chan nhen); con lai app tu tinh = xam
   var CV = CUAS.v || {}, GR = document.body.classList.contains('nang') ? PV_GRAY_NANG : PV_GRAY;
   var CVS = (CUAS.cs && CUAS.cs.v) || {};
-  var isIn = function (d) { if (SAN) return (d.id === 'totR' && !!CVS.R) || (d.id === 'totC' && !!CVS.C);      // T334: cua san - chi tong rong / cao la so nhap; con lai (ca chan nhen, khoa) xam
+  var isIn = function (d) { if (SAN) return (d.id === 'totR' && !!CVS.R) || (d.id === 'totC' && !!CVS.C) || (d.id === 'ttR' && !!CVS.RTT) || (d.id === 'ttC' && !!CVS.CTT);      // T334: cua san - chi tong rong / cao la so nhap; con lai (ca chan nhen, khoa) xam
     var m = /^cn[TP](\d+)$/.exec(d.id); if (m) return +m[1] === 0 ? !!CV.cn : !!CV.cn2;
     return ({ rongKS: !!CV.R, caoKS: !!CV.C, ctt: !!CV.CTT, baoT: !!CV.bt, baoP: !!CV.bp, kepT: !!CV.kep, kepP: !!CV.kep })[d.id] === true; };
   var emit = function (o, d) { placed.push(o.b.q); var e = o.g + text(o.b.c.x, o.b.c.y, o.t, o.fs, o.col || DC, o.b.c.rot ? -90 : 0, o.b.c.anc); return d && !isIn(d) ? e.split(DC).join(GR) : e; };
@@ -15778,7 +15780,7 @@ function cuaSvg(r, W, H, opt) {
   var out = '';
   var srt = function (c) { return DM.filter(function (d) { return d.cls === c && on(d); }).map(function (d, i) { return [cuaDimPri(d) * 1000 + i, d]; }).sort(function (u, w) { return u[0] - w[0]; }).map(function (u) { return u[1]; }); };
   srt('K').forEach(function (d) { var o = dimSvg(d); if (o) out += emit(o, d); });
-  // nhan trong hinh nhu ban mau: khung ten (ngay - khach / Lua <ray> - <ky hieu> / loai kinh) trong vach trai; "2 Tấm" + phu kien giua canh
+  // T335: bo nhan khung ten giua hinh (anh Dampt 06/11) - thong tin chi o dai khung ten duoi cung; con "2 Tấm" + phu kien giua canh
   var lbl = function (lines, x0, w, y0, fsz, col, anc, minF) {
     lines = lines.filter(Boolean); if (!lines.length) return '';
     var mw = Math.max.apply(null, lines.map(function (t) { return cuaTw(t, fsz); })); if (mw > w) fsz = fsz * w / mw; if (fsz < minF) return '';
@@ -15786,15 +15788,14 @@ function cuaSvg(r, W, H, opt) {
     for (var i = 0; i < lines.length; i++) { var c = { x: anc === 'start' ? x0 : x0 + w / 2, y: y0 + i * lh, anc: anc }, q = box(c, lines[i], fsz); if (hit(q) > 0.5 || !inV(q)) continue; placed.push(q); o += text(c.x, c.y, lines[i], fsz, col, 0, anc); }
     return o;
   };
-  if (opt.title) out += lbl(opt.title, X(r.vt.x) + 6, r.vt.w * k - 12, Y(SAN ? r.vt.y + r.vt.h - 185 : r.yK - 185) + F.S * 1.6 + 12, Math.max(pr ? 13 : 10, 55 * k), '#1f3fbf', 'start', pr ? 9 : 8.5);
   if (SAN) {
     var lh2 = Math.max(fs0 * 1.2, 80 * k), tnT = r.tn ? 'Tay nắm ' + r.tn + '00' : '', khT = r.kho ? 'Khoá' : '';
     [r.ct, r.cp].forEach(function (cc, i) { out += lbl([i ? 'Cánh P' : 'Cánh T'], X(cc.x) + 4, cc.w * k - 8, Y(cc.y + cc.h * 0.72), lh2, '#1f4e79', 'middle', 9); });
     out += lbl(['Đỉnh'], X(r.td.x) + 4, r.td.w * k - 8, Y(r.td.y + r.td.h * 0.5), Math.max(fs0 * 1.1, 70 * k), '#1f4e79', 'middle', 9);
   } else {
-    var cn = r.canh, pkT = [r.kho, r.tn].filter(Boolean).map(function (k) { return /^Kho/.test(CUA_PK[k]) ? 'Khoét ' + CUA_PK[k] : CUA_PK[k]; }).join(' + ');
+    var cn = r.canh, pkT = [r.kho, r.tn].filter(Boolean).map(function (k) { return /^Kho/.test(CUA_PK[k]) ? 'Khoét ' + CUA_PK[k] : CUA_PK[k]; });      // T335: moi phu kien 1 dong, khong de len dim tay nam
     out += lbl(['2 Tấm'], X(cn.x) + 4, cn.w * k - 8, Y(cn.y + cn.h * 0.42), Math.max(fs0 * 1.2, 80 * k), '#1f4e79', 'middle', 9);
-    if (pkT) out += lbl([pkT], X(cn.x) + 4, cn.w * k - 8, Y(cn.y + cn.h * 0.42) + Math.max(fs0 * 1.2, 80 * k) * 1.4, Math.max(fs0, 40 * k), '#555', 'middle', 8.5);
+    if (pkT.length) out += lbl(pkT, X(cn.x) + 4, cn.w * k - 8, Y(cn.y + cn.h * 0.42) + Math.max(fs0 * 1.2, 80 * k) * 1.4, Math.max(fs0, 40 * k), '#555', 'middle', 8.5);
   }
   ['H', 'C'].forEach(function (c) { srt(c).forEach(function (d) { var o = dimSvg(d); if (o) out += emit(o, d); else st.hid++; }); });
   return s + out + '</g></svg>';
@@ -16238,7 +16239,7 @@ window.addEventListener('load', function () { setTimeout(function () { if (CUAS.
 </script>
 <script>
 /* T-LOI: tu cap nhat phien ban - so sanh moc build voi ban moi nhat tren mang, khac thi hien nut tai lai */
-var CTK_BUILD = '20261106132054';
+var CTK_BUILD = '20261106155115';
 (function () {
   function chk() {
     try {
